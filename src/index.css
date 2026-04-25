@@ -1,96 +1,99 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800;9..144,900&family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* TruckHub Green Bay — Design System
+   Warm food-forward palette: charcoal, cream, ember orange, forest green
+   All colors HSL.
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 36 33% 97%;           /* warm cream */
+    --foreground: 25 30% 12%;           /* deep charcoal-brown */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 36 40% 99%;
+    --card-foreground: 25 30% 12%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 36 40% 99%;
+    --popover-foreground: 25 30% 12%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 18 88% 48%;              /* ember orange */
+    --primary-foreground: 36 40% 99%;
+    --primary-glow: 30 95% 58%;         /* tangerine */
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 145 35% 22%;           /* forest green (Green Bay) */
+    --secondary-foreground: 36 40% 99%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 36 20% 92%;
+    --muted-foreground: 25 12% 38%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 42 85% 55%;               /* mustard */
+    --accent-foreground: 25 30% 12%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 75% 50%;
+    --destructive-foreground: 36 40% 99%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 30 15% 86%;
+    --input: 30 15% 86%;
+    --ring: 18 88% 48%;
 
-    --radius: 0.5rem;
+    --radius: 1rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Brand surfaces */
+    --ink: 25 30% 12%;
+    --ink-foreground: 36 40% 99%;
+    --cream: 36 33% 97%;
+    --cream-deep: 36 30% 92%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    /* Gradients */
+    --gradient-ember: linear-gradient(135deg, hsl(18 88% 48%), hsl(30 95% 58%));
+    --gradient-warm: linear-gradient(180deg, hsl(36 33% 97%), hsl(36 30% 92%));
+    --gradient-ink: linear-gradient(180deg, hsl(25 30% 14%), hsl(25 35% 8%));
+    --gradient-radial-ember: radial-gradient(circle at 30% 20%, hsl(30 95% 58% / 0.35), transparent 60%);
 
-    --sidebar-primary: 240 5.9% 10%;
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -8px hsl(25 30% 12% / 0.12);
+    --shadow-card: 0 10px 40px -15px hsl(25 30% 12% / 0.18);
+    --shadow-ember: 0 20px 50px -15px hsl(18 88% 48% / 0.45);
+    --shadow-lift: 0 30px 60px -25px hsl(25 30% 12% / 0.35);
 
-    --sidebar-primary-foreground: 0 0% 98%;
+    /* Motion */
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --transition-base: all 300ms var(--ease-out);
 
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 36 33% 97%;
+    --sidebar-foreground: 25 30% 12%;
+    --sidebar-primary: 18 88% 48%;
+    --sidebar-primary-foreground: 36 40% 99%;
+    --sidebar-accent: 36 20% 92%;
+    --sidebar-accent-foreground: 25 30% 12%;
+    --sidebar-border: 30 15% 86%;
+    --sidebar-ring: 18 88% 48%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 25 30% 8%;
+    --foreground: 36 33% 95%;
+    --card: 25 30% 11%;
+    --card-foreground: 36 33% 95%;
+    --popover: 25 30% 11%;
+    --popover-foreground: 36 33% 95%;
+    --primary: 18 88% 55%;
+    --primary-foreground: 25 30% 8%;
+    --secondary: 145 30% 25%;
+    --secondary-foreground: 36 33% 95%;
+    --muted: 25 15% 18%;
+    --muted-foreground: 36 15% 65%;
+    --accent: 42 85% 55%;
+    --accent-foreground: 25 30% 8%;
+    --destructive: 0 62.8% 45%;
+    --destructive-foreground: 36 33% 95%;
+    --border: 25 15% 20%;
+    --input: 25 15% 20%;
+    --ring: 18 88% 55%;
   }
 }
 
@@ -99,7 +102,58 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  body {
-    @apply bg-background text-foreground;
+  html {
+    scroll-behavior: smooth;
   }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-display {
+    font-family: 'Fraunces', Georgia, serif;
+    font-feature-settings: 'ss01', 'ss02';
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  .container-tight {
+    @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground;
+  }
+
+  .badge-ember {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary;
+  }
+
+  .grain {
+    position: relative;
+  }
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.05;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+  .bg-gradient-ember { background-image: var(--gradient-ember); }
+  .bg-gradient-warm { background-image: var(--gradient-warm); }
+  .bg-gradient-ink { background-image: var(--gradient-ink); }
+  .shadow-soft { box-shadow: var(--shadow-soft); }
+  .shadow-card { box-shadow: var(--shadow-card); }
+  .shadow-ember { box-shadow: var(--shadow-ember); }
+  .shadow-lift { box-shadow: var(--shadow-lift); }
 }
