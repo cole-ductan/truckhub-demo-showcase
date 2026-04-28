@@ -36,7 +36,7 @@ export default function OwnerBookings() {
     supabase.from("leads")
       .select("id,contact_name,event_type,event_date,guest_count,estimated_value,stage,message,created_at,updated_at")
       .eq("business_id", business.id)
-      .in("stage", OPS_STAGES as unknown as string[])
+      .in("stage", OPS_STAGES as unknown as ("booked" | "pending" | "quote_sent" | "completed")[])
       .order("event_date", { ascending: true, nullsFirst: false })
       .then(({ data }) => setRows((data ?? []) as Lead[]));
   }, [business]);
