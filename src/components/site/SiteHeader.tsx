@@ -3,19 +3,21 @@ import { Logo } from "./Logo";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const nav = [
   { label: "Home", href: "/" },
-  { label: "Today's Trucks", href: "/#trucks" },
+  { label: "Food Trucks", href: "/food-trucks" },
   { label: "Events", href: "/#events" },
   { label: "Pricing", href: "/#pricing" },
-  { label: "Sample Truck", href: "/smoke-trail-bbq" },
+  { label: "Sample Truck", href: "/food-trucks/smoke-trail-bbq" },
 ];
 
 export const SiteHeader = () => {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
+  const { user, isOwner, isAdmin } = useAuth();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -46,12 +48,20 @@ export const SiteHeader = () => {
           ))}
         </nav>
         <div className="hidden items-center gap-2 md:flex">
-          <Button asChild variant="ghost" size="sm">
-            <a href="/#owner-pitch">For Truck Owners</a>
-          </Button>
-          <Button asChild size="sm" className="bg-primary text-primary-foreground shadow-ember hover:bg-primary/90">
-            <a href="/#demo">Book a Demo</a>
-          </Button>
+          {user ? (
+            <Button asChild size="sm" className="rounded-full bg-primary text-primary-foreground shadow-ember hover:bg-primary/90">
+              <Link to={isAdmin ? "/admin" : "/owner"}>{isAdmin ? "Admin" : "My Console"}</Link>
+            </Button>
+          ) : (
+            <>
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/auth">Owner Sign in</Link>
+              </Button>
+              <Button asChild size="sm" className="rounded-full bg-primary text-primary-foreground shadow-ember hover:bg-primary/90">
+                <a href="/#demo">Book a Demo</a>
+              </Button>
+            </>
+          )}
         </div>
         <button
           className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card md:hidden"
@@ -74,12 +84,20 @@ export const SiteHeader = () => {
               </a>
             ))}
             <div className="mt-2 flex gap-2">
-              <Button asChild variant="outline" className="flex-1">
-                <a href="/#owner-pitch">For Owners</a>
-              </Button>
-              <Button asChild className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">
-                <a href="/#demo">Book Demo</a>
-              </Button>
+              {user ? (
+                <Button asChild className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Link to={isAdmin ? "/admin" : "/owner"}>{isAdmin ? "Admin" : "My Console"}</Link>
+                </Button>
+              ) : (
+                <>
+                  <Button asChild variant="outline" className="flex-1">
+                    <Link to="/auth">Sign in</Link>
+                  </Button>
+                  <Button asChild className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">
+                    <a href="/#demo">Book Demo</a>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
