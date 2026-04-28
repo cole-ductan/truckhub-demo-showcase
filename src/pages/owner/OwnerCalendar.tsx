@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar as CalIcon, Clock, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
+import { Calendar as CalIcon, ChevronLeft, ChevronRight, Clock, LayoutGrid, List, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 
 type Event = {
   id: string;
@@ -38,6 +38,11 @@ export default function OwnerCalendar() {
   const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   const [editing, setEditing] = useState<Partial<Event> | null>(null);
+  const [view, setView] = useState<"list" | "month">("month");
+  const [cursor, setCursor] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
 
   async function reload() {
     if (!business) return;
@@ -95,11 +100,33 @@ export default function OwnerCalendar() {
           <h1 className="font-display text-3xl font-bold">Calendar</h1>
           <p className="mt-1 text-sm text-muted-foreground">Weekly spots and one-off events. Public events show on your truck profile.</p>
         </div>
-        <Button onClick={() => setEditing({ ...blank })}><Plus className="mr-1.5 h-4 w-4" /> Add event</Button>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-full border border-border bg-card p-1">
+            <button onClick={() => setView("month")} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${view === "month" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}>
+              <LayoutGrid className="h-3.5 w-3.5" /> Month
+            </button>
+            <button onClick={() => setView("list")} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${view === "list" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}>
+              <List className="h-3.5 w-3.5" /> List
+            </button>
+          </div>
+          <Button onClick={() => setEditing({ ...blank })}><Plus className="mr-1.5 h-4 w-4" /> Add event</Button>
+        </div>
       </div>
 
-      <Group title="Upcoming" events={upcoming} emptyText="No upcoming events. Add one so customers know where to find you." onEdit={setEditing} onRemove={remove} />
-      <Group title="Past" events={past} emptyText="No past events yet." muted onEdit={setEditing} onRemove={remove} />
+      {view === "month" ? (
+        <MonthGrid
+          cursor={cursor}
+          setCursor={setCursor}
+          events={events}
+          onEdit={setEditing}
+          onAdd={(date) => setEditing({ ...blank, event_date: date })}
+        />
+      ) : (
+        <>
+          <Group title="Upcoming" events={upcoming} emptyText="No upcoming events. Add one so customers know where to find you." onEdit={setEditing} onRemove={remove} />
+          <Group title="Past" events={past} emptyText="No past events yet." muted onEdit={setEditing} onRemove={remove} />
+        </>
+      )}
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-lg">
