@@ -73,7 +73,7 @@ export default function Auth() {
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
-      <main className="container-tight flex justify-center px-4 pt-12 pb-20 md:pt-20">
+      <main className="container-tight flex justify-center px-4 pt-32 pb-20 md:pt-36">
         <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-card">
           <h1 className="font-display text-3xl font-bold">{mode === "sign-in" ? "Welcome back" : "Create your TruckHub account"}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
