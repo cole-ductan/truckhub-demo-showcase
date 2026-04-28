@@ -413,6 +413,7 @@ export type Database = {
           dietary_tags: string[] | null
           id: string
           is_available: boolean
+          is_featured: boolean
           name: string
           price: string | null
           sort_order: number
@@ -425,6 +426,7 @@ export type Database = {
           dietary_tags?: string[] | null
           id?: string
           is_available?: boolean
+          is_featured?: boolean
           name: string
           price?: string | null
           sort_order?: number
@@ -437,6 +439,7 @@ export type Database = {
           dietary_tags?: string[] | null
           id?: string
           is_available?: boolean
+          is_featured?: boolean
           name?: string
           price?: string | null
           sort_order?: number
