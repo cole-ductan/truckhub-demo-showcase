@@ -12,7 +12,7 @@ import Book from "./pages/Book.tsx";
 import Auth from "./pages/Auth.tsx";
 import OwnerLayout from "./pages/owner/OwnerLayout.tsx";
 import OwnerHome from "./pages/owner/OwnerHome.tsx";
-import ComingSoon from "./pages/owner/ComingSoon.tsx";
+import AdminHome from "./pages/admin/AdminHome.tsx";
 import OwnerProfile from "./pages/owner/OwnerProfile.tsx";
 import OwnerMenu from "./pages/owner/OwnerMenu.tsx";
 import OwnerCalendar from "./pages/owner/OwnerCalendar.tsx";
@@ -50,7 +50,7 @@ const App = () => (
               <Route path="settings" element={<OwnerSettings />} />
             </Route>
 
-            <Route path="/admin" element={<ComingSoon title="Admin Console" />} />
+            <Route path="/admin" element={<AdminHome />} />
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
