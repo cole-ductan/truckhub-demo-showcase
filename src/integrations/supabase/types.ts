@@ -200,6 +200,9 @@ export type Database = {
           is_published: boolean
           logo_url: string | null
           name: string
+          online_ordering_url: string | null
+          order_button_label: string | null
+          ordering_enabled: boolean
           owner_id: string | null
           phone: string | null
           region: string | null
@@ -227,6 +230,9 @@ export type Database = {
           is_published?: boolean
           logo_url?: string | null
           name: string
+          online_ordering_url?: string | null
+          order_button_label?: string | null
+          ordering_enabled?: boolean
           owner_id?: string | null
           phone?: string | null
           region?: string | null
@@ -254,6 +260,9 @@ export type Database = {
           is_published?: boolean
           logo_url?: string | null
           name?: string
+          online_ordering_url?: string | null
+          order_button_label?: string | null
+          ordering_enabled?: boolean
           owner_id?: string | null
           phone?: string | null
           region?: string | null
@@ -527,6 +536,51 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_locations: {
+        Row: {
+          address: string | null
+          business_id: string
+          created_at: string
+          end_time: string | null
+          id: string
+          is_recurring: boolean
+          label: string
+          notes: string | null
+          sort_order: number
+          start_time: string | null
+          updated_at: string
+          weekday: string | null
+        }
+        Insert: {
+          address?: string | null
+          business_id: string
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          is_recurring?: boolean
+          label: string
+          notes?: string | null
+          sort_order?: number
+          start_time?: string | null
+          updated_at?: string
+          weekday?: string | null
+        }
+        Update: {
+          address?: string | null
+          business_id?: string
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          is_recurring?: boolean
+          label?: string
+          notes?: string | null
+          sort_order?: number
+          start_time?: string | null
+          updated_at?: string
+          weekday?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -571,6 +625,9 @@ export type Database = {
           is_published: boolean
           logo_url: string | null
           name: string
+          online_ordering_url: string | null
+          order_button_label: string | null
+          ordering_enabled: boolean
           owner_id: string | null
           phone: string | null
           region: string | null
