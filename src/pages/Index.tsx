@@ -261,37 +261,39 @@ const Index = () => {
             {trucks.map((t) => (
               <Link
                 key={t.slug}
-                to={t.slug === "smoke-trail-bbq" ? "/smoke-trail-bbq" : "#"}
+                to={`/food-trucks/${t.slug}`}
                 className="group overflow-hidden rounded-2xl border border-border bg-card transition duration-300 hover:-translate-y-1 hover:shadow-card"
               >
                 <div className="relative aspect-[4/3] overflow-hidden bg-muted">
                   <img
-                    src={t.image}
+                    src={resolveImage(t.hero_image_url)}
                     alt={`${t.name} food`}
                     loading="lazy"
                     className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                   />
-                  <div className="absolute left-3 top-3 rounded-full bg-background/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider backdrop-blur">
-                    {t.cuisine.split("·")[0].trim()}
-                  </div>
-                  {t.slug === "smoke-trail-bbq" && (
+                  {t.cuisine && (
+                    <div className="absolute left-3 top-3 rounded-full bg-background/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider backdrop-blur">
+                      {t.cuisine.split("·")[0].trim()}
+                    </div>
+                  )}
+                  {t.is_featured && (
                     <div className="absolute right-3 top-3 rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary-foreground">
-                      Sample page
+                      Featured
                     </div>
                   )}
                 </div>
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="font-display text-xl font-semibold leading-tight">
-                      <span className="mr-1.5">{t.emoji}</span>{t.name}
+                      {t.emoji && <span className="mr-1.5">{t.emoji}</span>}{t.name}
                     </h3>
                     <ArrowUpRight className="h-4 w-4 text-muted-foreground transition group-hover:text-primary" />
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">{t.tagline}</p>
                   <div className="mt-4 flex items-center justify-between">
                     <div className="space-y-0.5 text-xs text-muted-foreground">
-                      <p className="flex items-center gap-1.5"><MapPin className="h-3 w-3" /> {t.todayLocation}</p>
-                      <p className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {t.todayHours}</p>
+                      {t.today_location && <p className="flex items-center gap-1.5"><MapPin className="h-3 w-3" /> {t.today_location}</p>}
+                      {t.today_hours && <p className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {t.today_hours}</p>}
                     </div>
                     <StatusDot status={t.status} />
                   </div>
@@ -324,8 +326,8 @@ const Index = () => {
                 <li key={i} className="group grid grid-cols-[auto_1fr_auto] items-center gap-5 p-5 transition hover:bg-muted/50">
                   <div className="grid h-16 w-16 flex-none place-items-center rounded-xl bg-secondary text-secondary-foreground">
                     <div className="text-center leading-none">
-                      <div className="text-[10px] font-semibold uppercase tracking-wider opacity-70">{e.weekday}</div>
-                      <div className="font-display text-base font-bold">{e.date}</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider opacity-70">{e.event_date ? new Date(e.event_date).toLocaleDateString("en-US", { weekday: "short" }) : ""}</div>
+                      <div className="font-display text-base font-bold">{e.event_date ? new Date(e.event_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}</div>
                     </div>
                   </div>
                   <div className="min-w-0">
@@ -333,7 +335,7 @@ const Index = () => {
                       <span className="rounded-full bg-accent/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-foreground">{e.tag}</span>
                     </div>
                     <h3 className="mt-1.5 font-display text-lg font-semibold leading-tight">{e.title}</h3>
-                    <p className="text-sm text-muted-foreground">{e.location} · {e.trucks}</p>
+                    <p className="text-sm text-muted-foreground">{e.location}</p>
                   </div>
                   <ArrowUpRight className="hidden h-4 w-4 text-muted-foreground transition group-hover:text-primary md:block" />
                 </li>
