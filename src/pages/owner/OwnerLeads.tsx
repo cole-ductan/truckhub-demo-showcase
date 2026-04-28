@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, DollarSign, Mail, MessageSquare, Phone, Search, Trash2, Users } from "lucide-react";
+import { Calendar, DollarSign, LayoutGrid, List, Mail, MessageSquare, Phone, Search, Trash2, Users } from "lucide-react";
 
 export type Lead = {
   id: string;
@@ -41,6 +41,7 @@ const STAGES: { v: Lead["stage"]; label: string; color: string }[] = [
 const stageMeta = (s: string) => STAGES.find((x) => x.v === s) ?? STAGES[0];
 
 type SortKey = "newest" | "event_date" | "value";
+type ViewMode = "table" | "kanban";
 
 export default function OwnerLeads() {
   const { business, loading } = useOwnerBusiness();
@@ -49,6 +50,8 @@ export default function OwnerLeads() {
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<SortKey>("newest");
   const [open, setOpen] = useState<Lead | null>(null);
+  const [view, setView] = useState<ViewMode>("kanban");
+  const { toast } = useToast();
 
   async function reload() {
     if (!business) return;
@@ -76,11 +79,37 @@ export default function OwnerLeads() {
   if (loading) return <div className="text-muted-foreground">Loading…</div>;
   if (!business) return <Onboarding />;
 
+  async function moveStage(leadId: string, newStage: Lead["stage"]) {
+    const prev = leads;
+    setLeads((p) => p.map((l) => l.id === leadId ? { ...l, stage: newStage } : l));
+    const { error } = await supabase.from("leads").update({ stage: newStage }).eq("id", leadId);
+    if (error) {
+      setLeads(prev);
+      toast({ title: "Failed to move", description: error.message, variant: "destructive" });
+    }
+  }
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="font-display text-3xl font-bold">Leads</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Catering inquiries from your TruckHub page.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl font-bold">Leads</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Catering inquiries from your TruckHub page.</p>
+        </div>
+        <div className="inline-flex rounded-full border border-border bg-card p-1">
+          <button
+            onClick={() => setView("kanban")}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${view === "kanban" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> Pipeline
+          </button>
+          <button
+            onClick={() => setView("table")}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${view === "table" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <List className="h-3.5 w-3.5" /> List
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-3">
@@ -99,10 +128,12 @@ export default function OwnerLeads() {
         </select>
       </div>
 
-      {filtered.length === 0 ? (
+      {filtered.length === 0 && view === "table" ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-muted-foreground">
           {leads.length === 0 ? "No inquiries yet. They'll show up here as soon as customers reach out." : "No leads match your filters."}
         </div>
+      ) : view === "kanban" ? (
+        <KanbanBoard leads={filtered} onOpen={setOpen} onMove={moveStage} />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           <table className="w-full text-sm">
