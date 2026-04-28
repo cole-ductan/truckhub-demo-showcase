@@ -13,7 +13,7 @@ const nav = [
   { label: "Sample Truck", href: "/food-trucks/smoke-trail-bbq" },
 ];
 
-export const SiteHeader = () => {
+export const SiteHeader = ({ withBanner = false }: { withBanner?: boolean }) => {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
@@ -30,7 +30,7 @@ export const SiteHeader = () => {
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
+      className={`fixed inset-x-0 ${withBanner ? "top-8" : "top-0"} z-50 transition-all duration-300 ${
         scrolled ? "bg-background/85 backdrop-blur-xl border-b border-border" : "bg-transparent"
       }`}
     >
