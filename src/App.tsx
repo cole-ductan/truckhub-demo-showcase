@@ -13,6 +13,11 @@ import Auth from "./pages/Auth.tsx";
 import OwnerLayout from "./pages/owner/OwnerLayout.tsx";
 import OwnerHome from "./pages/owner/OwnerHome.tsx";
 import ComingSoon from "./pages/owner/ComingSoon.tsx";
+import OwnerProfile from "./pages/owner/OwnerProfile.tsx";
+import OwnerMenu from "./pages/owner/OwnerMenu.tsx";
+import OwnerCalendar from "./pages/owner/OwnerCalendar.tsx";
+import OwnerLeads from "./pages/owner/OwnerLeads.tsx";
+import OwnerMessages from "./pages/owner/OwnerMessages.tsx";
 
 const queryClient = new QueryClient();
 
@@ -34,11 +39,11 @@ const App = () => (
 
             <Route path="/owner" element={<OwnerLayout />}>
               <Route index element={<OwnerHome />} />
-              <Route path="profile" element={<ComingSoon title="Business Profile" />} />
-              <Route path="menu" element={<ComingSoon title="Menu" />} />
-              <Route path="calendar" element={<ComingSoon title="Calendar" />} />
-              <Route path="leads" element={<ComingSoon title="Leads" />} />
-              <Route path="messages" element={<ComingSoon title="Messages" />} />
+              <Route path="profile" element={<OwnerProfile />} />
+              <Route path="menu" element={<OwnerMenu />} />
+              <Route path="calendar" element={<OwnerCalendar />} />
+              <Route path="leads" element={<OwnerLeads />} />
+              <Route path="messages" element={<OwnerMessages />} />
             </Route>
 
             <Route path="/admin" element={<ComingSoon title="Admin Console" />} />
