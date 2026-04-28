@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useOwnerBusiness } from "@/hooks/useOwnerBusiness";
@@ -9,15 +9,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronDown, ChevronUp, ExternalLink, Plus, Trash2, Pencil, Eye, EyeOff } from "lucide-react";
+import { ChevronDown, ExternalLink, Flame, Pencil, Plus, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Cat = { id: string; name: string; sort_order: number };
 type Item = {
   id: string; category_id: string; name: string; description: string | null;
   price: string | null; sort_order: number; is_available: boolean;
+  is_featured: boolean;
   dietary_tags: string[] | null;
 };
 
@@ -28,6 +30,7 @@ export default function OwnerMenu() {
   const [items, setItems] = useState<Item[]>([]);
   const [editingCat, setEditingCat] = useState<Cat | null>(null);
   const [editingItem, setEditingItem] = useState<{ item: Partial<Item>; categoryId: string } | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   async function reload() {
     if (!business) return;
@@ -40,8 +43,22 @@ export default function OwnerMenu() {
   }
   useEffect(() => { reload(); /* eslint-disable-next-line */ }, [business]);
 
+  const allCollapsed = useMemo(
+    () => cats.length > 0 && cats.every((c) => collapsed[c.id]),
+    [cats, collapsed],
+  );
+
   if (loading) return <div className="text-muted-foreground">Loading…</div>;
   if (!business) return <Onboarding />;
+
+  function toggle(id: string) {
+    setCollapsed((p) => ({ ...p, [id]: !p[id] }));
+  }
+  function setAll(value: boolean) {
+    const next: Record<string, boolean> = {};
+    cats.forEach((c) => (next[c.id] = value));
+    setCollapsed(next);
+  }
 
   async function saveCategory(c: Cat) {
     if (!c.name.trim()) return;
@@ -69,20 +86,6 @@ export default function OwnerMenu() {
     setItems((p) => p.filter((i) => i.category_id !== id));
   }
 
-  async function reorderCat(id: string, dir: -1 | 1) {
-    const idx = cats.findIndex((c) => c.id === id);
-    const j = idx + dir;
-    if (idx < 0 || j < 0 || j >= cats.length) return;
-    const a = cats[idx], b = cats[j];
-    await Promise.all([
-      supabase.from("menu_categories").update({ sort_order: b.sort_order }).eq("id", a.id),
-      supabase.from("menu_categories").update({ sort_order: a.sort_order }).eq("id", b.id),
-    ]);
-    const next = [...cats]; next[idx] = { ...a, sort_order: b.sort_order }; next[j] = { ...b, sort_order: a.sort_order };
-    next.sort((x, y) => x.sort_order - y.sort_order);
-    setCats(next);
-  }
-
   async function saveItem() {
     if (!editingItem || !business) return;
     const it = editingItem.item;
@@ -94,6 +97,7 @@ export default function OwnerMenu() {
       description: it.description ?? null,
       price: it.price ?? null,
       is_available: it.is_available ?? true,
+      is_featured: it.is_featured ?? false,
       sort_order: it.sort_order ?? items.filter((x) => x.category_id === editingItem.categoryId).length,
       dietary_tags: it.dietary_tags ?? null,
     };
@@ -122,6 +126,12 @@ export default function OwnerMenu() {
     setItems((p) => p.map((x) => x.id === it.id ? { ...x, is_available: !it.is_available } : x));
   }
 
+  async function toggleFeatured(it: Item) {
+    const { error } = await supabase.from("menu_items").update({ is_featured: !it.is_featured }).eq("id", it.id);
+    if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
+    setItems((p) => p.map((x) => x.id === it.id ? { ...x, is_featured: !it.is_featured } : x));
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -130,10 +140,24 @@ export default function OwnerMenu() {
           <p className="mt-1 text-sm text-muted-foreground">Manage your categories and items. Changes appear on your public profile immediately.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" asChild><a href={`/food-trucks/${business.slug}`} target="_blank" rel="noreferrer"><ExternalLink className="mr-1.5 h-4 w-4" /> Public profile</a></Button>
-          <Button onClick={() => setEditingCat({ id: `new-${Date.now()}`, name: "", sort_order: cats.length } as any)}><Plus className="mr-1.5 h-4 w-4" /> Add category</Button>
+          <Button variant="outline" asChild>
+            <a href={`/food-trucks/${business.slug}`} target="_blank" rel="noreferrer">
+              <ExternalLink className="mr-1.5 h-4 w-4" /> Public profile
+            </a>
+          </Button>
+          <Button onClick={() => setEditingCat({ id: `new-${Date.now()}`, name: "", sort_order: cats.length } as any)}>
+            <Plus className="mr-1.5 h-4 w-4" /> Add category
+          </Button>
         </div>
       </div>
+
+      {cats.length > 1 && (
+        <div className="flex justify-end">
+          <Button size="sm" variant="ghost" onClick={() => setAll(!allCollapsed)}>
+            {allCollapsed ? "Expand all" : "Collapse all"}
+          </Button>
+        </div>
+      )}
 
       {cats.length === 0 && (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center">
@@ -144,47 +168,120 @@ export default function OwnerMenu() {
         </div>
       )}
 
-      {cats.map((c, idx) => {
+      {cats.map((c) => {
         const list = items.filter((i) => i.category_id === c.id);
+        const isCollapsed = !!collapsed[c.id];
         return (
-          <section key={c.id} className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
-              <div className="flex items-center gap-2">
-                <div className="flex flex-col">
-                  <button onClick={() => reorderCat(c.id, -1)} disabled={idx === 0} className="text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
-                  <button onClick={() => reorderCat(c.id, 1)} disabled={idx === cats.length - 1} className="text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
-                </div>
+          <section key={c.id} className="rounded-2xl border border-border bg-card shadow-soft">
+            <div className="flex flex-wrap items-center justify-between gap-2 p-5">
+              <button
+                onClick={() => toggle(c.id)}
+                className="group flex min-w-0 flex-1 items-center gap-2 text-left"
+                aria-expanded={!isCollapsed}
+              >
+                <ChevronDown
+                  className={cn(
+                    "h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:text-foreground",
+                    isCollapsed && "-rotate-90",
+                  )}
+                />
                 <h3 className="font-display text-xl font-semibold text-primary">{c.name}</h3>
-                <span className="text-xs text-muted-foreground">{list.length} item{list.length === 1 ? "" : "s"}</span>
-              </div>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                  {list.length} item{list.length === 1 ? "" : "s"}
+                </span>
+              </button>
               <div className="flex gap-1.5">
-                <Button size="sm" variant="ghost" onClick={() => setEditingCat(c)}><Pencil className="h-3.5 w-3.5" /></Button>
-                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteCategory(c.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                <Button size="sm" onClick={() => setEditingItem({ item: { is_available: true }, categoryId: c.id })}><Plus className="mr-1 h-3.5 w-3.5" /> Item</Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditingCat(c)}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteCategory(c.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" onClick={() => setEditingItem({ item: { is_available: true, is_featured: false }, categoryId: c.id })}>
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Item
+                </Button>
               </div>
             </div>
-            {list.length === 0 && <p className="mt-4 text-sm text-muted-foreground">No items yet in this category.</p>}
-            <ul className="mt-3 divide-y divide-border">
-              {list.map((it) => (
-                <li key={it.id} className={`flex items-start justify-between gap-3 py-3 ${!it.is_available ? "opacity-60" : ""}`}>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-display text-base font-semibold">{it.name}</p>
-                      {!it.is_available && <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">Hidden</span>}
-                    </div>
-                    {it.description && <p className="mt-0.5 text-sm text-muted-foreground">{it.description}</p>}
+
+            {!isCollapsed && (
+              <div className="border-t border-border p-5 pt-4">
+                {list.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No items yet in this category.</p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {list.map((it) => (
+                      <article
+                        key={it.id}
+                        className={cn(
+                          "group relative flex flex-col rounded-xl border bg-background p-4 transition",
+                          it.is_featured ? "border-primary/40 shadow-soft" : "border-border",
+                          !it.is_available && "opacity-60",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-display text-base font-semibold leading-tight">{it.name}</h4>
+                              {!it.is_available && (
+                                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                                  Hidden
+                                </span>
+                              )}
+                            </div>
+                            {it.description && (
+                              <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{it.description}</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => toggleFeatured(it)}
+                            title={it.is_featured ? "Unmark featured" : "Mark as featured"}
+                            className={cn(
+                              "shrink-0 rounded-full p-1.5 transition",
+                              it.is_featured
+                                ? "bg-primary/15 text-primary"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                            )}
+                          >
+                            <Flame className={cn("h-4 w-4", it.is_featured && "fill-primary")} />
+                          </button>
+                        </div>
+
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          {it.price ? (
+                            <span className="font-display text-lg font-bold">{it.price}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No price</span>
+                          )}
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1.5">
+                              <Switch
+                                checked={it.is_available}
+                                onCheckedChange={() => toggleAvail(it)}
+                                aria-label="Available"
+                              />
+                            </div>
+                            <button
+                              onClick={() => setEditingItem({ item: it, categoryId: c.id })}
+                              className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                              title="Edit"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => deleteItem(it.id)}
+                              className="rounded-md p-1.5 text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
                   </div>
-                  <div className="flex items-center gap-3">
-                    {it.price && <span className="font-display text-base font-bold">{it.price}</span>}
-                    <button onClick={() => toggleAvail(it)} title={it.is_available ? "Hide" : "Show"} className="text-muted-foreground hover:text-foreground">
-                      {it.is_available ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                    </button>
-                    <button onClick={() => setEditingItem({ item: it, categoryId: c.id })} className="text-muted-foreground hover:text-foreground"><Pencil className="h-4 w-4" /></button>
-                    <button onClick={() => deleteItem(it.id)} className="text-destructive/80 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                )}
+              </div>
+            )}
           </section>
         );
       })}
@@ -204,7 +301,10 @@ export default function OwnerMenu() {
                   {items.filter((i) => i.category_id === c.id && i.is_available).map((it) => (
                     <div key={it.id} className="flex items-baseline justify-between gap-4 p-3">
                       <div>
-                        <p className="font-semibold">{it.name}</p>
+                        <p className="font-semibold flex items-center gap-1.5">
+                          {it.name}
+                          {it.is_featured && <Flame className="h-3.5 w-3.5 fill-primary text-primary" />}
+                        </p>
                         {it.description && <p className="mt-0.5 text-xs text-muted-foreground">{it.description}</p>}
                       </div>
                       {it.price && <span className="font-display font-bold">{it.price}</span>}
@@ -276,6 +376,15 @@ export default function OwnerMenu() {
                 <p className="text-xs text-muted-foreground">Hidden items don't show on your public menu.</p>
               </div>
               <Switch checked={editingItem?.item.is_available ?? true} onCheckedChange={(v) => setEditingItem((s) => s ? { ...s, item: { ...s.item, is_available: v } } : null)} />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-semibold flex items-center gap-1.5">
+                  <Flame className="h-4 w-4 text-primary" /> Featured item
+                </p>
+                <p className="text-xs text-muted-foreground">Highlighted as a signature dish on your public menu.</p>
+              </div>
+              <Switch checked={editingItem?.item.is_featured ?? false} onCheckedChange={(v) => setEditingItem((s) => s ? { ...s, item: { ...s.item, is_featured: v } } : null)} />
             </div>
           </div>
           <DialogFooter>
