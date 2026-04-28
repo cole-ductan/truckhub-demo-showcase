@@ -10,8 +10,14 @@ import { Switch } from "@/components/ui/switch";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar as CalIcon, ChevronLeft, ChevronRight, Clock, LayoutGrid, List, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Calendar as CalIcon, ChevronLeft, ChevronRight, Clock, LayoutGrid, List,
+  MapPin, PanelRightClose, PanelRightOpen, Pencil, Plus, Trash2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Event = {
   id: string;
@@ -36,9 +42,12 @@ const blank: Partial<Event> = {
 export default function OwnerCalendar() {
   const { business, loading } = useOwnerBusiness();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [events, setEvents] = useState<Event[]>([]);
   const [editing, setEditing] = useState<Partial<Event> | null>(null);
   const [view, setView] = useState<"list" | "month">("month");
+  const [sideOpen, setSideOpen] = useState(true);
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -55,7 +64,9 @@ export default function OwnerCalendar() {
   if (!business) return <Onboarding />;
 
   const today = new Date().toISOString().slice(0, 10);
-  const upcoming = events.filter((e) => !e.event_date || e.event_date >= today).sort((a, b) => (a.event_date ?? "").localeCompare(b.event_date ?? ""));
+  const upcoming = events
+    .filter((e) => !e.event_date || e.event_date >= today)
+    .sort((a, b) => (a.event_date ?? "").localeCompare(b.event_date ?? ""));
   const past = events.filter((e) => e.event_date && e.event_date < today);
 
   async function save() {
@@ -93,6 +104,8 @@ export default function OwnerCalendar() {
     setEvents((p) => p.filter((e) => e.id !== id));
   }
 
+  const showSide = !isMobile && sideOpen;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -100,7 +113,7 @@ export default function OwnerCalendar() {
           <h1 className="font-display text-3xl font-bold">Calendar</h1>
           <p className="mt-1 text-sm text-muted-foreground">Weekly spots and one-off events. Public events show on your truck profile.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex rounded-full border border-border bg-card p-1">
             <button onClick={() => setView("month")} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${view === "month" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}>
               <LayoutGrid className="h-3.5 w-3.5" /> Month
@@ -109,28 +122,71 @@ export default function OwnerCalendar() {
               <List className="h-3.5 w-3.5" /> List
             </button>
           </div>
-          <Button onClick={() => setEditing({ ...blank })}><Plus className="mr-1.5 h-4 w-4" /> Add event</Button>
+          {isMobile ? (
+            <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
+              <SheetTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <PanelRightOpen className="mr-1.5 h-4 w-4" /> Next stops
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-full sm:max-w-md">
+                <SheetHeader>
+                  <SheetTitle className="font-display">Next Stops</SheetTitle>
+                </SheetHeader>
+                <div className="mt-4">
+                  <NextStopsList events={upcoming} onEdit={(e) => { setEditing(e); setMobileSheetOpen(false); }} />
+                </div>
+              </SheetContent>
+            </Sheet>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => setSideOpen((s) => !s)}>
+              {sideOpen ? <PanelRightClose className="mr-1.5 h-4 w-4" /> : <PanelRightOpen className="mr-1.5 h-4 w-4" />}
+              {sideOpen ? "Hide" : "Show"} Next Stops
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setEditing({ ...blank, is_public: false })}>
+            <Plus className="mr-1.5 h-4 w-4" /> Event
+          </Button>
+          <Button onClick={() => setEditing({ ...blank, is_public: true })}>
+            <Plus className="mr-1.5 h-4 w-4" /> Public Popup
+          </Button>
         </div>
       </div>
 
-      {view === "month" ? (
-        <MonthGrid
-          cursor={cursor}
-          setCursor={setCursor}
-          events={events}
-          onEdit={setEditing}
-          onAdd={(date) => setEditing({ ...blank, event_date: date })}
-        />
-      ) : (
-        <>
-          <Group title="Upcoming" events={upcoming} emptyText="No upcoming events. Add one so customers know where to find you." onEdit={setEditing} onRemove={remove} />
-          <Group title="Past" events={past} emptyText="No past events yet." muted onEdit={setEditing} onRemove={remove} />
-        </>
-      )}
+      <div className={cn("grid gap-6", showSide ? "lg:grid-cols-[1fr_320px]" : "grid-cols-1")}>
+        <div className="min-w-0 space-y-6">
+          {view === "month" ? (
+            <MonthGrid
+              cursor={cursor}
+              setCursor={setCursor}
+              events={events}
+              onEdit={setEditing}
+              onAdd={(date) => setEditing({ ...blank, event_date: date, is_public: true })}
+            />
+          ) : (
+            <>
+              <Group title="Upcoming" events={upcoming} emptyText="No upcoming events. Add one so customers know where to find you." onEdit={setEditing} onRemove={remove} />
+              <Group title="Past" events={past} emptyText="No past events yet." muted onEdit={setEditing} onRemove={remove} />
+            </>
+          )}
+        </div>
+
+        {showSide && (
+          <aside className="rounded-2xl border border-border bg-card p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-display text-lg font-bold">Next Stops</h2>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                {upcoming.length}
+              </span>
+            </div>
+            <NextStopsList events={upcoming} onEdit={setEditing} />
+          </aside>
+        )}
+      </div>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{editing?.id ? "Edit event" : "New event"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing?.id ? "Edit event" : (editing?.is_public ? "New public popup" : "New event")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
               <Label>Type</Label>
@@ -198,6 +254,53 @@ export default function OwnerCalendar() {
 
 const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const WEEKDAY_KEYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+function NextStopsList({ events, onEdit }: { events: Event[]; onEdit: (e: Event) => void }) {
+  if (events.length === 0) {
+    return <p className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">No upcoming stops yet.</p>;
+  }
+  return (
+    <ul className="space-y-2">
+      {events.slice(0, 12).map((e) => {
+        const isPopup = e.is_public;
+        return (
+          <li key={e.id}>
+            <button
+              onClick={() => onEdit(e)}
+              className="w-full rounded-xl border border-border bg-background p-3 text-left transition hover:border-primary/40 hover:bg-muted/40"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-display text-sm font-semibold leading-tight">{e.title}</p>
+                <span className={cn(
+                  "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider",
+                  isPopup ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+                )}>
+                  {isPopup ? "Popup" : "Event"}
+                </span>
+              </div>
+              <div className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
+                <p className="inline-flex items-center gap-1">
+                  <CalIcon className="h-3 w-3" />
+                  {e.kind === "weekly" ? `Every ${e.weekday}` : e.event_date}
+                </p>
+                {(e.start_time || e.end_time) && (
+                  <p className="inline-flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> {e.start_time}{e.end_time ? ` – ${e.end_time}` : ""}
+                  </p>
+                )}
+                {e.location && (
+                  <p className="inline-flex items-center gap-1 truncate">
+                    <MapPin className="h-3 w-3 shrink-0" /> <span className="truncate">{e.location}</span>
+                  </p>
+                )}
+              </div>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 function MonthGrid({ cursor, setCursor, events, onEdit, onAdd }: {
   cursor: Date;
