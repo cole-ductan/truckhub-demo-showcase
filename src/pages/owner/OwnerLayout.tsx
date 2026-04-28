@@ -1,5 +1,6 @@
 import { Navigate, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { OwnerBusinessProvider } from "@/hooks/useOwnerBusiness";
 import { Logo } from "@/components/site/Logo";
 import { Button } from "@/components/ui/button";
 import { Calendar, Inbox, LayoutDashboard, ListOrdered, MessageCircle, Settings, ShieldCheck } from "lucide-react";
@@ -19,6 +20,7 @@ export default function OwnerLayout() {
   if (!user) return <Navigate to="/auth" replace />;
 
   return (
+    <OwnerBusinessProvider>
     <div className="min-h-screen bg-cream-deep">
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl">
         <div className="container-tight flex h-16 items-center justify-between gap-4">
@@ -61,5 +63,6 @@ export default function OwnerLayout() {
         </main>
       </div>
     </div>
+    </OwnerBusinessProvider>
   );
 }
