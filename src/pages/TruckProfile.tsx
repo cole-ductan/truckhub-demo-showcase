@@ -1,0 +1,246 @@
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { SiteHeader } from "@/components/site/SiteHeader";
+import { SiteFooter } from "@/components/site/SiteFooter";
+import { DemoBanner } from "@/components/site/DemoBanner";
+import { Button } from "@/components/ui/button";
+import { resolveImage } from "@/lib/assets";
+import { ArrowLeft, Briefcase, Calendar, Clock, Facebook, Flame, Instagram, MapPin, MessageSquare, Phone } from "lucide-react";
+
+type Biz = {
+  id: string; slug: string; name: string; tagline: string | null; description: string | null;
+  cuisine: string | null; emoji: string | null; hero_image_url: string | null;
+  phone: string | null; instagram: string | null; facebook: string | null;
+  today_location: string | null; today_hours: string | null;
+  status: "open" | "soon" | "closed";
+};
+type MenuCat = { id: string; name: string; sort_order: number };
+type MenuItem = { id: string; category_id: string; name: string; description: string | null; price: string | null; sort_order: number };
+type Event = { id: string; kind: "weekly" | "one_off"; title: string; weekday: string | null; start_time: string | null; end_time: string | null; location: string | null; tag: string | null; event_date: string | null };
+type Photo = { id: string; url: string };
+
+const weekdayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+export default function TruckProfile() {
+  const { slug } = useParams<{ slug: string }>();
+  const [biz, setBiz] = useState<Biz | null | "missing">(null);
+  const [cats, setCats] = useState<MenuCat[]>([]);
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+
+  useEffect(() => {
+    if (!slug) return;
+    (async () => {
+      const { data: b } = await supabase.from("businesses").select("*").eq("slug", slug).eq("is_published", true).maybeSingle();
+      if (!b) { setBiz("missing"); return; }
+      setBiz(b as Biz);
+      const [{ data: c }, { data: it }, { data: ev }, { data: ph }] = await Promise.all([
+        supabase.from("menu_categories").select("*").eq("business_id", b.id).order("sort_order"),
+        supabase.from("menu_items").select("*").eq("business_id", b.id).order("sort_order"),
+        supabase.from("business_events").select("*").eq("business_id", b.id).eq("is_public", true),
+        supabase.from("business_photos").select("id,url").eq("business_id", b.id).order("sort_order"),
+      ]);
+      setCats((c ?? []) as MenuCat[]);
+      setItems((it ?? []) as MenuItem[]);
+      setEvents((ev ?? []) as Event[]);
+      setPhotos((ph ?? []) as Photo[]);
+    })();
+  }, [slug]);
+
+  if (biz === null) return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
+  if (biz === "missing")
+    return (
+      <div className="grid min-h-screen place-items-center">
+        <div className="text-center">
+          <p className="font-display text-2xl">Truck not found</p>
+          <Link to="/food-trucks" className="mt-3 inline-block text-primary hover:underline">← Back to all trucks</Link>
+        </div>
+      </div>
+    );
+
+  const weekly = events.filter((e) => e.kind === "weekly").sort(
+    (a, b) => weekdayOrder.indexOf(a.weekday ?? "") - weekdayOrder.indexOf(b.weekday ?? ""),
+  );
+  const upcoming = events.filter((e) => e.kind === "one_off").sort((a, b) => (a.event_date ?? "").localeCompare(b.event_date ?? ""));
+
+  const heroImg = resolveImage(biz.hero_image_url);
+
+  return (
+    <div className="min-h-screen bg-background">
+      <DemoBanner />
+      <SiteHeader />
+
+      <div className="bg-primary/10 pt-20">
+        <div className="container-tight flex items-center justify-between gap-4 py-3 text-xs">
+          <Link to="/food-trucks" className="inline-flex items-center gap-1.5 text-foreground/80 hover:text-primary">
+            <ArrowLeft className="h-3.5 w-3.5" /> All trucks
+          </Link>
+          <span className="text-muted-foreground">Live page · powered by TruckHub</span>
+        </div>
+      </div>
+
+      {/* HERO */}
+      <section className="relative overflow-hidden bg-ink text-ink-foreground">
+        <div className="absolute inset-0">
+          <img src={heroImg} alt={biz.name} className="h-full w-full object-cover opacity-50" />
+          <div className="absolute inset-0 bg-gradient-to-b from-ink/60 via-ink/70 to-ink" />
+        </div>
+        <div className="container-tight relative py-20 md:py-32">
+          <div className="max-w-3xl">
+            <span className="inline-flex items-center gap-2 rounded-full border border-cream/20 bg-cream/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cream/85 backdrop-blur">
+              <Flame className="h-3 w-3 text-primary-glow" /> Green Bay · {biz.cuisine ?? "Food Truck"}
+            </span>
+            <h1 className="mt-6 font-display text-[clamp(2.5rem,7vw,5.5rem)] font-black leading-[0.95] text-cream">
+              {biz.emoji && <span className="mr-3">{biz.emoji}</span>}
+              {biz.name}
+            </h1>
+            {biz.description && <p className="mt-5 max-w-xl text-lg text-cream/85">{biz.description}</p>}
+            {!biz.description && biz.tagline && <p className="mt-5 max-w-xl text-lg text-cream/85">{biz.tagline}</p>}
+
+            <div className="mt-8 flex flex-wrap gap-2.5">
+              {biz.phone && (
+                <>
+                  <Button asChild className="h-11 rounded-full bg-primary px-5 text-primary-foreground shadow-ember hover:bg-primary/90">
+                    <a href={`tel:${biz.phone}`}><Phone className="mr-1.5 h-4 w-4" /> Call</a>
+                  </Button>
+                  <Button asChild variant="outline" className="h-11 rounded-full border-cream/25 bg-cream/5 px-5 text-cream backdrop-blur hover:bg-cream/10">
+                    <a href={`sms:${biz.phone}`}><MessageSquare className="mr-1.5 h-4 w-4" /> Text</a>
+                  </Button>
+                </>
+              )}
+              <Button asChild variant="outline" className="h-11 rounded-full border-cream/25 bg-cream/5 px-5 text-cream backdrop-blur hover:bg-cream/10">
+                <Link to={`/book/${biz.slug}`}><Briefcase className="mr-1.5 h-4 w-4" /> Catering Inquiry</Link>
+              </Button>
+              {biz.instagram && (
+                <Button asChild variant="outline" className="h-11 rounded-full border-cream/25 bg-cream/5 px-5 text-cream backdrop-blur hover:bg-cream/10">
+                  <a href={biz.instagram}><Instagram className="mr-1.5 h-4 w-4" /> Instagram</a>
+                </Button>
+              )}
+              {biz.facebook && (
+                <Button asChild variant="outline" className="h-11 rounded-full border-cream/25 bg-cream/5 px-5 text-cream backdrop-blur hover:bg-cream/10">
+                  <a href={biz.facebook}><Facebook className="mr-1.5 h-4 w-4" /> Facebook</a>
+                </Button>
+              )}
+            </div>
+
+            {biz.status === "open" && biz.today_location && (
+              <div className="mt-10 inline-flex items-center gap-3 rounded-2xl border border-cream/15 bg-cream/5 px-5 py-3 text-sm text-cream backdrop-blur">
+                <span className="relative inline-flex h-2.5 w-2.5">
+                  <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-70" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                </span>
+                <span><span className="font-semibold">Open now</span> · {biz.today_location}{biz.today_hours ? ` · until ${biz.today_hours.split("–")[1]?.trim() ?? biz.today_hours}` : ""}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* MENU */}
+      {cats.length > 0 && (
+        <section className="py-20 md:py-28">
+          <div className="container-tight">
+            <span className="badge-ember">The Menu</span>
+            <h2 className="mt-4 font-display text-4xl font-bold leading-tight md:text-5xl">
+              What's <em className="text-primary not-italic">on the truck</em>.
+            </h2>
+            <div className="mt-12 grid gap-10 lg:grid-cols-2">
+              {cats.map((c) => (
+                <div key={c.id}>
+                  <h3 className="font-display text-2xl font-semibold text-primary">{c.name}</h3>
+                  <div className="mt-5 divide-y divide-border rounded-2xl border border-border bg-card">
+                    {items.filter((i) => i.category_id === c.id).map((item) => (
+                      <div key={item.id} className="flex items-baseline justify-between gap-4 p-5">
+                        <div>
+                          <h4 className="font-display text-lg font-semibold leading-tight">{item.name}</h4>
+                          {item.description && <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>}
+                        </div>
+                        {item.price && <span className="font-display text-lg font-bold">{item.price}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* SCHEDULE */}
+      {weekly.length > 0 && (
+        <section className="bg-cream-deep py-20 md:py-28">
+          <div className="container-tight">
+            <span className="badge-ember"><Calendar className="h-3 w-3" /> This Week</span>
+            <h2 className="mt-4 font-display text-4xl font-bold leading-tight md:text-5xl">Where to find us.</h2>
+            <div className="mt-10 overflow-hidden rounded-2xl border border-border bg-card">
+              {weekly.map((row) => (
+                <div key={row.id} className="grid grid-cols-[64px_1fr_auto] items-center gap-4 border-b border-border p-5 last:border-b-0">
+                  <div className="text-center font-display text-lg font-bold">{row.weekday}</div>
+                  <p className="flex items-center gap-1.5 font-medium"><MapPin className="h-3.5 w-3.5 text-primary" /> {row.location}</p>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" /> {row.start_time} – {row.end_time}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* UPCOMING */}
+      {upcoming.length > 0 && (
+        <section className="py-20 md:py-28">
+          <div className="container-tight">
+            <span className="badge-ember">Public Events</span>
+            <h2 className="mt-4 font-display text-4xl font-bold leading-tight md:text-5xl">Catch us out.</h2>
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {upcoming.map((e) => (
+                <div key={e.id} className="rounded-2xl border border-border bg-card p-5 transition hover:-translate-y-1 hover:shadow-card">
+                  <div className="font-display text-2xl font-bold text-primary">{e.event_date?.slice(5)}</div>
+                  <h3 className="mt-2 font-display text-lg font-semibold leading-tight">{e.title}</h3>
+                  {e.location && <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-3 w-3" />{e.location}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* GALLERY */}
+      {photos.length > 0 && (
+        <section className="bg-cream-deep py-20 md:py-28">
+          <div className="container-tight">
+            <span className="badge-ember">Gallery</span>
+            <h2 className="mt-4 font-display text-4xl font-bold leading-tight md:text-5xl">A few from the truck.</h2>
+            <div className="mt-10 grid auto-rows-[200px] grid-cols-2 gap-3 md:grid-cols-4 md:auto-rows-[240px]">
+              {photos.slice(0, 5).map((p, i) => (
+                <img
+                  key={p.id}
+                  src={resolveImage(p.url)}
+                  alt=""
+                  loading="lazy"
+                  className={`h-full w-full rounded-2xl object-cover transition hover:scale-[1.02] ${i === 0 || i === 3 ? "md:row-span-2" : ""} ${i === 3 ? "md:col-span-2" : ""}`}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* CATERING CTA */}
+      <section className="bg-secondary py-20 text-secondary-foreground md:py-28">
+        <div className="container-tight text-center">
+          <h2 className="font-display text-4xl font-bold text-cream md:text-5xl">Bring {biz.name} to your event.</h2>
+          <p className="mx-auto mt-4 max-w-xl text-cream/80">Weddings, corporate lunches, graduations, backyard parties. Send a quick inquiry — we'll reply within 24 hours.</p>
+          <Button asChild className="mt-8 h-12 rounded-full bg-primary px-7 text-primary-foreground shadow-ember hover:bg-primary/90">
+            <Link to={`/book/${biz.slug}`}>Send a catering inquiry</Link>
+          </Button>
+        </div>
+      </section>
+
+      <SiteFooter />
+    </div>
+  );
+}
