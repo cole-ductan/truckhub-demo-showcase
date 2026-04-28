@@ -314,6 +314,61 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: Lead | 
   );
 }
 
+function KanbanBoard({ leads, onOpen, onMove }: { leads: Lead[]; onOpen: (l: Lead) => void; onMove: (id: string, stage: Lead["stage"]) => void }) {
+  const [dragId, setDragId] = useState<string | null>(null);
+  const cols = STAGES.filter((s) => s.v !== "completed" && s.v !== "lost");
+  const extras = STAGES.filter((s) => s.v === "completed" || s.v === "lost");
+  const allCols = [...cols, ...extras];
+
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-2">
+      {allCols.map((col) => {
+        const items = leads.filter((l) => l.stage === col.v);
+        const value = items.reduce((s, l) => s + (Number(l.estimated_value) || 0), 0);
+        return (
+          <div
+            key={col.v}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => { if (dragId) { onMove(dragId, col.v); setDragId(null); } }}
+            className="flex w-72 shrink-0 flex-col rounded-2xl border border-border bg-muted/30 p-3"
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${col.color}`}>{col.label}</span>
+                <span className="text-xs font-semibold text-muted-foreground">{items.length}</span>
+              </div>
+              {value > 0 && <span className="text-[11px] font-semibold text-muted-foreground">${value.toLocaleString()}</span>}
+            </div>
+            <div className="space-y-2">
+              {items.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-border p-3 text-center text-[11px] text-muted-foreground">Drop leads here</p>
+              ) : (
+                items.map((l) => (
+                  <div
+                    key={l.id}
+                    draggable
+                    onDragStart={() => setDragId(l.id)}
+                    onDragEnd={() => setDragId(null)}
+                    onClick={() => onOpen(l)}
+                    className="cursor-pointer rounded-xl border border-border bg-card p-3 shadow-sm transition hover:shadow-md"
+                  >
+                    <p className="truncate font-display text-sm font-semibold">{l.contact_name}</p>
+                    {l.event_type && <p className="mt-0.5 truncate text-xs text-muted-foreground">{l.event_type}</p>}
+                    <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>{l.event_date ?? "Date TBD"}</span>
+                      {l.estimated_value != null && <span className="font-semibold text-foreground">${Number(l.estimated_value).toLocaleString()}</span>}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function Info({ icon: Icon, label, value, href }: { icon: any; label: string; value: string; href?: string }) {
   const inner = (
     <div className="rounded-xl border border-border p-3">
