@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { DemoBanner } from "@/components/site/DemoBanner";
-import { trucks, events } from "@/data/trucks";
+import { supabase } from "@/integrations/supabase/client";
+import { resolveImage } from "@/lib/assets";
 import heroTruck from "@/assets/hero-truck.jpg";
 import {
   ArrowRight,
@@ -85,6 +87,28 @@ const StatusDot = ({ status }: { status: "open" | "soon" | "closed" }) => {
 };
 
 const Index = () => {
+  const [trucks, setTrucks] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+
+  useEffect(() => {
+    supabase
+      .from("businesses")
+      .select("id,slug,name,tagline,cuisine,emoji,hero_image_url,today_location,today_hours,status,is_featured")
+      .eq("is_published", true)
+      .order("is_featured", { ascending: false })
+      .order("name")
+      .limit(6)
+      .then(({ data }) => setTrucks(data ?? []));
+    supabase
+      .from("business_events")
+      .select("id,title,location,event_date,tag")
+      .eq("kind", "one_off")
+      .eq("is_public", true)
+      .order("event_date")
+      .limit(6)
+      .then(({ data }) => setEvents(data ?? []));
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <DemoBanner />
