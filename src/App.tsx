@@ -18,6 +18,8 @@ import OwnerMenu from "./pages/owner/OwnerMenu.tsx";
 import OwnerCalendar from "./pages/owner/OwnerCalendar.tsx";
 import OwnerLeads from "./pages/owner/OwnerLeads.tsx";
 import OwnerMessages from "./pages/owner/OwnerMessages.tsx";
+import OwnerBookings from "./pages/owner/OwnerBookings.tsx";
+import OwnerSettings from "./pages/owner/OwnerSettings.tsx";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +46,8 @@ const App = () => (
               <Route path="calendar" element={<OwnerCalendar />} />
               <Route path="leads" element={<OwnerLeads />} />
               <Route path="messages" element={<OwnerMessages />} />
+              <Route path="bookings" element={<OwnerBookings />} />
+              <Route path="settings" element={<OwnerSettings />} />
             </Route>
 
             <Route path="/admin" element={<ComingSoon title="Admin Console" />} />
