@@ -317,10 +317,12 @@ export type Database = {
           contact_name: string
           contact_phone: string | null
           created_at: string
+          estimated_value: number | null
           event_date: string | null
           event_type: string | null
           guest_count: string | null
           id: string
+          internal_notes: string | null
           message: string | null
           source: string | null
           stage: Database["public"]["Enums"]["lead_stage"]
@@ -332,10 +334,12 @@ export type Database = {
           contact_name: string
           contact_phone?: string | null
           created_at?: string
+          estimated_value?: number | null
           event_date?: string | null
           event_type?: string | null
           guest_count?: string | null
           id?: string
+          internal_notes?: string | null
           message?: string | null
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
@@ -347,10 +351,12 @@ export type Database = {
           contact_name?: string
           contact_phone?: string | null
           created_at?: string
+          estimated_value?: number | null
           event_date?: string | null
           event_type?: string | null
           guest_count?: string | null
           id?: string
+          internal_notes?: string | null
           message?: string | null
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
@@ -505,6 +511,42 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_business: {
+        Args: { _business_id: string }
+        Returns: {
+          category_id: string | null
+          city: string | null
+          created_at: string
+          cuisine: string | null
+          description: string | null
+          email: string | null
+          emoji: string | null
+          facebook: string | null
+          hero_image_url: string | null
+          id: string
+          instagram: string | null
+          is_featured: boolean
+          is_published: boolean
+          logo_url: string | null
+          name: string
+          owner_id: string | null
+          phone: string | null
+          region: string | null
+          slug: string
+          status: Database["public"]["Enums"]["business_status"]
+          tagline: string | null
+          today_hours: string | null
+          today_location: string | null
+          updated_at: string
+          website: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "businesses"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
