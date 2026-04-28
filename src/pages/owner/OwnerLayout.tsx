@@ -1,68 +1,74 @@
-import { Navigate, NavLink, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { OwnerBusinessProvider } from "@/hooks/useOwnerBusiness";
-import { Logo } from "@/components/site/Logo";
+import { OwnerBusinessProvider, useOwnerBusiness } from "@/hooks/useOwnerBusiness";
+import { OwnerProfileProvider } from "@/hooks/useOwnerProfile";
+import { OwnerSidebar } from "@/components/owner/OwnerSidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Calendar, Inbox, LayoutDashboard, ListOrdered, MessageCircle, Settings, ShieldCheck } from "lucide-react";
+import { Bell, Plus, Sparkles } from "lucide-react";
 
-const links = [
-  { to: "/owner", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/owner/profile", label: "Business Profile", icon: Settings },
-  { to: "/owner/menu", label: "Menu", icon: ListOrdered },
-  { to: "/owner/calendar", label: "Calendar", icon: Calendar },
-  { to: "/owner/leads", label: "Leads", icon: Inbox },
-  { to: "/owner/messages", label: "Messages", icon: MessageCircle },
-];
+const crumbs: Record<string, string> = {
+  "/owner": "Dashboard",
+  "/owner/leads": "Leads",
+  "/owner/bookings": "Bookings",
+  "/owner/calendar": "Calendar",
+  "/owner/menu": "Menu",
+  "/owner/profile": "Truck Page",
+  "/owner/messages": "Messages",
+  "/owner/settings": "Settings",
+};
+
+function Topbar() {
+  const { pathname } = useLocation();
+  const { business } = useOwnerBusiness();
+  const label = crumbs[pathname] ?? "Workspace";
+  return (
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-xl">
+      <div className="flex items-center gap-3">
+        <SidebarTrigger />
+        <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
+          <span className="font-semibold text-foreground/70">{business?.name ?? "Workspace"}</span>
+          <span>/</span>
+          <span>{label}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="hidden items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary md:inline-flex">
+          <Sparkles className="h-3 w-3" /> Owner Console
+        </span>
+        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" aria-label="Notifications">
+          <Bell className="h-4 w-4" />
+        </Button>
+        <Button size="sm" className="h-9 rounded-full" asChild>
+          <a href="/owner/calendar"><Plus className="mr-1 h-3.5 w-3.5" /> New</a>
+        </Button>
+      </div>
+    </header>
+  );
+}
 
 export default function OwnerLayout() {
-  const { user, loading, isAdmin, signOut } = useAuth();
+  const { user, loading } = useAuth();
   if (loading) return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
   if (!user) return <Navigate to="/auth" replace />;
 
   return (
-    <OwnerBusinessProvider>
-    <div className="min-h-screen bg-cream-deep">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl">
-        <div className="container-tight flex h-16 items-center justify-between gap-4">
-          <div className="flex items-center gap-6">
-            <Logo />
-            <span className="hidden rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-primary md:inline">
-              Owner Console
-            </span>
+    <OwnerProfileProvider>
+      <OwnerBusinessProvider>
+        <SidebarProvider>
+          <div className="flex min-h-screen w-full bg-cream-deep">
+            <OwnerSidebar />
+            <div className="flex min-h-screen flex-1 flex-col">
+              <Topbar />
+              <main className="flex-1 px-4 py-6 sm:px-6 md:px-8 md:py-8">
+                <div className="mx-auto w-full max-w-6xl">
+                  <Outlet />
+                </div>
+              </main>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            {isAdmin && (
-              <Button asChild variant="outline" size="sm" className="rounded-full">
-                <NavLink to="/admin"><ShieldCheck className="mr-1.5 h-3.5 w-3.5" /> Admin</NavLink>
-              </Button>
-            )}
-            <Button onClick={signOut} variant="ghost" size="sm">Sign out</Button>
-          </div>
-        </div>
-      </header>
-
-      <div className="container-tight grid gap-8 py-10 md:grid-cols-[220px_1fr]">
-        <aside className="space-y-1">
-          {links.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              end={l.end}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition ${
-                  isActive ? "bg-primary text-primary-foreground" : "text-foreground/75 hover:bg-muted"
-                }`
-              }
-            >
-              <l.icon className="h-4 w-4" /> {l.label}
-            </NavLink>
-          ))}
-        </aside>
-        <main>
-          <Outlet />
-        </main>
-      </div>
-    </div>
-    </OwnerBusinessProvider>
+        </SidebarProvider>
+      </OwnerBusinessProvider>
+    </OwnerProfileProvider>
   );
 }

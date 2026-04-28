@@ -458,12 +458,49 @@ export type Database = {
           },
         ]
       }
+      owner_preferences: {
+        Row: {
+          business_id: string
+          created_at: string
+          deposit_percentage: number
+          email_notifications_enabled: boolean
+          id: string
+          new_lead_notifications_enabled: boolean
+          owner_reply_notifications_enabled: boolean
+          sms_notifications_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          deposit_percentage?: number
+          email_notifications_enabled?: boolean
+          id?: string
+          new_lead_notifications_enabled?: boolean
+          owner_reply_notifications_enabled?: boolean
+          sms_notifications_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          deposit_percentage?: number
+          email_notifications_enabled?: boolean
+          id?: string
+          new_lead_notifications_enabled?: boolean
+          owner_reply_notifications_enabled?: boolean
+          sms_notifications_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string
           display_name: string | null
           id: string
+          owner_title: string | null
           phone: string | null
           updated_at: string
         }
@@ -472,6 +509,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id: string
+          owner_title?: string | null
           phone?: string | null
           updated_at?: string
         }
@@ -480,6 +518,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          owner_title?: string | null
           phone?: string | null
           updated_at?: string
         }
