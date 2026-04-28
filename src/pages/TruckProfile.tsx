@@ -6,19 +6,26 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { DemoBanner } from "@/components/site/DemoBanner";
 import { Button } from "@/components/ui/button";
 import { resolveImage } from "@/lib/assets";
-import { ArrowLeft, Briefcase, Calendar, Clock, Facebook, Flame, Instagram, MapPin, MessageSquare, Phone } from "lucide-react";
+import { ArrowLeft, Briefcase, Calendar, Clock, Facebook, Flame, Globe, Instagram, Mail, MapPin, MessageSquare, Phone, ShoppingBag } from "lucide-react";
 
 type Biz = {
   id: string; slug: string; name: string; tagline: string | null; description: string | null;
   cuisine: string | null; emoji: string | null; hero_image_url: string | null;
-  phone: string | null; instagram: string | null; facebook: string | null;
+  logo_url: string | null;
+  phone: string | null; email: string | null; website: string | null;
+  instagram: string | null; facebook: string | null;
   today_location: string | null; today_hours: string | null;
   status: "open" | "soon" | "closed";
+  online_ordering_url: string | null; order_button_label: string | null; ordering_enabled: boolean;
 };
 type MenuCat = { id: string; name: string; sort_order: number };
 type MenuItem = { id: string; category_id: string; name: string; description: string | null; price: string | null; sort_order: number };
 type Event = { id: string; kind: "weekly" | "one_off"; title: string; weekday: string | null; start_time: string | null; end_time: string | null; location: string | null; tag: string | null; event_date: string | null };
 type Photo = { id: string; url: string };
+type SavedLoc = {
+  id: string; label: string; address: string | null; weekday: string | null;
+  start_time: string | null; end_time: string | null; is_recurring: boolean; sort_order: number;
+};
 
 const weekdayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -29,6 +36,7 @@ export default function TruckProfile() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [savedLocs, setSavedLocs] = useState<SavedLoc[]>([]);
 
   useEffect(() => {
     if (!slug) return;
@@ -36,16 +44,18 @@ export default function TruckProfile() {
       const { data: b } = await supabase.from("businesses").select("*").eq("slug", slug).eq("is_published", true).maybeSingle();
       if (!b) { setBiz("missing"); return; }
       setBiz(b as Biz);
-      const [{ data: c }, { data: it }, { data: ev }, { data: ph }] = await Promise.all([
+      const [{ data: c }, { data: it }, { data: ev }, { data: ph }, { data: sl }] = await Promise.all([
         supabase.from("menu_categories").select("*").eq("business_id", b.id).order("sort_order"),
         supabase.from("menu_items").select("*").eq("business_id", b.id).order("sort_order"),
         supabase.from("business_events").select("*").eq("business_id", b.id).eq("is_public", true),
         supabase.from("business_photos").select("id,url").eq("business_id", b.id).order("sort_order"),
+        (supabase as any).from("saved_locations").select("*").eq("business_id", b.id).order("sort_order"),
       ]);
       setCats((c ?? []) as MenuCat[]);
       setItems((it ?? []) as MenuItem[]);
       setEvents((ev ?? []) as Event[]);
       setPhotos((ph ?? []) as Photo[]);
+      setSavedLocs((sl ?? []) as SavedLoc[]);
     })();
   }, [slug]);
 
@@ -66,6 +76,23 @@ export default function TruckProfile() {
   const upcoming = events.filter((e) => e.kind === "one_off").sort((a, b) => (a.event_date ?? "").localeCompare(b.event_date ?? ""));
 
   const heroImg = resolveImage(biz.hero_image_url);
+  const logoImg = biz.logo_url ? resolveImage(biz.logo_url) : null;
+  const showOrdering = biz.ordering_enabled && !!biz.online_ordering_url;
+  const recurringLocs = [...savedLocs]
+    .filter((l) => l.is_recurring && l.weekday)
+    .sort((a, b) => weekdayOrder.indexOf(a.weekday ?? "") - weekdayOrder.indexOf(b.weekday ?? ""));
+  // Merge weekly events + recurring saved locations into a unified weekly schedule
+  const weeklySchedule: Array<{ id: string; weekday: string; location: string | null; start_time: string | null; end_time: string | null; source: "event" | "location" }> = [
+    ...weekly.map((w) => ({ id: w.id, weekday: w.weekday ?? "", location: w.location, start_time: w.start_time, end_time: w.end_time, source: "event" as const })),
+    ...recurringLocs.map((l) => ({ id: l.id, weekday: l.weekday ?? "", location: l.address ? `${l.label} · ${l.address}` : l.label, start_time: l.start_time, end_time: l.end_time, source: "location" as const })),
+  ].sort((a, b) => weekdayOrder.indexOf(a.weekday) - weekdayOrder.indexOf(b.weekday));
+
+  const statusBadge =
+    biz.status === "open"
+      ? { label: "Open now", dot: "bg-emerald-400" }
+      : biz.status === "soon"
+      ? { label: "Opening soon", dot: "bg-amber-400" }
+      : { label: "Closed", dot: "bg-muted-foreground" };
 
   return (
     <div className="min-h-screen bg-background">
@@ -92,17 +119,35 @@ export default function TruckProfile() {
             <span className="inline-flex items-center gap-2 rounded-full border border-cream/20 bg-cream/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cream/85 backdrop-blur">
               <Flame className="h-3 w-3 text-primary-glow" /> Green Bay · {biz.cuisine ?? "Food Truck"}
             </span>
-            <h1 className="mt-6 font-display text-[clamp(2.5rem,7vw,5.5rem)] font-black leading-[0.95] text-cream">
-              {biz.emoji && <span className="mr-3">{biz.emoji}</span>}
-              {biz.name}
-            </h1>
+            <div className="mt-6 flex items-center gap-5">
+              {logoImg && (
+                <img
+                  src={logoImg}
+                  alt={`${biz.name} logo`}
+                  className="h-20 w-20 shrink-0 rounded-2xl border border-cream/20 bg-cream/10 object-cover backdrop-blur md:h-24 md:w-24"
+                />
+              )}
+              <h1 className="font-display text-[clamp(2.5rem,7vw,5.5rem)] font-black leading-[0.95] text-cream">
+                {biz.emoji && <span className="mr-3">{biz.emoji}</span>}
+                {biz.name}
+              </h1>
+            </div>
             {biz.description && <p className="mt-5 max-w-xl text-lg text-cream/85">{biz.description}</p>}
             {!biz.description && biz.tagline && <p className="mt-5 max-w-xl text-lg text-cream/85">{biz.tagline}</p>}
 
             <div className="mt-8 flex flex-wrap gap-2.5">
+              {showOrdering && (
+                <Button asChild className="h-11 rounded-full bg-primary px-5 text-primary-foreground shadow-ember hover:bg-primary/90">
+                  <a href={biz.online_ordering_url!} target="_blank" rel="noreferrer">
+                    <ShoppingBag className="mr-1.5 h-4 w-4" /> {biz.order_button_label || "Order Online"}
+                  </a>
+                </Button>
+              )}
               {biz.phone && (
                 <>
-                  <Button asChild className="h-11 rounded-full bg-primary px-5 text-primary-foreground shadow-ember hover:bg-primary/90">
+                  <Button asChild variant={showOrdering ? "outline" : "default"} className={showOrdering
+                    ? "h-11 rounded-full border-cream/25 bg-cream/5 px-5 text-cream backdrop-blur hover:bg-cream/10"
+                    : "h-11 rounded-full bg-primary px-5 text-primary-foreground shadow-ember hover:bg-primary/90"}>
                     <a href={`tel:${biz.phone}`}><Phone className="mr-1.5 h-4 w-4" /> Call</a>
                   </Button>
                   <Button asChild variant="outline" className="h-11 rounded-full border-cream/25 bg-cream/5 px-5 text-cream backdrop-blur hover:bg-cream/10">
@@ -113,27 +158,49 @@ export default function TruckProfile() {
               <Button asChild variant="outline" className="h-11 rounded-full border-cream/25 bg-cream/5 px-5 text-cream backdrop-blur hover:bg-cream/10">
                 <Link to={`/book/${biz.slug}`}><Briefcase className="mr-1.5 h-4 w-4" /> Catering Inquiry</Link>
               </Button>
+              {biz.email && (
+                <Button asChild variant="outline" className="h-11 rounded-full border-cream/25 bg-cream/5 px-5 text-cream backdrop-blur hover:bg-cream/10">
+                  <a href={`mailto:${biz.email}`}><Mail className="mr-1.5 h-4 w-4" /> Email</a>
+                </Button>
+              )}
+              {biz.website && (
+                <Button asChild variant="outline" className="h-11 rounded-full border-cream/25 bg-cream/5 px-5 text-cream backdrop-blur hover:bg-cream/10">
+                  <a href={biz.website} target="_blank" rel="noreferrer"><Globe className="mr-1.5 h-4 w-4" /> Website</a>
+                </Button>
+              )}
               {biz.instagram && (
                 <Button asChild variant="outline" className="h-11 rounded-full border-cream/25 bg-cream/5 px-5 text-cream backdrop-blur hover:bg-cream/10">
-                  <a href={biz.instagram}><Instagram className="mr-1.5 h-4 w-4" /> Instagram</a>
+                  <a href={biz.instagram} target="_blank" rel="noreferrer"><Instagram className="mr-1.5 h-4 w-4" /> Instagram</a>
                 </Button>
               )}
               {biz.facebook && (
                 <Button asChild variant="outline" className="h-11 rounded-full border-cream/25 bg-cream/5 px-5 text-cream backdrop-blur hover:bg-cream/10">
-                  <a href={biz.facebook}><Facebook className="mr-1.5 h-4 w-4" /> Facebook</a>
+                  <a href={biz.facebook} target="_blank" rel="noreferrer"><Facebook className="mr-1.5 h-4 w-4" /> Facebook</a>
                 </Button>
               )}
             </div>
 
-            {biz.status === "open" && biz.today_location && (
-              <div className="mt-10 inline-flex items-center gap-3 rounded-2xl border border-cream/15 bg-cream/5 px-5 py-3 text-sm text-cream backdrop-blur">
+            <div className="mt-10 flex flex-wrap items-center gap-3">
+              <div className="inline-flex items-center gap-3 rounded-2xl border border-cream/15 bg-cream/5 px-5 py-3 text-sm text-cream backdrop-blur">
                 <span className="relative inline-flex h-2.5 w-2.5">
-                  <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-70" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                  {biz.status === "open" && (
+                    <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-70" />
+                  )}
+                  <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${statusBadge.dot}`} />
                 </span>
-                <span><span className="font-semibold">Open now</span> · {biz.today_location}{biz.today_hours ? ` · until ${biz.today_hours.split("–")[1]?.trim() ?? biz.today_hours}` : ""}</span>
+                <span>
+                  <span className="font-semibold">{statusBadge.label}</span>
+                  {biz.today_location && <> · <MapPin className="inline h-3.5 w-3.5 -translate-y-0.5" /> {biz.today_location}</>}
+                  {biz.today_hours && <> · {biz.today_hours}</>}
+                </span>
               </div>
-            )}
+              <Link
+                to={`/book/${biz.slug}`}
+                className="inline-flex items-center gap-1.5 rounded-2xl border border-cream/15 bg-cream/5 px-4 py-3 text-sm text-cream backdrop-blur hover:bg-cream/10"
+              >
+                <Calendar className="h-3.5 w-3.5" /> Booking inquiries open
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -169,19 +236,21 @@ export default function TruckProfile() {
       )}
 
       {/* SCHEDULE */}
-      {weekly.length > 0 && (
+      {weeklySchedule.length > 0 && (
         <section className="bg-cream-deep py-20 md:py-28">
           <div className="container-tight">
             <span className="badge-ember"><Calendar className="h-3 w-3" /> This Week</span>
             <h2 className="mt-4 font-display text-4xl font-bold leading-tight md:text-5xl">Where to find us.</h2>
             <div className="mt-10 overflow-hidden rounded-2xl border border-border bg-card">
-              {weekly.map((row) => (
+              {weeklySchedule.map((row) => (
                 <div key={row.id} className="grid grid-cols-[64px_1fr_auto] items-center gap-4 border-b border-border p-5 last:border-b-0">
                   <div className="text-center font-display text-lg font-bold">{row.weekday}</div>
                   <p className="flex items-center gap-1.5 font-medium"><MapPin className="h-3.5 w-3.5 text-primary" /> {row.location}</p>
-                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5" /> {row.start_time} – {row.end_time}
-                  </div>
+                  {(row.start_time || row.end_time) ? (
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" /> {row.start_time} – {row.end_time}
+                    </div>
+                  ) : <span />}
                 </div>
               ))}
             </div>
