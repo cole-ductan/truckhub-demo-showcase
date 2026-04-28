@@ -196,6 +196,94 @@ export default function OwnerCalendar() {
   );
 }
 
+const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const WEEKDAY_KEYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+function MonthGrid({ cursor, setCursor, events, onEdit, onAdd }: {
+  cursor: Date;
+  setCursor: (d: Date) => void;
+  events: Event[];
+  onEdit: (e: Event) => void;
+  onAdd: (dateIso: string) => void;
+}) {
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const first = new Date(year, month, 1);
+  const startOffset = first.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  function eventsFor(date: Date): Event[] {
+    const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const wk = WEEKDAY_KEYS[date.getDay()];
+    return events.filter((e) =>
+      (e.kind === "one_off" && e.event_date === iso) ||
+      (e.kind === "weekly" && e.weekday === wk)
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-display text-xl font-bold">
+          {cursor.toLocaleString(undefined, { month: "long", year: "numeric" })}
+        </h2>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="outline" onClick={() => setCursor(new Date(year, month - 1, 1))}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setCursor(new Date())}>Today</Button>
+          <Button size="sm" variant="outline" onClick={() => setCursor(new Date(year, month + 1, 1))}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-border bg-border text-xs">
+        {WEEKDAYS.map((d) => (
+          <div key={d} className="bg-muted px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{d}</div>
+        ))}
+        {cells.map((date, i) => {
+          if (!date) return <div key={i} className="min-h-[88px] bg-card/40" />;
+          const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+          const dayEvents = eventsFor(date);
+          const isToday = iso === todayIso;
+          return (
+            <div
+              key={i}
+              onClick={() => onAdd(iso)}
+              className="group min-h-[88px] cursor-pointer bg-card p-1.5 transition hover:bg-muted/50"
+            >
+              <div className={`mb-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
+                {date.getDate()}
+              </div>
+              <div className="space-y-0.5">
+                {dayEvents.slice(0, 3).map((e) => (
+                  <button
+                    key={e.id}
+                    onClick={(ev) => { ev.stopPropagation(); onEdit(e); }}
+                    className={`block w-full truncate rounded px-1.5 py-0.5 text-left text-[10px] font-medium ${e.kind === "weekly" ? "bg-secondary/15 text-secondary" : "bg-primary/15 text-primary"}`}
+                  >
+                    {e.start_time ? `${e.start_time} ` : ""}{e.title}
+                  </button>
+                ))}
+                {dayEvents.length > 3 && (
+                  <p className="px-1.5 text-[10px] text-muted-foreground">+{dayEvents.length - 3} more</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">Tip: click an empty day to add an event. Weekly recurring events show on every matching weekday.</p>
+    </div>
+  );
+}
+
 function Group({ title, events, emptyText, muted, onEdit, onRemove }: { title: string; events: Event[]; emptyText: string; muted?: boolean; onEdit: (e: Event) => void; onRemove: (id: string) => void; }) {
   return (
     <section>
