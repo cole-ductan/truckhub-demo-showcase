@@ -112,10 +112,10 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <DemoBanner />
-      <SiteHeader />
+      <SiteHeader withBanner />
 
       {/* HERO */}
-      <section className="relative overflow-hidden pt-24 pb-20 md:pt-32 md:pb-28">
+      <section className="relative overflow-hidden pt-16 pb-20 md:pt-20 md:pb-28">
         <div className="absolute inset-0 -z-10 bg-gradient-warm" />
         <div className="absolute inset-0 -z-10" style={{ backgroundImage: "var(--gradient-radial-ember)" }} />
         <div className="container-tight grid items-center gap-12 lg:grid-cols-[1.05fr_1fr]">
