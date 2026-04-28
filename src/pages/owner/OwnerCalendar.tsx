@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar as CalIcon, Clock, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
+import { Calendar as CalIcon, ChevronLeft, ChevronRight, Clock, LayoutGrid, List, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 
 type Event = {
   id: string;
@@ -38,6 +38,11 @@ export default function OwnerCalendar() {
   const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   const [editing, setEditing] = useState<Partial<Event> | null>(null);
+  const [view, setView] = useState<"list" | "month">("month");
+  const [cursor, setCursor] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
 
   async function reload() {
     if (!business) return;
@@ -95,11 +100,33 @@ export default function OwnerCalendar() {
           <h1 className="font-display text-3xl font-bold">Calendar</h1>
           <p className="mt-1 text-sm text-muted-foreground">Weekly spots and one-off events. Public events show on your truck profile.</p>
         </div>
-        <Button onClick={() => setEditing({ ...blank })}><Plus className="mr-1.5 h-4 w-4" /> Add event</Button>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-full border border-border bg-card p-1">
+            <button onClick={() => setView("month")} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${view === "month" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}>
+              <LayoutGrid className="h-3.5 w-3.5" /> Month
+            </button>
+            <button onClick={() => setView("list")} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${view === "list" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}>
+              <List className="h-3.5 w-3.5" /> List
+            </button>
+          </div>
+          <Button onClick={() => setEditing({ ...blank })}><Plus className="mr-1.5 h-4 w-4" /> Add event</Button>
+        </div>
       </div>
 
-      <Group title="Upcoming" events={upcoming} emptyText="No upcoming events. Add one so customers know where to find you." onEdit={setEditing} onRemove={remove} />
-      <Group title="Past" events={past} emptyText="No past events yet." muted onEdit={setEditing} onRemove={remove} />
+      {view === "month" ? (
+        <MonthGrid
+          cursor={cursor}
+          setCursor={setCursor}
+          events={events}
+          onEdit={setEditing}
+          onAdd={(date) => setEditing({ ...blank, event_date: date })}
+        />
+      ) : (
+        <>
+          <Group title="Upcoming" events={upcoming} emptyText="No upcoming events. Add one so customers know where to find you." onEdit={setEditing} onRemove={remove} />
+          <Group title="Past" events={past} emptyText="No past events yet." muted onEdit={setEditing} onRemove={remove} />
+        </>
+      )}
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-lg">
@@ -165,6 +192,94 @@ export default function OwnerCalendar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const WEEKDAY_KEYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+function MonthGrid({ cursor, setCursor, events, onEdit, onAdd }: {
+  cursor: Date;
+  setCursor: (d: Date) => void;
+  events: Event[];
+  onEdit: (e: Event) => void;
+  onAdd: (dateIso: string) => void;
+}) {
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const first = new Date(year, month, 1);
+  const startOffset = first.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  function eventsFor(date: Date): Event[] {
+    const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const wk = WEEKDAY_KEYS[date.getDay()];
+    return events.filter((e) =>
+      (e.kind === "one_off" && e.event_date === iso) ||
+      (e.kind === "weekly" && e.weekday === wk)
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-display text-xl font-bold">
+          {cursor.toLocaleString(undefined, { month: "long", year: "numeric" })}
+        </h2>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="outline" onClick={() => setCursor(new Date(year, month - 1, 1))}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setCursor(new Date())}>Today</Button>
+          <Button size="sm" variant="outline" onClick={() => setCursor(new Date(year, month + 1, 1))}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-border bg-border text-xs">
+        {WEEKDAYS.map((d) => (
+          <div key={d} className="bg-muted px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{d}</div>
+        ))}
+        {cells.map((date, i) => {
+          if (!date) return <div key={i} className="min-h-[88px] bg-card/40" />;
+          const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+          const dayEvents = eventsFor(date);
+          const isToday = iso === todayIso;
+          return (
+            <div
+              key={i}
+              onClick={() => onAdd(iso)}
+              className="group min-h-[88px] cursor-pointer bg-card p-1.5 transition hover:bg-muted/50"
+            >
+              <div className={`mb-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
+                {date.getDate()}
+              </div>
+              <div className="space-y-0.5">
+                {dayEvents.slice(0, 3).map((e) => (
+                  <button
+                    key={e.id}
+                    onClick={(ev) => { ev.stopPropagation(); onEdit(e); }}
+                    className={`block w-full truncate rounded px-1.5 py-0.5 text-left text-[10px] font-medium ${e.kind === "weekly" ? "bg-secondary/15 text-secondary" : "bg-primary/15 text-primary"}`}
+                  >
+                    {e.start_time ? `${e.start_time} ` : ""}{e.title}
+                  </button>
+                ))}
+                {dayEvents.length > 3 && (
+                  <p className="px-1.5 text-[10px] text-muted-foreground">+{dayEvents.length - 3} more</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">Tip: click an empty day to add an event. Weekly recurring events show on every matching weekday.</p>
     </div>
   );
 }

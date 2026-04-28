@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, DollarSign, Mail, MessageSquare, Phone, Search, Trash2, Users } from "lucide-react";
+import { Calendar, DollarSign, LayoutGrid, List, Mail, MessageSquare, Phone, Search, Trash2, Users } from "lucide-react";
 
 export type Lead = {
   id: string;
@@ -41,6 +41,7 @@ const STAGES: { v: Lead["stage"]; label: string; color: string }[] = [
 const stageMeta = (s: string) => STAGES.find((x) => x.v === s) ?? STAGES[0];
 
 type SortKey = "newest" | "event_date" | "value";
+type ViewMode = "table" | "kanban";
 
 export default function OwnerLeads() {
   const { business, loading } = useOwnerBusiness();
@@ -49,6 +50,8 @@ export default function OwnerLeads() {
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<SortKey>("newest");
   const [open, setOpen] = useState<Lead | null>(null);
+  const [view, setView] = useState<ViewMode>("kanban");
+  const { toast } = useToast();
 
   async function reload() {
     if (!business) return;
@@ -76,11 +79,37 @@ export default function OwnerLeads() {
   if (loading) return <div className="text-muted-foreground">Loading…</div>;
   if (!business) return <Onboarding />;
 
+  async function moveStage(leadId: string, newStage: Lead["stage"]) {
+    const prev = leads;
+    setLeads((p) => p.map((l) => l.id === leadId ? { ...l, stage: newStage } : l));
+    const { error } = await supabase.from("leads").update({ stage: newStage }).eq("id", leadId);
+    if (error) {
+      setLeads(prev);
+      toast({ title: "Failed to move", description: error.message, variant: "destructive" });
+    }
+  }
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="font-display text-3xl font-bold">Leads</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Catering inquiries from your TruckHub page.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl font-bold">Leads</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Catering inquiries from your TruckHub page.</p>
+        </div>
+        <div className="inline-flex rounded-full border border-border bg-card p-1">
+          <button
+            onClick={() => setView("kanban")}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${view === "kanban" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> Pipeline
+          </button>
+          <button
+            onClick={() => setView("table")}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${view === "table" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <List className="h-3.5 w-3.5" /> List
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-3">
@@ -99,10 +128,12 @@ export default function OwnerLeads() {
         </select>
       </div>
 
-      {filtered.length === 0 ? (
+      {filtered.length === 0 && view === "table" ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-muted-foreground">
           {leads.length === 0 ? "No inquiries yet. They'll show up here as soon as customers reach out." : "No leads match your filters."}
         </div>
+      ) : view === "kanban" ? (
+        <KanbanBoard leads={filtered} onOpen={setOpen} onMove={moveStage} />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           <table className="w-full text-sm">
@@ -280,6 +311,61 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: Lead | 
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function KanbanBoard({ leads, onOpen, onMove }: { leads: Lead[]; onOpen: (l: Lead) => void; onMove: (id: string, stage: Lead["stage"]) => void }) {
+  const [dragId, setDragId] = useState<string | null>(null);
+  const cols = STAGES.filter((s) => s.v !== "completed" && s.v !== "lost");
+  const extras = STAGES.filter((s) => s.v === "completed" || s.v === "lost");
+  const allCols = [...cols, ...extras];
+
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-2">
+      {allCols.map((col) => {
+        const items = leads.filter((l) => l.stage === col.v);
+        const value = items.reduce((s, l) => s + (Number(l.estimated_value) || 0), 0);
+        return (
+          <div
+            key={col.v}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => { if (dragId) { onMove(dragId, col.v); setDragId(null); } }}
+            className="flex w-72 shrink-0 flex-col rounded-2xl border border-border bg-muted/30 p-3"
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${col.color}`}>{col.label}</span>
+                <span className="text-xs font-semibold text-muted-foreground">{items.length}</span>
+              </div>
+              {value > 0 && <span className="text-[11px] font-semibold text-muted-foreground">${value.toLocaleString()}</span>}
+            </div>
+            <div className="space-y-2">
+              {items.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-border p-3 text-center text-[11px] text-muted-foreground">Drop leads here</p>
+              ) : (
+                items.map((l) => (
+                  <div
+                    key={l.id}
+                    draggable
+                    onDragStart={() => setDragId(l.id)}
+                    onDragEnd={() => setDragId(null)}
+                    onClick={() => onOpen(l)}
+                    className="cursor-pointer rounded-xl border border-border bg-card p-3 shadow-sm transition hover:shadow-md"
+                  >
+                    <p className="truncate font-display text-sm font-semibold">{l.contact_name}</p>
+                    {l.event_type && <p className="mt-0.5 truncate text-xs text-muted-foreground">{l.event_type}</p>}
+                    <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>{l.event_date ?? "Date TBD"}</span>
+                      {l.estimated_value != null && <span className="font-semibold text-foreground">${Number(l.estimated_value).toLocaleString()}</span>}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
