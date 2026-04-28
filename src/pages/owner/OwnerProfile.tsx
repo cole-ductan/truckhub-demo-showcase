@@ -44,7 +44,7 @@ export default function OwnerProfile() {
     if (!business) return;
     supabase.from("business_photos").select("*").eq("business_id", business.id).order("sort_order")
       .then(({ data }) => setPhotos((data ?? []) as Photo[]));
-    (supabase.from("saved_locations" as any) as any)
+    supabase.from("saved_locations")
       .select("*").eq("business_id", business.id).order("sort_order")
       .then(({ data }: any) => setSavedLocs((data ?? []) as SavedLocation[]));
   }, [business]);
@@ -395,13 +395,13 @@ function EditorSheet({
       is_recurring: newLoc.is_recurring,
       sort_order: next,
     };
-    const { data, error } = await (supabase.from("saved_locations" as any) as any).insert(payload).select().maybeSingle();
+    const { data, error } = await supabase.from("saved_locations").insert(payload).select().maybeSingle();
     if (error) return toast({ title: "Could not save location", description: error.message, variant: "destructive" });
     setSavedLocs((s) => [...s, data as SavedLocation]);
     setNewLoc({ label: "", address: "", weekday: "", start_time: "", end_time: "", is_recurring: false });
   }
   async function removeSavedLoc(id: string) {
-    const { error } = await (supabase.from("saved_locations" as any) as any).delete().eq("id", id);
+    const { error } = await supabase.from("saved_locations").delete().eq("id", id);
     if (error) return toast({ title: "Could not remove", description: error.message, variant: "destructive" });
     setSavedLocs((s) => s.filter((x) => x.id !== id));
   }
