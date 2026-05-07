@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Bell, CreditCard, Mail, Phone, Save, User } from "lucide-react";
+import { Bell, CreditCard, LogOut, Mail, Phone, Save, ShieldAlert, User } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 type Prefs = {
   email_notifications_enabled: boolean;
@@ -30,7 +31,7 @@ const DEFAULTS: Prefs = {
 export default function OwnerSettings() {
   const { business, loading } = useOwnerBusiness();
   const { profile, update: updateProfile } = useOwnerProfile();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { toast } = useToast();
 
   const [displayName, setDisplayName] = useState("");
@@ -67,14 +68,30 @@ export default function OwnerSettings() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <span className="badge-ember">Account</span>
-        <h1 className="mt-3 font-display text-3xl font-bold">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Manage your owner profile, notifications, and team access.</p>
+    <div className="grid gap-6 lg:grid-cols-[200px_1fr]">
+      <div className="space-y-6">
+        <div>
+          <span className="badge-ember">Account</span>
+          <h1 className="mt-3 font-display text-3xl font-bold">Settings</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Profile, notifications, payments & team.</p>
+        </div>
+        <nav className="sticky top-20 hidden flex-col gap-1 text-sm lg:flex">
+          {[
+            { href: "#profile", label: "Owner profile", icon: User },
+            { href: "#notifications", label: "Notifications", icon: Bell },
+            { href: "#payments", label: "Payments", icon: CreditCard },
+            { href: "#team", label: "Team", icon: User },
+            { href: "#account", label: "Account", icon: ShieldAlert },
+          ].map((s) => (
+            <a key={s.href} href={s.href} className="flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition hover:bg-muted hover:text-foreground">
+              <s.icon className="h-3.5 w-3.5" /> {s.label}
+            </a>
+          ))}
+        </nav>
       </div>
 
-      <Section icon={User} title="Owner profile" desc="Shown in the sidebar and on your team.">
+      <div className="space-y-6">
+      <Section id="profile" icon={User} title="Owner profile" desc="Shown in the sidebar and on your team.">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label>Display name</Label>
@@ -91,7 +108,7 @@ export default function OwnerSettings() {
         </div>
       </Section>
 
-      <Section icon={Bell} title="Notifications" desc="Email & SMS sending isn't connected yet — these toggles save your preferences for when it ships.">
+      <Section id="notifications" icon={Bell} title="Notifications" desc="Email & SMS sending isn't connected yet — these toggles save your preferences for when it ships.">
         <ToggleRow icon={Mail} label="Email me when a new lead comes in"
           checked={prefs.new_lead_notifications_enabled}
           onChange={(v) => setPrefs((p) => ({ ...p, new_lead_notifications_enabled: v }))} />
@@ -106,7 +123,7 @@ export default function OwnerSettings() {
           onChange={(v) => setPrefs((p) => ({ ...p, sms_notifications_enabled: v }))} />
       </Section>
 
-      <Section icon={CreditCard} title="Payments & deposits" desc="Stripe isn't connected yet. Set your default deposit percentage so it's ready when payments go live.">
+      <Section id="payments" icon={CreditCard} title="Payments & deposits" desc="Stripe isn't connected yet. Set your default deposit percentage so it's ready when payments go live.">
         <div className="max-w-xs">
           <Label>Default deposit percentage</Label>
           <div className="mt-1.5 flex items-center gap-2">
@@ -118,9 +135,28 @@ export default function OwnerSettings() {
         </div>
       </Section>
 
-      <Section icon={User} title="Team" desc="Invites coming soon.">
+      <Section id="team" icon={User} title="Team" desc="Invites coming soon.">
         <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
           You're the only member of this workspace right now. Team invites will land in a future update.
+        </div>
+      </Section>
+
+      <Section id="account" icon={ShieldAlert} title="Account" desc="Sign out or manage account access.">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4">
+          <div className="text-sm">
+            <p className="font-semibold">Signed in as {user?.email}</p>
+            <p className="text-xs text-muted-foreground">Ending your session will return you to the home page.</p>
+          </div>
+          <Button variant="outline" onClick={signOut} className="rounded-full">
+            <LogOut className="mr-1.5 h-3.5 w-3.5" /> Sign out
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+          <div className="text-sm">
+            <p className="font-semibold text-destructive">Delete account</p>
+            <p className="text-xs text-muted-foreground">Permanent account deletion isn't self-serve yet — email support to remove your workspace.</p>
+          </div>
+          <Button variant="ghost" disabled className="rounded-full text-destructive">Request deletion</Button>
         </div>
       </Section>
 
@@ -129,13 +165,14 @@ export default function OwnerSettings() {
           <Save className="mr-1.5 h-3.5 w-3.5" /> {saving ? "Saving…" : "Save changes"}
         </Button>
       </div>
+      </div>
     </div>
   );
 }
 
-function Section({ icon: Icon, title, desc, children }: { icon: any; title: string; desc: string; children: React.ReactNode }) {
+function Section({ id, icon: Icon, title, desc, children }: { id?: string; icon: any; title: string; desc: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+    <section id={id} className="scroll-mt-20 rounded-2xl border border-border bg-card p-5 shadow-soft">
       <div className="mb-4 flex items-start gap-3">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted text-foreground/70"><Icon className="h-4 w-4" /></span>
         <div>
