@@ -10,9 +10,14 @@ import FoodTrucks from "./pages/FoodTrucks.tsx";
 import TruckProfile from "./pages/TruckProfile.tsx";
 import Book from "./pages/Book.tsx";
 import Auth from "./pages/Auth.tsx";
-import OwnerLayout from "./pages/owner/OwnerLayout.tsx";
 import OwnerHome from "./pages/owner/OwnerHome.tsx";
-import AdminHome from "./pages/admin/AdminHome.tsx";
+import OwnerLayout from "./pages/owner/OwnerLayout.tsx";
+import AdminLayout from "./pages/admin/AdminLayout.tsx";
+import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
+import AdminBusinesses from "./pages/admin/AdminBusinesses.tsx";
+import AdminUsers from "./pages/admin/AdminUsers.tsx";
+import AdminCategories from "./pages/admin/AdminCategories.tsx";
+import AdminLeads from "./pages/admin/AdminLeads.tsx";
 import OwnerProfile from "./pages/owner/OwnerProfile.tsx";
 import OwnerMenu from "./pages/owner/OwnerMenu.tsx";
 import OwnerCalendar from "./pages/owner/OwnerCalendar.tsx";
@@ -50,7 +55,13 @@ const App = () => (
               <Route path="settings" element={<OwnerSettings />} />
             </Route>
 
-            <Route path="/admin" element={<AdminHome />} />
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="businesses" element={<AdminBusinesses />} />
+              <Route path="leads" element={<AdminLeads />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="categories" element={<AdminCategories />} />
+            </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

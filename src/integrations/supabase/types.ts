@@ -70,6 +70,7 @@ export type Database = {
           created_at: string
           emoji: string | null
           id: string
+          is_active: boolean
           name: string
           slug: string
           sort_order: number
@@ -78,6 +79,7 @@ export type Database = {
           created_at?: string
           emoji?: string | null
           id?: string
+          is_active?: boolean
           name: string
           slug: string
           sort_order?: number
@@ -86,6 +88,7 @@ export type Database = {
           created_at?: string
           emoji?: string | null
           id?: string
+          is_active?: boolean
           name?: string
           slug?: string
           sort_order?: number
@@ -332,6 +335,8 @@ export type Database = {
           guest_count: string | null
           id: string
           internal_notes: string | null
+          is_archived: boolean
+          is_spam: boolean
           message: string | null
           source: string | null
           stage: Database["public"]["Enums"]["lead_stage"]
@@ -349,6 +354,8 @@ export type Database = {
           guest_count?: string | null
           id?: string
           internal_notes?: string | null
+          is_archived?: boolean
+          is_spam?: boolean
           message?: string | null
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
@@ -366,6 +373,8 @@ export type Database = {
           guest_count?: string | null
           id?: string
           internal_notes?: string | null
+          is_archived?: boolean
+          is_spam?: boolean
           message?: string | null
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
