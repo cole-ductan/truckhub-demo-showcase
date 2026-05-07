@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { DemoBanner } from "@/components/site/DemoBanner";
 import { resolveImage } from "@/lib/assets";
 import { ArrowUpRight, Clock, MapPin, Search } from "lucide-react";
+import { useSEO } from "@/hooks/useSEO";
 
 type Biz = {
   id: string;
@@ -19,7 +20,10 @@ type Biz = {
   today_hours: string | null;
   status: "open" | "soon" | "closed";
   is_featured: boolean;
+  category_id: string | null;
 };
+
+type Category = { id: string; name: string; slug: string; emoji: string | null };
 
 const StatusDot = ({ status }: { status: Biz["status"] }) => {
   const map = {
@@ -40,21 +44,38 @@ const StatusDot = ({ status }: { status: Biz["status"] }) => {
 
 export default function FoodTrucks() {
   const [list, setList] = useState<Biz[] | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [q, setQ] = useState("");
+  const [categoryId, setCategoryId] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "open" | "soon" | "closed">("all");
+
+  useSEO({
+    title: "Food Trucks in Green Bay — TruckHub Directory",
+    description: "Browse every food truck in Green Bay. See today's locations, hours, cuisines, and order or book catering — all in one place.",
+  });
 
   useEffect(() => {
     supabase
       .from("businesses")
-      .select("id,slug,name,tagline,cuisine,emoji,hero_image_url,today_location,today_hours,status,is_featured")
+      .select("id,slug,name,tagline,cuisine,emoji,hero_image_url,today_location,today_hours,status,is_featured,category_id")
       .eq("is_published", true)
       .order("is_featured", { ascending: false })
       .order("name", { ascending: true })
       .then(({ data }) => setList((data ?? []) as Biz[]));
+    supabase
+      .from("business_categories")
+      .select("id,name,slug,emoji")
+      .eq("is_active", true)
+      .order("sort_order")
+      .then(({ data }) => setCategories((data ?? []) as Category[]));
   }, []);
 
-  const filtered = (list ?? []).filter((t) =>
-    !q ? true : (t.name + " " + (t.cuisine ?? "")).toLowerCase().includes(q.toLowerCase()),
-  );
+  const filtered = (list ?? []).filter((t) => {
+    if (q && !(t.name + " " + (t.cuisine ?? "")).toLowerCase().includes(q.toLowerCase())) return false;
+    if (categoryId !== "all" && t.category_id !== categoryId) return false;
+    if (statusFilter !== "all" && t.status !== statusFilter) return false;
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -80,6 +101,51 @@ export default function FoodTrucks() {
               className="h-9 w-full bg-transparent text-sm outline-none"
             />
           </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            {(["all", "open", "soon", "closed"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${
+                  statusFilter === s
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-foreground/70 hover:border-foreground/30"
+                }`}
+              >
+                {s === "all" ? "All status" : s === "open" ? "Open now" : s === "soon" ? "Opening soon" : "Closed"}
+              </button>
+            ))}
+          </div>
+
+          {categories.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                onClick={() => setCategoryId("all")}
+                className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+                  categoryId === "all"
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-foreground/70 hover:border-foreground/30"
+                }`}
+              >
+                All cuisines
+              </button>
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setCategoryId(c.id)}
+                  className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+                    categoryId === c.id
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-foreground/70 hover:border-foreground/30"
+                  }`}
+                >
+                  {c.emoji && <span className="mr-1">{c.emoji}</span>}
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
