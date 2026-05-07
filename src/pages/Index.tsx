@@ -7,6 +7,7 @@ import { DemoBanner } from "@/components/site/DemoBanner";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveImage } from "@/lib/assets";
 import heroTruck from "@/assets/hero-truck.jpg";
+import { useSEO } from "@/hooks/useSEO";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -89,6 +90,11 @@ const StatusDot = ({ status }: { status: "open" | "soon" | "closed" }) => {
 const Index = () => {
   const [trucks, setTrucks] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
+
+  useSEO({
+    title: "TruckHub Green Bay — One Clean Online Home for Your Food Truck",
+    description: "The home for Green Bay's food trucks. Discover today's locations, upcoming events, and book your favorite truck — all in one place.",
+  });
 
   useEffect(() => {
     supabase
