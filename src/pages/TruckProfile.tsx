@@ -7,6 +7,7 @@ import { DemoBanner } from "@/components/site/DemoBanner";
 import { Button } from "@/components/ui/button";
 import { resolveImage } from "@/lib/assets";
 import { ArrowLeft, Briefcase, Calendar, Clock, Facebook, Flame, Globe, Instagram, Mail, MapPin, MessageSquare, Phone, ShoppingBag } from "lucide-react";
+import { useSEO } from "@/hooks/useSEO";
 
 type Biz = {
   id: string; slug: string; name: string; tagline: string | null; description: string | null;
@@ -94,8 +95,34 @@ export default function TruckProfile() {
       ? { label: "Opening soon", dot: "bg-amber-400" }
       : { label: "Closed", dot: "bg-muted-foreground" };
 
+  const seoTitle = `${biz.name} — Food Truck in Green Bay, WI`;
+  const seoDesc =
+    biz.description?.slice(0, 155) ||
+    biz.tagline ||
+    `${biz.name}: ${biz.cuisine ?? "food truck"} in Green Bay. Menu, today's location, and catering.`;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FoodEstablishment",
+    name: biz.name,
+    description: biz.description || biz.tagline || undefined,
+    image: heroImg,
+    servesCuisine: biz.cuisine || undefined,
+    telephone: biz.phone || undefined,
+    email: biz.email || undefined,
+    url: typeof window !== "undefined" ? window.location.href : undefined,
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Green Bay",
+      addressRegion: "WI",
+      addressCountry: "US",
+    },
+    sameAs: [biz.website, biz.instagram, biz.facebook].filter(Boolean),
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      {/* SEO */}
+      <SEOTag title={seoTitle} description={seoDesc} image={heroImg} jsonLd={jsonLd} />
       <DemoBanner />
       <SiteHeader />
 
