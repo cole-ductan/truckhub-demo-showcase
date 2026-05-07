@@ -53,7 +53,7 @@ export default function AdminLeads() {
     });
   }, [rows, q, biz, view, bizMap]);
 
-  const update = async (id: string, patch: Partial<Lead>) => {
+  const update = async (id: string, patch: { is_spam?: boolean; is_archived?: boolean }) => {
     const { error } = await supabase.from("leads").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Updated");
