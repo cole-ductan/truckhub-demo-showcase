@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Bell, CreditCard, LogOut, Mail, Phone, Save, ShieldAlert, User } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
 
 type Prefs = {
   email_notifications_enabled: boolean;
