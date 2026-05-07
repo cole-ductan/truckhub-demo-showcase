@@ -119,10 +119,10 @@ export default function TruckProfile() {
     sameAs: [biz.website, biz.instagram, biz.facebook].filter(Boolean),
   };
 
+  useSEO({ title: seoTitle, description: seoDesc, image: heroImg, jsonLd });
+
   return (
     <div className="min-h-screen bg-background">
-      {/* SEO */}
-      <SEOTag title={seoTitle} description={seoDesc} image={heroImg} jsonLd={jsonLd} />
       <DemoBanner />
       <SiteHeader />
 
