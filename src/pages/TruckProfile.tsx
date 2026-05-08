@@ -60,6 +60,31 @@ export default function TruckProfile() {
     })();
   }, [slug]);
 
+  const bizLoaded = biz && biz !== "missing" ? biz : null;
+  const seoTitle = bizLoaded
+    ? `${bizLoaded.name} — Food Truck in Green Bay, WI`
+    : "Food Truck — TruckHub Green Bay";
+  const seoDesc = bizLoaded
+    ? (bizLoaded.description?.slice(0, 155) || bizLoaded.tagline || `${bizLoaded.name}: ${bizLoaded.cuisine ?? "food truck"} in Green Bay.`)
+    : "Discover food trucks in Green Bay, WI.";
+  const seoImage = bizLoaded ? resolveImage(bizLoaded.hero_image_url) : undefined;
+  const seoJsonLd = bizLoaded
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FoodEstablishment",
+        name: bizLoaded.name,
+        description: bizLoaded.description || bizLoaded.tagline || undefined,
+        image: resolveImage(bizLoaded.hero_image_url),
+        servesCuisine: bizLoaded.cuisine || undefined,
+        telephone: bizLoaded.phone || undefined,
+        email: bizLoaded.email || undefined,
+        url: typeof window !== "undefined" ? window.location.href : undefined,
+        address: { "@type": "PostalAddress", addressLocality: "Green Bay", addressRegion: "WI", addressCountry: "US" },
+        sameAs: [bizLoaded.website, bizLoaded.instagram, bizLoaded.facebook].filter(Boolean),
+      }
+    : undefined;
+  useSEO({ title: seoTitle, description: seoDesc, image: seoImage, jsonLd: seoJsonLd });
+
   if (biz === null) return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
   if (biz === "missing")
     return (
@@ -94,32 +119,6 @@ export default function TruckProfile() {
       : biz.status === "soon"
       ? { label: "Opening soon", dot: "bg-amber-400" }
       : { label: "Closed", dot: "bg-muted-foreground" };
-
-  const seoTitle = `${biz.name} — Food Truck in Green Bay, WI`;
-  const seoDesc =
-    biz.description?.slice(0, 155) ||
-    biz.tagline ||
-    `${biz.name}: ${biz.cuisine ?? "food truck"} in Green Bay. Menu, today's location, and catering.`;
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "FoodEstablishment",
-    name: biz.name,
-    description: biz.description || biz.tagline || undefined,
-    image: heroImg,
-    servesCuisine: biz.cuisine || undefined,
-    telephone: biz.phone || undefined,
-    email: biz.email || undefined,
-    url: typeof window !== "undefined" ? window.location.href : undefined,
-    address: {
-      "@type": "PostalAddress",
-      addressLocality: "Green Bay",
-      addressRegion: "WI",
-      addressCountry: "US",
-    },
-    sameAs: [biz.website, biz.instagram, biz.facebook].filter(Boolean),
-  };
-
-  useSEO({ title: seoTitle, description: seoDesc, image: heroImg, jsonLd });
 
   return (
     <div className="min-h-screen bg-background">
