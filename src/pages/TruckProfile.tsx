@@ -60,6 +60,15 @@ export default function TruckProfile() {
     })();
   }, [slug]);
 
+  const heroImgEarly = biz && biz !== "missing" ? resolveImage(biz.hero_image_url) : undefined;
+  const seoTitleEarly = biz && biz !== "missing"
+    ? `${biz.name} — Food Truck in Green Bay, WI`
+    : "Food Truck — TruckHub Green Bay";
+  const seoDescEarly = biz && biz !== "missing"
+    ? (biz.description?.slice(0, 155) || biz.tagline || `${biz.name}: ${biz.cuisine ?? "food truck"} in Green Bay.`)
+    : "Discover food trucks in Green Bay, WI.";
+  useSEO({ title: seoTitleEarly, description: seoDescEarly, image: heroImgEarly });
+
   if (biz === null) return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
   if (biz === "missing")
     return (
@@ -95,11 +104,6 @@ export default function TruckProfile() {
       ? { label: "Opening soon", dot: "bg-amber-400" }
       : { label: "Closed", dot: "bg-muted-foreground" };
 
-  const seoTitle = `${biz.name} — Food Truck in Green Bay, WI`;
-  const seoDesc =
-    biz.description?.slice(0, 155) ||
-    biz.tagline ||
-    `${biz.name}: ${biz.cuisine ?? "food truck"} in Green Bay. Menu, today's location, and catering.`;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "FoodEstablishment",
@@ -118,8 +122,6 @@ export default function TruckProfile() {
     },
     sameAs: [biz.website, biz.instagram, biz.facebook].filter(Boolean),
   };
-
-  useSEO({ title: seoTitle, description: seoDesc, image: heroImg, jsonLd });
 
   return (
     <div className="min-h-screen bg-background">
