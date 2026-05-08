@@ -7,7 +7,8 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { DemoBanner } from "@/components/site/DemoBanner";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check, Lock, MessageSquare, ShieldCheck, Sparkles } from "lucide-react";
+import { useSEO } from "@/hooks/useSEO";
 
 const schema = z.object({
   contact_name: z.string().trim().min(1).max(120),
@@ -19,7 +20,7 @@ const schema = z.object({
   message: z.string().trim().max(2000).optional().or(z.literal("")),
 });
 
-type Biz = { id: string; name: string; emoji: string | null };
+type Biz = { id: string; name: string; emoji: string | null; cuisine: string | null; today_location: string | null; phone: string | null; email: string | null };
 
 export default function Book() {
   const { truckSlug } = useParams<{ truckSlug: string }>();
@@ -29,11 +30,19 @@ export default function Book() {
   const { toast } = useToast();
   const nav = useNavigate();
 
+  const bizName = biz && biz !== "missing" ? biz.name : null;
+  useSEO({
+    title: bizName ? `Book ${bizName} for catering — TruckHub` : "Book a Food Truck — TruckHub",
+    description: bizName
+      ? `Send a catering inquiry to ${bizName}. Free, no account needed. Replies usually within 24 hours.`
+      : "Send a catering inquiry to a Green Bay food truck. Free and account-free.",
+  });
+
   useEffect(() => {
     if (!truckSlug) return;
     supabase
       .from("businesses")
-      .select("id,name,emoji")
+      .select("id,name,emoji,cuisine,today_location,phone,email")
       .eq("slug", truckSlug)
       .eq("is_published", true)
       .maybeSingle()
@@ -107,56 +116,89 @@ export default function Book() {
       </div>
 
       <main className="container-tight py-16 md:py-24">
-        <div className="mx-auto max-w-2xl">
+        <div className="mx-auto max-w-3xl">
           {done ? (
             <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-card">
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-500/15 text-emerald-600">
                 <Check className="h-7 w-7" />
               </div>
-              <h1 className="mt-6 font-display text-3xl font-bold">Inquiry sent!</h1>
-              <p className="mt-3 text-muted-foreground">
-                {biz.name} will get back to you within 24 hours. Check your inbox for updates.
+              <h1 className="mt-6 font-display text-3xl font-bold">Inquiry sent to {biz.name} 🎉</h1>
+              <p className="mx-auto mt-3 max-w-md text-muted-foreground">
+                Most trucks reply within 24 hours. We've also sent a copy to your inbox so the thread stays in one place.
               </p>
-              <div className="mt-8 flex justify-center gap-3">
+              <div className="mx-auto mt-6 grid max-w-sm gap-2 text-left text-sm">
+                <div className="flex items-start gap-2 rounded-lg border border-border p-3">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 text-emerald-600" />
+                  <span className="text-muted-foreground">Your details are private — only {biz.name} can see this lead.</span>
+                </div>
+              </div>
+              <div className="mt-8 flex flex-wrap justify-center gap-3">
                 <Button asChild variant="outline" className="rounded-full">
-                  <Link to="/food-trucks">Browse more trucks</Link>
+                  <Link to={`/food-trucks/${truckSlug}`}><ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Back to {biz.name}</Link>
                 </Button>
                 <Button asChild className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90">
-                  <Link to="/">Back to home</Link>
+                  <Link to="/food-trucks">Browse more trucks</Link>
                 </Button>
               </div>
             </div>
           ) : (
-            <>
-              <span className="badge-ember">Catering & Private Events</span>
-              <h1 className="mt-4 font-display text-4xl font-bold leading-tight md:text-5xl">
-                Book {biz.emoji} {biz.name}.
-              </h1>
-              <p className="mt-3 text-muted-foreground">
-                Tell them about your event. Replies usually come within a day.
-              </p>
-
-              <form onSubmit={onSubmit} className="mt-10 rounded-2xl border border-border bg-card p-6 shadow-card md:p-8">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Your name *" name="contact_name" required />
-                  <Field label="Email *" name="contact_email" type="email" required />
-                  <Field label="Phone" name="contact_phone" />
-                  <Field label="Event date" name="event_date" placeholder="e.g. June 14, 2026" />
-                  <Select label="Event type" name="event_type" options={["Wedding", "Corporate lunch", "Birthday / Backyard", "Graduation", "Other"]} colSpan />
-                  <Field label="# of guests" name="guest_count" placeholder="e.g. 80" colSpan />
-                  <div className="sm:col-span-2">
-                    <label className="text-sm font-medium">Tell us about your event</label>
-                    <textarea name="message" rows={4} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary" />
-                  </div>
-                </div>
-                <Button disabled={busy} className="mt-6 h-11 w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90">
-                  {busy ? "Sending…" : "Send inquiry"}
-                </Button>
-                <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                  Goes directly to {biz.name}'s inbox on TruckHub.
+            <div className="grid gap-8 md:grid-cols-[1.4fr_1fr] md:items-start">
+              <div>
+                <span className="badge-ember"><Sparkles className="h-3 w-3" /> Catering & Private Events</span>
+                <h1 className="mt-4 font-display text-4xl font-bold leading-tight md:text-5xl">
+                  Book {biz.emoji} {biz.name}.
+                </h1>
+                <p className="mt-3 text-muted-foreground">
+                  Tell them about your event. No account needed — replies usually come within a day.
                 </p>
-              </form>
-            </>
+
+                <form onSubmit={onSubmit} className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card md:p-8">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Your name *" name="contact_name" required autoComplete="name" />
+                    <Field label="Email *" name="contact_email" type="email" required autoComplete="email" />
+                    <Field label="Phone" name="contact_phone" autoComplete="tel" />
+                    <Field label="Event date" name="event_date" placeholder="e.g. June 14, 2026" />
+                    <Select label="Event type" name="event_type" options={["Wedding", "Corporate lunch", "Birthday / Backyard", "Graduation", "Festival / Public event", "Other"]} colSpan />
+                    <Field label="# of guests" name="guest_count" placeholder="e.g. 80" colSpan />
+                    <div className="sm:col-span-2">
+                      <label className="text-sm font-medium">Tell us about your event</label>
+                      <textarea name="message" rows={4} placeholder="Location, vibe, dietary needs, anything special…" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary" />
+                    </div>
+                  </div>
+                  <Button disabled={busy} className="mt-6 h-11 w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90">
+                    {busy ? "Sending…" : `Send inquiry to ${biz.name}`}
+                  </Button>
+                  <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-muted-foreground">
+                    <Lock className="h-3 w-3" /> Goes directly to {biz.name}'s inbox on TruckHub. Never shared.
+                  </p>
+                </form>
+              </div>
+
+              <aside className="space-y-3 md:sticky md:top-28">
+                <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">You're booking</p>
+                  <p className="mt-2 font-display text-xl font-bold">{biz.emoji} {biz.name}</p>
+                  {biz.cuisine && <p className="mt-1 text-sm text-muted-foreground">{biz.cuisine}</p>}
+                  <Link to={`/food-trucks/${truckSlug}`} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                    See full profile, menu & photos →
+                  </Link>
+                </div>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-start gap-2 rounded-xl border border-border bg-card p-3">
+                    <MessageSquare className="mt-0.5 h-4 w-4 text-primary" />
+                    <span>Replies typically within 24 hours</span>
+                  </li>
+                  <li className="flex items-start gap-2 rounded-xl border border-border bg-card p-3">
+                    <Lock className="mt-0.5 h-4 w-4 text-primary" />
+                    <span>No account needed — your contact info stays private</span>
+                  </li>
+                  <li className="flex items-start gap-2 rounded-xl border border-border bg-card p-3">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 text-primary" />
+                    <span>Free to send — only the truck you message sees this</span>
+                  </li>
+                </ul>
+              </aside>
+            </div>
           )}
         </div>
       </main>
@@ -166,7 +208,7 @@ export default function Book() {
   );
 }
 
-function Field({ label, name, type = "text", required, placeholder, colSpan }: { label: string; name: string; type?: string; required?: boolean; placeholder?: string; colSpan?: boolean }) {
+function Field({ label, name, type = "text", required, placeholder, colSpan, autoComplete }: { label: string; name: string; type?: string; required?: boolean; placeholder?: string; colSpan?: boolean; autoComplete?: string }) {
   return (
     <div className={colSpan ? "sm:col-span-2" : undefined}>
       <label className="text-sm font-medium">{label}</label>
@@ -175,6 +217,7 @@ function Field({ label, name, type = "text", required, placeholder, colSpan }: {
         type={type}
         required={required}
         placeholder={placeholder}
+        autoComplete={autoComplete}
         className="mt-1 h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
       />
     </div>

@@ -20,7 +20,7 @@ type Biz = {
   online_ordering_url: string | null; order_button_label: string | null; ordering_enabled: boolean;
 };
 type MenuCat = { id: string; name: string; sort_order: number };
-type MenuItem = { id: string; category_id: string; name: string; description: string | null; price: string | null; sort_order: number };
+type MenuItem = { id: string; category_id: string; name: string; description: string | null; price: string | null; sort_order: number; is_featured: boolean };
 type Event = { id: string; kind: "weekly" | "one_off"; title: string; weekday: string | null; start_time: string | null; end_time: string | null; location: string | null; tag: string | null; event_date: string | null };
 type Photo = { id: string; url: string };
 type SavedLoc = {
@@ -240,6 +240,22 @@ export default function TruckProfile() {
             <h2 className="mt-4 font-display text-4xl font-bold leading-tight md:text-5xl">
               What's <em className="text-primary not-italic">on the truck</em>.
             </h2>
+            {items.some((i) => i.is_featured) && (
+              <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {items.filter((i) => i.is_featured).slice(0, 6).map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent p-5">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                        <Flame className="h-3 w-3" /> Fan favorite
+                      </span>
+                      {item.price && <span className="font-display text-base font-bold">{item.price}</span>}
+                    </div>
+                    <h4 className="mt-3 font-display text-lg font-semibold leading-tight">{item.name}</h4>
+                    {item.description && <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="mt-12 grid gap-10 lg:grid-cols-2">
               {cats.map((c) => (
                 <div key={c.id}>
@@ -248,7 +264,10 @@ export default function TruckProfile() {
                     {items.filter((i) => i.category_id === c.id).map((item) => (
                       <div key={item.id} className="flex items-baseline justify-between gap-4 p-5">
                         <div>
-                          <h4 className="font-display text-lg font-semibold leading-tight">{item.name}</h4>
+                          <h4 className="font-display text-lg font-semibold leading-tight">
+                            {item.name}
+                            {item.is_featured && <Flame className="ml-1.5 inline h-3.5 w-3.5 -translate-y-0.5 text-primary" />}
+                          </h4>
                           {item.description && <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>}
                         </div>
                         {item.price && <span className="font-display text-lg font-bold">{item.price}</span>}
