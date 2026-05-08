@@ -28,16 +28,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
+        setLoading(true);
         // Defer role fetch
         setTimeout(() => {
           supabase
             .from("user_roles")
             .select("role")
             .eq("user_id", s.user!.id)
-            .then(({ data }) => setRoles((data ?? []).map((r) => r.role as Role)));
+            .then(({ data }) => {
+              setRoles((data ?? []).map((r) => r.role as Role));
+              setLoading(false);
+            });
         }, 0);
       } else {
         setRoles([]);
+        setLoading(false);
       }
     });
 
@@ -49,9 +54,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .from("user_roles")
           .select("role")
           .eq("user_id", session.user.id)
-          .then(({ data }) => setRoles((data ?? []).map((r) => r.role as Role)));
+          .then(({ data }) => {
+            setRoles((data ?? []).map((r) => r.role as Role));
+            setLoading(false);
+          });
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => sub.subscription.unsubscribe();
