@@ -7,7 +7,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import {
   Home, LayoutDashboard, LogOut, ShieldCheck, Store, Tag, Users, Inbox,
-  ExternalLink,
+  ExternalLink, Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -17,6 +17,7 @@ const links = [
   { to: "/admin/leads", label: "Leads", icon: Inbox },
   { to: "/admin/users", label: "Users & Roles", icon: Users },
   { to: "/admin/categories", label: "Categories", icon: Tag },
+  { to: "/admin/demo-tools", label: "Demo Tools", icon: Wrench },
 ];
 
 function initials(name?: string | null) {
