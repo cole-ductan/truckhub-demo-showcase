@@ -59,7 +59,7 @@ export default function Book() {
       return;
     }
     setBusy(true);
-    const { error } = await supabase.from("leads").insert({
+    const { data: inserted, error } = await supabase.from("leads").insert({
       business_id: biz.id,
       contact_name: payload.contact_name,
       contact_email: payload.contact_email,
@@ -69,11 +69,15 @@ export default function Book() {
       guest_count: payload.guest_count || null,
       message: payload.message || null,
       source: "public_form",
-    });
+    }).select("id").maybeSingle();
     setBusy(false);
     if (error) {
       toast({ title: "Could not send", description: error.message, variant: "destructive" });
       return;
+    }
+    if (inserted?.id) {
+      // Fire-and-forget; never block the customer on email transport.
+      supabase.functions.invoke("notify-new-lead", { body: { lead_id: inserted.id } }).catch(() => {});
     }
     setDone(true);
   }

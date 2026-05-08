@@ -1,1 +1,7 @@
 project_id = "akhmgnjmhvvmprvnwusp"
+
+[functions.notify-new-lead]
+verify_jwt = false
+
+[functions.notify-owner-reply]
+verify_jwt = false
