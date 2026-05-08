@@ -25,6 +25,7 @@ import OwnerLeads from "./pages/owner/OwnerLeads.tsx";
 import OwnerMessages from "./pages/owner/OwnerMessages.tsx";
 import OwnerBookings from "./pages/owner/OwnerBookings.tsx";
 import OwnerSettings from "./pages/owner/OwnerSettings.tsx";
+import { PaymentSuccess, PaymentCancel } from "./pages/PaymentResult.tsx";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,8 @@ const App = () => (
             <Route path="/food-trucks/:slug" element={<TruckProfile />} />
             <Route path="/book/:truckSlug" element={<Book />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/payment/success" element={<PaymentSuccess />} />
+            <Route path="/payment/cancel" element={<PaymentCancel />} />
             {/* Legacy alias kept for any existing links */}
             <Route path="/smoke-trail-bbq" element={<Navigate to="/food-trucks/smoke-trail-bbq" replace />} />
 
