@@ -219,6 +219,9 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: Lead | 
     if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
     setMessages((p) => [...p, data as Msg]);
     setReply("");
+    if (data?.id) {
+      supabase.functions.invoke("notify-owner-reply", { body: { message_id: data.id } }).catch(() => {});
+    }
     if (lead.stage === "new") {
       const { data: upd } = await supabase.from("leads").update({ stage: "contacted" }).eq("id", lead.id).select().maybeSingle();
       if (upd) onChange(upd as Lead);
