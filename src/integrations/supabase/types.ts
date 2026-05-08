@@ -21,6 +21,7 @@ export type Database = {
           deposit_amount: number | null
           event_date: string | null
           id: string
+          is_demo: boolean
           lead_id: string | null
           notes: string | null
           status: string
@@ -32,6 +33,7 @@ export type Database = {
           deposit_amount?: number | null
           event_date?: string | null
           id?: string
+          is_demo?: boolean
           lead_id?: string | null
           notes?: string | null
           status?: string
@@ -43,6 +45,7 @@ export type Database = {
           deposit_amount?: number | null
           event_date?: string | null
           id?: string
+          is_demo?: boolean
           lead_id?: string | null
           notes?: string | null
           status?: string
@@ -102,6 +105,7 @@ export type Database = {
           end_time: string | null
           event_date: string | null
           id: string
+          is_demo: boolean
           is_public: boolean
           kind: Database["public"]["Enums"]["event_kind"]
           location: string | null
@@ -117,6 +121,7 @@ export type Database = {
           end_time?: string | null
           event_date?: string | null
           id?: string
+          is_demo?: boolean
           is_public?: boolean
           kind?: Database["public"]["Enums"]["event_kind"]
           location?: string | null
@@ -132,6 +137,7 @@ export type Database = {
           end_time?: string | null
           event_date?: string | null
           id?: string
+          is_demo?: boolean
           is_public?: boolean
           kind?: Database["public"]["Enums"]["event_kind"]
           location?: string | null
@@ -157,6 +163,7 @@ export type Database = {
           caption: string | null
           created_at: string
           id: string
+          is_demo: boolean
           sort_order: number
           url: string
         }
@@ -165,6 +172,7 @@ export type Database = {
           caption?: string | null
           created_at?: string
           id?: string
+          is_demo?: boolean
           sort_order?: number
           url: string
         }
@@ -173,6 +181,7 @@ export type Database = {
           caption?: string | null
           created_at?: string
           id?: string
+          is_demo?: boolean
           sort_order?: number
           url?: string
         }
@@ -199,6 +208,7 @@ export type Database = {
           hero_image_url: string | null
           id: string
           instagram: string | null
+          is_demo: boolean
           is_featured: boolean
           is_published: boolean
           logo_url: string | null
@@ -229,6 +239,7 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           instagram?: string | null
+          is_demo?: boolean
           is_featured?: boolean
           is_published?: boolean
           logo_url?: string | null
@@ -259,6 +270,7 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           instagram?: string | null
+          is_demo?: boolean
           is_featured?: boolean
           is_published?: boolean
           logo_url?: string | null
@@ -301,6 +313,7 @@ export type Database = {
           deposit_percentage: number
           due_date: string | null
           id: string
+          is_demo: boolean
           lead_id: string | null
           notes: string | null
           paid_at: string | null
@@ -322,6 +335,7 @@ export type Database = {
           deposit_percentage?: number
           due_date?: string | null
           id?: string
+          is_demo?: boolean
           lead_id?: string | null
           notes?: string | null
           paid_at?: string | null
@@ -343,6 +357,7 @@ export type Database = {
           deposit_percentage?: number
           due_date?: string | null
           id?: string
+          is_demo?: boolean
           lead_id?: string | null
           notes?: string | null
           paid_at?: string | null
@@ -358,6 +373,7 @@ export type Database = {
           body: string
           created_at: string
           id: string
+          is_demo: boolean
           lead_id: string
           sender_role: string
           sender_user_id: string | null
@@ -366,6 +382,7 @@ export type Database = {
           body: string
           created_at?: string
           id?: string
+          is_demo?: boolean
           lead_id: string
           sender_role: string
           sender_user_id?: string | null
@@ -374,6 +391,7 @@ export type Database = {
           body?: string
           created_at?: string
           id?: string
+          is_demo?: boolean
           lead_id?: string
           sender_role?: string
           sender_user_id?: string | null
@@ -402,6 +420,7 @@ export type Database = {
           id: string
           internal_notes: string | null
           is_archived: boolean
+          is_demo: boolean
           is_spam: boolean
           message: string | null
           source: string | null
@@ -421,6 +440,7 @@ export type Database = {
           id?: string
           internal_notes?: string | null
           is_archived?: boolean
+          is_demo?: boolean
           is_spam?: boolean
           message?: string | null
           source?: string | null
@@ -440,6 +460,7 @@ export type Database = {
           id?: string
           internal_notes?: string | null
           is_archived?: boolean
+          is_demo?: boolean
           is_spam?: boolean
           message?: string | null
           source?: string | null
@@ -461,6 +482,7 @@ export type Database = {
           business_id: string
           created_at: string
           id: string
+          is_demo: boolean
           name: string
           sort_order: number
         }
@@ -468,6 +490,7 @@ export type Database = {
           business_id: string
           created_at?: string
           id?: string
+          is_demo?: boolean
           name: string
           sort_order?: number
         }
@@ -475,6 +498,7 @@ export type Database = {
           business_id?: string
           created_at?: string
           id?: string
+          is_demo?: boolean
           name?: string
           sort_order?: number
         }
@@ -497,6 +521,7 @@ export type Database = {
           dietary_tags: string[] | null
           id: string
           is_available: boolean
+          is_demo: boolean
           is_featured: boolean
           name: string
           price: string | null
@@ -510,6 +535,7 @@ export type Database = {
           dietary_tags?: string[] | null
           id?: string
           is_available?: boolean
+          is_demo?: boolean
           is_featured?: boolean
           name: string
           price?: string | null
@@ -523,6 +549,7 @@ export type Database = {
           dietary_tags?: string[] | null
           id?: string
           is_available?: boolean
+          is_demo?: boolean
           is_featured?: boolean
           name?: string
           price?: string | null
@@ -553,6 +580,7 @@ export type Database = {
           email_notifications_enabled: boolean
           external_payment_url: string | null
           id: string
+          is_demo: boolean
           manual_deposit_instructions: string | null
           new_lead_notifications_enabled: boolean
           owner_reply_notifications_enabled: boolean
@@ -568,6 +596,7 @@ export type Database = {
           email_notifications_enabled?: boolean
           external_payment_url?: string | null
           id?: string
+          is_demo?: boolean
           manual_deposit_instructions?: string | null
           new_lead_notifications_enabled?: boolean
           owner_reply_notifications_enabled?: boolean
@@ -583,6 +612,7 @@ export type Database = {
           email_notifications_enabled?: boolean
           external_payment_url?: string | null
           id?: string
+          is_demo?: boolean
           manual_deposit_instructions?: string | null
           new_lead_notifications_enabled?: boolean
           owner_reply_notifications_enabled?: boolean
@@ -630,6 +660,7 @@ export type Database = {
           created_at: string
           end_time: string | null
           id: string
+          is_demo: boolean
           is_recurring: boolean
           label: string
           notes: string | null
@@ -644,6 +675,7 @@ export type Database = {
           created_at?: string
           end_time?: string | null
           id?: string
+          is_demo?: boolean
           is_recurring?: boolean
           label: string
           notes?: string | null
@@ -658,6 +690,7 @@ export type Database = {
           created_at?: string
           end_time?: string | null
           id?: string
+          is_demo?: boolean
           is_recurring?: boolean
           label?: string
           notes?: string | null
@@ -708,6 +741,7 @@ export type Database = {
           hero_image_url: string | null
           id: string
           instagram: string | null
+          is_demo: boolean
           is_featured: boolean
           is_published: boolean
           logo_url: string | null
