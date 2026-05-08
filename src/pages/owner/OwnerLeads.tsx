@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, DollarSign, LayoutGrid, List, Mail, MessageSquare, Phone, Search, Trash2, Users } from "lucide-react";
+import { DepositSection } from "@/components/owner/DepositSection";
 
 export type Lead = {
   id: string;
@@ -286,6 +287,14 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: Lead | 
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">Internal notes</Label>
             <Textarea className="mt-1.5" rows={3} value={draft.internal_notes ?? ""} onChange={(e) => setDraft({ ...draft, internal_notes: e.target.value })} placeholder="Only you can see this." />
           </div>
+
+          <DepositSection
+            businessId={lead.business_id}
+            leadId={lead.id}
+            customerName={lead.contact_name}
+            customerEmail={lead.contact_email}
+            estimatedValue={draft.estimated_value}
+          />
 
           <div className="flex justify-between gap-2">
             <Button variant="ghost" className="text-destructive" onClick={remove}><Trash2 className="mr-1.5 h-4 w-4" /> Delete</Button>
