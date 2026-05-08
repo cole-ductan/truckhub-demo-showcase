@@ -80,7 +80,7 @@ export default function OwnerSettings() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[200px_1fr]">
+    <div data-tour="settings-root" className="grid gap-6 lg:grid-cols-[200px_1fr]">
       <div className="space-y-6">
         <div>
           <span className="badge-ember">Account</span>

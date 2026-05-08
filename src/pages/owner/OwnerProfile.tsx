@@ -77,7 +77,7 @@ export default function OwnerProfile() {
   }
 
   return (
-    <div className="space-y-6">
+    <div data-tour="profile-editor" className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
