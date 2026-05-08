@@ -107,7 +107,7 @@ export default function OwnerCalendar() {
   const showSide = !isMobile && sideOpen;
 
   return (
-    <div className="space-y-6">
+    <div data-tour="calendar-grid" className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold">Calendar</h1>

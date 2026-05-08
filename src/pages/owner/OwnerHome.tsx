@@ -150,7 +150,7 @@ export default function OwnerHome() {
       </div>
 
       {/* 5 stat cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div data-tour="owner-stats" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard icon={Inbox} label="New leads" value={stats.newLeads} sub="Last 7 days" to="/owner/leads" highlight={stats.newLeads > 0} />
         <StatCard icon={Clock} label="Follow-ups due" value={stats.followUps} sub="Need a reply" to="/owner/leads" />
         <StatCard icon={FileText} label="Quotes out" value={stats.quotesOut} sub="Awaiting reply" to="/owner/leads" />

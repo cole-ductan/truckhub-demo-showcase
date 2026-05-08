@@ -26,6 +26,9 @@ import OwnerMessages from "./pages/owner/OwnerMessages.tsx";
 import OwnerBookings from "./pages/owner/OwnerBookings.tsx";
 import OwnerSettings from "./pages/owner/OwnerSettings.tsx";
 import { PaymentSuccess, PaymentCancel } from "./pages/PaymentResult.tsx";
+import { DemoTourProvider } from "@/components/demo/useDemoTour";
+import { GuidedTour } from "@/components/demo/GuidedTour";
+import { DemoLauncher } from "@/components/demo/DemoLauncher";
 
 const queryClient = new QueryClient();
 
@@ -36,7 +39,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
+          <DemoTourProvider>
+            <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/food-trucks" element={<FoodTrucks />} />
             <Route path="/food-trucks/:slug" element={<TruckProfile />} />
@@ -68,7 +72,10 @@ const App = () => (
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-          </Routes>
+            </Routes>
+            <GuidedTour />
+            <DemoLauncher />
+          </DemoTourProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

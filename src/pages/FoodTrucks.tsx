@@ -105,7 +105,7 @@ export default function FoodTrucks() {
             Every truck on TruckHub Green Bay. Updated daily. Tap any truck for menu, location, and catering.
           </p>
 
-          <div className="mt-8 flex max-w-md items-center gap-2 rounded-full border border-border bg-card px-4 py-2 shadow-soft">
+          <div data-tour="directory-filters" className="mt-8 flex max-w-md items-center gap-2 rounded-full border border-border bg-card px-4 py-2 shadow-soft">
             <Search className="h-4 w-4 text-muted-foreground" />
             <input
               value={q}

@@ -134,7 +134,7 @@ export default function OwnerLeads() {
           {leads.length === 0 ? "No inquiries yet. They'll show up here as soon as customers reach out." : "No leads match your filters."}
         </div>
       ) : view === "kanban" ? (
-        <KanbanBoard leads={filtered} onOpen={setOpen} onMove={moveStage} />
+        <div data-tour="leads-pipeline"><KanbanBoard leads={filtered} onOpen={setOpen} onMove={moveStage} /></div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           <table className="w-full text-sm">

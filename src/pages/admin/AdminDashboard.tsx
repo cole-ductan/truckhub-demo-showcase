@@ -58,7 +58,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="space-y-8">
+    <div data-tour="admin-root" className="space-y-8">
       <div>
         <span className="badge-ember">Platform overview</span>
         <h1 className="mt-3 font-display text-3xl font-bold">Admin Dashboard</h1>

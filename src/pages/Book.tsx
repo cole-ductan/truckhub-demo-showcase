@@ -152,7 +152,7 @@ export default function Book() {
                   Tell them about your event. No account needed — replies usually come within a day.
                 </p>
 
-                <form onSubmit={onSubmit} className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card md:p-8">
+                <form data-tour="book-form" onSubmit={onSubmit} className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card md:p-8">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Your name *" name="contact_name" required autoComplete="name" />
                     <Field label="Email *" name="contact_email" type="email" required autoComplete="email" />

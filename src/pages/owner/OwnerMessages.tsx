@@ -49,7 +49,7 @@ export default function OwnerMessages() {
   if (!business) return <Onboarding />;
 
   return (
-    <div className="space-y-5">
+    <div data-tour="messages-list" className="space-y-5">
       <div>
         <h1 className="font-display text-3xl font-bold">Messages</h1>
         <p className="mt-1 text-sm text-muted-foreground">Threaded conversations with each customer who reached out.</p>

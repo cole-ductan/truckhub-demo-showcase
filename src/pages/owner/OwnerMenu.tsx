@@ -133,7 +133,7 @@ export default function OwnerMenu() {
   }
 
   return (
-    <div className="space-y-6">
+    <div data-tour="menu-manager" className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold">Menu</h1>
