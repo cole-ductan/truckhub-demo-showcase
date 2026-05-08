@@ -23,6 +23,8 @@ import {
   Star,
   Search,
   Megaphone,
+  Inbox,
+  LayoutDashboard,
 } from "lucide-react";
 
 const benefits = [
@@ -92,8 +94,8 @@ const Index = () => {
   const [events, setEvents] = useState<any[]>([]);
 
   useSEO({
-    title: "TruckHub Green Bay — One Clean Online Home for Your Food Truck",
-    description: "The home for Green Bay's food trucks. Discover today's locations, upcoming events, and book your favorite truck — all in one place.",
+    title: "TruckHub Green Bay — Find Food Trucks & Book Catering",
+    description: "Discover Green Bay's food trucks: today's locations, menus, upcoming events, and one-tap catering inquiries. Owners — manage leads, bookings, and your page in one hub.",
   });
 
   useEffect(() => {
@@ -139,15 +141,17 @@ const Index = () => {
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Button asChild size="lg" className="h-12 rounded-full bg-primary px-7 text-base text-primary-foreground shadow-ember hover:bg-primary/90">
-                <Link to="/smoke-trail-bbq">
-                  See Sample Truck Page
-                  <ArrowUpRight className="ml-1 h-4 w-4" />
+                <Link to="/food-trucks">
+                  <Search className="mr-1.5 h-4 w-4" /> Find Food Trucks
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="h-12 rounded-full border-foreground/20 bg-background/60 px-7 text-base backdrop-blur hover:bg-background">
-                <a href="#demo">Book a Demo</a>
+                <Link to="/auth">List Your Truck <ArrowUpRight className="ml-1 h-4 w-4" /></Link>
               </Button>
             </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Free to browse · Owners get a free preview before going live
+            </p>
             <div className="mt-10 flex items-center gap-6 text-sm text-muted-foreground">
               <div className="flex items-center gap-1 text-amber-500">
                 {[...Array(5)].map((_, i) => <Star key={i} className="h-4 w-4 fill-current" />)}
