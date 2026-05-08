@@ -7,7 +7,8 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { DemoBanner } from "@/components/site/DemoBanner";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check, Lock, MessageSquare, ShieldCheck, Sparkles } from "lucide-react";
+import { useSEO } from "@/hooks/useSEO";
 
 const schema = z.object({
   contact_name: z.string().trim().min(1).max(120),
@@ -19,7 +20,7 @@ const schema = z.object({
   message: z.string().trim().max(2000).optional().or(z.literal("")),
 });
 
-type Biz = { id: string; name: string; emoji: string | null };
+type Biz = { id: string; name: string; emoji: string | null; cuisine: string | null; today_location: string | null; phone: string | null; email: string | null };
 
 export default function Book() {
   const { truckSlug } = useParams<{ truckSlug: string }>();
@@ -33,7 +34,7 @@ export default function Book() {
     if (!truckSlug) return;
     supabase
       .from("businesses")
-      .select("id,name,emoji")
+      .select("id,name,emoji,cuisine,today_location,phone,email")
       .eq("slug", truckSlug)
       .eq("is_published", true)
       .maybeSingle()
@@ -92,6 +93,13 @@ export default function Book() {
         </div>
       </div>
     );
+
+  // SEO (after biz is loaded)
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useSEO({
+    title: `Book ${biz.name} for catering — TruckHub`,
+    description: `Send a catering inquiry to ${biz.name}${biz.cuisine ? ` (${biz.cuisine})` : ""}. Free, no account needed. Replies usually within 24 hours.`,
+  });
 
   return (
     <div className="min-h-screen bg-background">
