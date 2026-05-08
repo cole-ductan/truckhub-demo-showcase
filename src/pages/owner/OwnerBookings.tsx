@@ -30,6 +30,8 @@ export default function OwnerBookings() {
   const { business, loading } = useOwnerBusiness();
   const [rows, setRows] = useState<Lead[]>([]);
   const [tab, setTab] = useState<"all" | "booked" | "pending" | "quote_sent" | "completed">("all");
+  const [depositsByLead, setDepositsByLead] = useState<Record<string, { status: string; deposit_amount: number }>>({});
+  const [depositsEnabled, setDepositsEnabled] = useState(false);
 
   useEffect(() => {
     if (!business) return;
@@ -39,6 +41,15 @@ export default function OwnerBookings() {
       .in("stage", OPS_STAGES as unknown as ("booked" | "pending" | "quote_sent" | "completed")[])
       .order("event_date", { ascending: true, nullsFirst: false })
       .then(({ data }) => setRows((data ?? []) as Lead[]));
+    supabase.from("owner_preferences").select("stripe_deposits_enabled").eq("business_id", business.id).maybeSingle()
+      .then(({ data }) => setDepositsEnabled(!!(data as any)?.stripe_deposits_enabled));
+    supabase.from("deposit_requests").select("lead_id,status,deposit_amount,created_at").eq("business_id", business.id)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        const map: Record<string, { status: string; deposit_amount: number }> = {};
+        (data ?? []).forEach((d: any) => { if (d.lead_id && !map[d.lead_id]) map[d.lead_id] = { status: d.status, deposit_amount: Number(d.deposit_amount) }; });
+        setDepositsByLead(map);
+      });
   }, [business]);
 
   const stats = useMemo(() => {
@@ -51,6 +62,7 @@ export default function OwnerBookings() {
   }, [rows]);
 
   const filtered = tab === "all" ? rows : rows.filter((r) => r.stage === tab);
+  const showDepositCol = depositsEnabled || Object.keys(depositsByLead).length > 0;
 
   function exportCsv() {
     const header = ["Date", "Customer", "Event", "Guests", "Stage", "Value"];
@@ -109,6 +121,7 @@ export default function OwnerBookings() {
           {filtered.map((r) => {
             const f = fmtDate(r.event_date);
             const m = STAGE_META[r.stage];
+            const dep = depositsByLead[r.id];
             return (
               <li key={r.id} className="flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-soft">
                 <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-muted">
@@ -121,6 +134,15 @@ export default function OwnerBookings() {
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-display text-base font-semibold">{r.event_type ?? "Event"}</p>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${m?.cls}`}>{m?.label}</span>
+                    {showDepositCol && dep && (
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                        dep.status === "paid" ? "bg-emerald-500/15 text-emerald-700" :
+                        dep.status === "checkout_created" || dep.status === "pending" ? "bg-amber-500/15 text-amber-700" :
+                        "bg-muted text-muted-foreground"
+                      }`}>
+                        {dep.status === "paid" ? "Deposit paid" : dep.status === "checkout_created" ? "Deposit pending" : `Deposit ${dep.status}`}
+                      </span>
+                    )}
                   </div>
                   <p className="mt-0.5 text-sm text-muted-foreground">{r.contact_name}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">

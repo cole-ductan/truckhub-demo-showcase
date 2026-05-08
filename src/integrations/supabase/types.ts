@@ -287,6 +287,72 @@ export type Database = {
           },
         ]
       }
+      deposit_requests: {
+        Row: {
+          amount_total: number | null
+          booking_id: string | null
+          business_id: string
+          checkout_url: string | null
+          created_at: string
+          currency: string
+          customer_email: string | null
+          customer_name: string | null
+          deposit_amount: number
+          deposit_percentage: number
+          due_date: string | null
+          id: string
+          lead_id: string | null
+          notes: string | null
+          paid_at: string | null
+          status: string
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_total?: number | null
+          booking_id?: string | null
+          business_id: string
+          checkout_url?: string | null
+          created_at?: string
+          currency?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          deposit_amount: number
+          deposit_percentage?: number
+          due_date?: string | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_total?: number | null
+          booking_id?: string | null
+          business_id?: string
+          checkout_url?: string | null
+          created_at?: string
+          currency?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          deposit_amount?: number
+          deposit_percentage?: number
+          due_date?: string | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       lead_messages: {
         Row: {
           body: string
@@ -485,10 +551,14 @@ export type Database = {
           created_at: string
           deposit_percentage: number
           email_notifications_enabled: boolean
+          external_payment_url: string | null
           id: string
+          manual_deposit_instructions: string | null
           new_lead_notifications_enabled: boolean
           owner_reply_notifications_enabled: boolean
+          payment_mode: string
           sms_notifications_enabled: boolean
+          stripe_deposits_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -496,10 +566,14 @@ export type Database = {
           created_at?: string
           deposit_percentage?: number
           email_notifications_enabled?: boolean
+          external_payment_url?: string | null
           id?: string
+          manual_deposit_instructions?: string | null
           new_lead_notifications_enabled?: boolean
           owner_reply_notifications_enabled?: boolean
+          payment_mode?: string
           sms_notifications_enabled?: boolean
+          stripe_deposits_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -507,10 +581,14 @@ export type Database = {
           created_at?: string
           deposit_percentage?: number
           email_notifications_enabled?: boolean
+          external_payment_url?: string | null
           id?: string
+          manual_deposit_instructions?: string | null
           new_lead_notifications_enabled?: boolean
           owner_reply_notifications_enabled?: boolean
+          payment_mode?: string
           sms_notifications_enabled?: boolean
+          stripe_deposits_enabled?: boolean
           updated_at?: string
         }
         Relationships: []

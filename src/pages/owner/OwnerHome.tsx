@@ -64,19 +64,32 @@ export default function OwnerHome() {
   const { profile } = useOwnerProfile();
   const [leads, setLeads] = useState<LeadLite[]>([]);
   const [events, setEvents] = useState<EventLite[]>([]);
+  const [depositStats, setDepositStats] = useState<{ enabled: boolean; requested: number; paid: number; revenue: number } | null>(null);
 
   useEffect(() => {
     if (!business) return;
     (async () => {
       const today = new Date().toISOString().slice(0, 10);
-      const [l, e] = await Promise.all([
+      const [l, e, prefs, deposits] = await Promise.all([
         supabase.from("leads").select("id,contact_name,event_type,event_date,guest_count,message,stage,estimated_value,created_at,updated_at")
           .eq("business_id", business.id).order("created_at", { ascending: false }),
         supabase.from("business_events").select("id,title,event_date,location,start_time,end_time,is_public")
           .eq("business_id", business.id).gte("event_date", today).order("event_date").limit(6),
+        supabase.from("owner_preferences").select("stripe_deposits_enabled").eq("business_id", business.id).maybeSingle(),
+        supabase.from("deposit_requests").select("status,deposit_amount").eq("business_id", business.id),
       ]);
       setLeads((l.data ?? []) as LeadLite[]);
       setEvents((e.data ?? []) as EventLite[]);
+      const enabled = !!(prefs.data as any)?.stripe_deposits_enabled;
+      const rows = (deposits.data ?? []) as Array<{ status: string; deposit_amount: number }>;
+      if (enabled || rows.length > 0) {
+        setDepositStats({
+          enabled,
+          requested: rows.length,
+          paid: rows.filter((r) => r.status === "paid").length,
+          revenue: rows.filter((r) => r.status === "paid").reduce((s, r) => s + Number(r.deposit_amount || 0), 0),
+        });
+      }
     })();
   }, [business]);
 
@@ -144,6 +157,14 @@ export default function OwnerHome() {
         <StatCard icon={CheckCircle2} label="Booked events" value={stats.bookedThisMonth} sub="This month" to="/owner/bookings" />
         <StatCard icon={DollarSign} label="Revenue booked" value={`$${stats.revenueBooked.toLocaleString()}`} sub="Estimated" to="/owner/bookings" accent />
       </div>
+
+      {depositStats && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <StatCard icon={FileText} label="Deposits requested" value={depositStats.requested} sub="All time" to="/owner/leads" />
+          <StatCard icon={CheckCircle2} label="Deposits paid" value={depositStats.paid} sub="Confirmed" to="/owner/leads" />
+          <StatCard icon={DollarSign} label="Deposit revenue" value={`$${depositStats.revenue.toLocaleString()}`} sub="Collected" to="/owner/leads" accent />
+        </div>
+      )}
 
       {/* Quick actions */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
