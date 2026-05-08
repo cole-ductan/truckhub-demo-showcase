@@ -454,11 +454,11 @@ const Index = () => {
             </p>
             <ul className="mt-7 space-y-3 text-cream/90">
               {[
-                "One link to share — bio, business cards, signage, everything",
-                "Searchable on Google for 'food trucks near me'",
-                "Catering inquiries land in your text messages, not lost in DMs",
+                "Lead pipeline & CRM — track every catering inquiry from new to booked",
+                "Bookings dashboard with revenue, deposits, and event calendar",
+                "Optional Stripe deposits — only when you want them",
+                "One link for bio, business cards, signage — everything",
                 "Customers stop asking 'where are you parked?'",
-                "Looks great to event coordinators and corporate caterers",
               ].map((line) => (
                 <li key={line} className="flex items-start gap-3">
                   <span className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-primary-glow" />
@@ -466,6 +466,14 @@ const Index = () => {
                 </li>
               ))}
             </ul>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Button asChild size="lg" className="h-11 rounded-full bg-primary px-6 text-primary-foreground hover:bg-primary/90">
+                <Link to="/auth"><LayoutDashboard className="mr-1.5 h-4 w-4" /> Owner login</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="h-11 rounded-full border-cream/30 bg-cream/5 px-6 text-cream hover:bg-cream/10">
+                <a href="#demo"><Inbox className="mr-1.5 h-4 w-4" /> See it in action</a>
+              </Button>
+            </div>
           </div>
 
           <div className="relative">
