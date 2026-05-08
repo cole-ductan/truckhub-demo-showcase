@@ -136,7 +136,7 @@ export default function TruckProfile() {
       </div>
 
       {/* HERO */}
-      <section className="relative overflow-hidden bg-ink text-ink-foreground">
+      <section data-tour="truck-hero" className="relative overflow-hidden bg-ink text-ink-foreground">
         <div className="absolute inset-0">
           <img src={heroImg} alt={biz.name} className="h-full w-full object-cover opacity-50" />
           <div className="absolute inset-0 bg-gradient-to-b from-ink/60 via-ink/70 to-ink" />
