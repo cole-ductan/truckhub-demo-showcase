@@ -30,6 +30,14 @@ export default function Book() {
   const { toast } = useToast();
   const nav = useNavigate();
 
+  const bizName = biz && biz !== "missing" ? biz.name : null;
+  useSEO({
+    title: bizName ? `Book ${bizName} for catering — TruckHub` : "Book a Food Truck — TruckHub",
+    description: bizName
+      ? `Send a catering inquiry to ${bizName}. Free, no account needed. Replies usually within 24 hours.`
+      : "Send a catering inquiry to a Green Bay food truck. Free and account-free.",
+  });
+
   useEffect(() => {
     if (!truckSlug) return;
     supabase
@@ -93,13 +101,6 @@ export default function Book() {
         </div>
       </div>
     );
-
-  // SEO (after biz is loaded)
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useSEO({
-    title: `Book ${biz.name} for catering — TruckHub`,
-    description: `Send a catering inquiry to ${biz.name}${biz.cuisine ? ` (${biz.cuisine})` : ""}. Free, no account needed. Replies usually within 24 hours.`,
-  });
 
   return (
     <div className="min-h-screen bg-background">
