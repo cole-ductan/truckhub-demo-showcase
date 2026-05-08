@@ -10,6 +10,7 @@ const crumbs: Record<string, string> = {
   "/admin/leads": "Leads",
   "/admin/users": "Users & Roles",
   "/admin/categories": "Categories",
+  "/admin/demo-tools": "Demo Tools",
 };
 
 function Topbar() {
