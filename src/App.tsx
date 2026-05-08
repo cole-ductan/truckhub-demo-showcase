@@ -18,6 +18,7 @@ import AdminBusinesses from "./pages/admin/AdminBusinesses.tsx";
 import AdminUsers from "./pages/admin/AdminUsers.tsx";
 import AdminCategories from "./pages/admin/AdminCategories.tsx";
 import AdminLeads from "./pages/admin/AdminLeads.tsx";
+import AdminDemoTools from "./pages/admin/AdminDemoTools.tsx";
 import OwnerProfile from "./pages/owner/OwnerProfile.tsx";
 import OwnerMenu from "./pages/owner/OwnerMenu.tsx";
 import OwnerCalendar from "./pages/owner/OwnerCalendar.tsx";
@@ -68,6 +69,7 @@ const App = () => (
               <Route path="leads" element={<AdminLeads />} />
               <Route path="users" element={<AdminUsers />} />
               <Route path="categories" element={<AdminCategories />} />
+              <Route path="demo-tools" element={<AdminDemoTools />} />
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
