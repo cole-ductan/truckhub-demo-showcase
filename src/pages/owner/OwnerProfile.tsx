@@ -468,11 +468,11 @@ function EditorSheet({
             <Field label="Description"><Textarea rows={4} value={form.description ?? ""} onChange={(e) => set("description", e.target.value)} placeholder="Tell customers what you do best." /></Field>
             <FieldRow>
               <Field label="Cuisine"><Input value={form.cuisine ?? ""} onChange={(e) => set("cuisine", e.target.value)} placeholder="BBQ, Tacos, Pizza…" /></Field>
-              <Field label="Category">
+              <Field label="Primary Category" hint="Pick the top-level category. Manage specialties in the Categories tab.">
                 <select value={form.category_id ?? ""} onChange={(e) => set("category_id", e.target.value || null)}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                   <option value="">— None —</option>
-                  {cats.map((c) => <option key={c.id} value={c.id}>{c.emoji ? `${c.emoji} ` : ""}{c.name}</option>)}
+                  {parentCats.map((c) => <option key={c.id} value={c.id}>{c.emoji ? `${c.emoji} ` : ""}{c.name}</option>)}
                 </select>
               </Field>
             </FieldRow>
