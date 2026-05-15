@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { resolveImage } from "@/lib/assets";
 import {
   ExternalLink, Pencil, MapPin, Clock, Phone, Mail, Globe, Instagram, Facebook,
-  ShoppingBag, Eye, EyeOff, Image as ImageIcon, Plus, Save, Trash2, CheckCircle2,
+  ShoppingBag, Eye, EyeOff, Image as ImageIcon, Plus, Save, Trash2, CheckCircle2, X,
 } from "lucide-react";
 
 type Cat = { id: string; name: string; emoji: string | null; parent_id: string | null };
@@ -483,8 +483,6 @@ function EditorSheet({
             </FieldRow>
           </TabsContent>
 
-          <TabsContent value="media" className="space-y-4 pt-4">
-          </TabsContent>
           <TabsContent value="categories" className="space-y-4 pt-4">
             <Field label="Primary Category" hint="The main category your truck appears under in the directory.">
               <select value={form.category_id ?? ""} onChange={(e) => set("category_id", e.target.value || null)}
@@ -548,7 +546,7 @@ function EditorSheet({
               </div>
             </div>
           </TabsContent>
-          <TabsContent value="media-disabled-merge-marker" className="hidden">
+          <TabsContent value="media" className="space-y-4 pt-4">
             <Field label="Logo URL"><Input value={form.logo_url ?? ""} onChange={(e) => set("logo_url", e.target.value)} placeholder="https://… or asset:logo.png" /></Field>
             <Field label="Hero image URL"><Input value={form.hero_image_url ?? ""} onChange={(e) => set("hero_image_url", e.target.value)} placeholder="https://… or asset:hero.jpg" /></Field>
             <div>
