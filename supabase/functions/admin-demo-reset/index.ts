@@ -120,22 +120,28 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!roleRow) return json(403, { error: "Admin only" });
 
-    const { action, confirm } = await req.json().catch(() => ({}));
+    const { action, confirm, business_id } = await req.json().catch(() => ({}));
 
     if (action === "seed_lead") {
-      const { data: biz } = await admin
-        .from("businesses")
-        .select("id")
-        .eq("slug", "smoke-trail-bbq")
-        .maybeSingle();
-      if (!biz) return json(404, { error: "Smoke Trail BBQ not found" });
+      let bizId: string | null = business_id ?? null;
+      let bizName = "the selected business";
+      if (bizId) {
+        const { data: b } = await admin.from("businesses").select("id, name").eq("id", bizId).maybeSingle();
+        if (!b) return json(404, { error: "Business not found" });
+        bizName = b.name;
+      } else {
+        const { data: b } = await admin.from("businesses").select("id, name").eq("slug", "smoke-trail-bbq").maybeSingle();
+        if (!b) return json(404, { error: "Smoke Trail BBQ not found" });
+        bizId = b.id;
+        bizName = b.name;
+      }
       const { error } = await admin.from("leads").insert({
         ...DEMO_LEAD,
-        business_id: biz.id,
+        business_id: bizId,
         is_demo: true,
       });
       if (error) return json(500, { error: error.message });
-      return json(200, { ok: true, message: "Sample lead created for Smoke Trail BBQ." });
+      return json(200, { ok: true, message: `Sample lead created for ${bizName}.` });
     }
 
     if (action !== "reset") return json(400, { error: "Unknown action" });
