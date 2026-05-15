@@ -484,6 +484,71 @@ function EditorSheet({
           </TabsContent>
 
           <TabsContent value="media" className="space-y-4 pt-4">
+          </TabsContent>
+          <TabsContent value="categories" className="space-y-4 pt-4">
+            <Field label="Primary Category" hint="The main category your truck appears under in the directory.">
+              <select value={form.category_id ?? ""} onChange={(e) => set("category_id", e.target.value || null)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <option value="">— None —</option>
+                {parentCats.map((c) => <option key={c.id} value={c.id}>{c.emoji ? `${c.emoji} ` : ""}{c.name}</option>)}
+              </select>
+            </Field>
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Specialties</Label>
+              <p className="mt-1 text-xs text-muted-foreground">Pick all subcategories that describe your truck. Changes save instantly.</p>
+              <Input
+                placeholder="Search specialties…"
+                value={specialtySearch}
+                onChange={(e) => setSpecialtySearch(e.target.value)}
+                className="mt-3"
+              />
+              {specialtyIds.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {specialtyIds.map((id) => {
+                    const c = childCats.find((x) => x.id === id);
+                    if (!c) return null;
+                    return (
+                      <button key={id} onClick={() => toggleSpecialty(id)}
+                        className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+                        {c.emoji && <span>{c.emoji}</span>}{c.name}
+                        <X className="h-3 w-3" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="mt-4 max-h-[400px] space-y-3 overflow-y-auto rounded-lg border border-border p-3">
+                {parentCats.map((p) => {
+                  const kids = childCats.filter((c) => c.parent_id === p.id)
+                    .filter((c) => !specialtySearch || c.name.toLowerCase().includes(specialtySearch.toLowerCase()));
+                  if (kids.length === 0) return null;
+                  return (
+                    <div key={p.id}>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        {p.emoji && <span className="mr-1">{p.emoji}</span>}{p.name}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {kids.map((c) => {
+                          const selected = specialtyIds.includes(c.id);
+                          return (
+                            <button key={c.id} onClick={() => toggleSpecialty(c.id)}
+                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                                selected
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border bg-background text-foreground/80 hover:border-primary/40"
+                              }`}>
+                              {c.emoji && <span>{c.emoji}</span>}{c.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </TabsContent>
+          <TabsContent value="media-disabled-merge-marker" className="hidden">
             <Field label="Logo URL"><Input value={form.logo_url ?? ""} onChange={(e) => set("logo_url", e.target.value)} placeholder="https://… or asset:logo.png" /></Field>
             <Field label="Hero image URL"><Input value={form.hero_image_url ?? ""} onChange={(e) => set("hero_image_url", e.target.value)} placeholder="https://… or asset:hero.jpg" /></Field>
             <div>
