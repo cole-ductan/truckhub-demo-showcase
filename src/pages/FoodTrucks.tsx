@@ -93,7 +93,7 @@ export default function FoodTrucks() {
   return (
     <div className="min-h-screen bg-background">
       <DemoBanner />
-      <SiteHeader />
+      <SiteHeader withBanner />
 
       <section className="pt-32 pb-10">
         <div className="container-tight">
