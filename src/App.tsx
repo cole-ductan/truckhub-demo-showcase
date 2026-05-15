@@ -45,6 +45,8 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/food-trucks" element={<FoodTrucks />} />
             <Route path="/food-trucks/:slug" element={<TruckProfile />} />
+            <Route path="/category/:categorySlug" element={<FoodTrucks />} />
+            <Route path="/specialty/:specialtySlug" element={<FoodTrucks />} />
             <Route path="/book/:truckSlug" element={<Book />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/payment/success" element={<PaymentSuccess />} />
