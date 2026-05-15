@@ -313,7 +313,7 @@ function ConnectedRow({ ok, label }: { ok: boolean; label: string }) {
 /* -------------------- Editor Sheet -------------------- */
 
 function EditorSheet({
-  open, onOpenChange, business, cats, photos, setPhotos, savedLocs, setSavedLocs, onSaved,
+  open, onOpenChange, business, cats, photos, setPhotos, savedLocs, setSavedLocs, specialtyIds, setSpecialtyIds, onSaved,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -323,6 +323,8 @@ function EditorSheet({
   setPhotos: React.Dispatch<React.SetStateAction<Photo[]>>;
   savedLocs: SavedLocation[];
   setSavedLocs: React.Dispatch<React.SetStateAction<SavedLocation[]>>;
+  specialtyIds: string[];
+  setSpecialtyIds: React.Dispatch<React.SetStateAction<string[]>>;
   onSaved: (b: Business) => void;
 }) {
   const { toast } = useToast();
@@ -330,6 +332,25 @@ function EditorSheet({
   const [saving, setSaving] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
   const [newPhotoCaption, setNewPhotoCaption] = useState("");
+  const [specialtySearch, setSpecialtySearch] = useState("");
+
+  const parentCats = cats.filter((c) => !c.parent_id);
+  const childCats = cats.filter((c) => !!c.parent_id);
+
+  async function toggleSpecialty(catId: string) {
+    const has = specialtyIds.includes(catId);
+    if (has) {
+      const { error } = await (supabase as any).from("business_subcategories")
+        .delete().eq("business_id", business.id).eq("category_id", catId);
+      if (error) return toast({ title: "Could not remove", description: error.message, variant: "destructive" });
+      setSpecialtyIds((ids) => ids.filter((x) => x !== catId));
+    } else {
+      const { error } = await (supabase as any).from("business_subcategories")
+        .insert({ business_id: business.id, category_id: catId });
+      if (error) return toast({ title: "Could not add", description: error.message, variant: "destructive" });
+      setSpecialtyIds((ids) => [...ids, catId]);
+    }
+  }
 
   useEffect(() => { if (open) setForm(business); }, [open, business]);
 
