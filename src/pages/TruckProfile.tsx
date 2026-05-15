@@ -183,6 +183,23 @@ export default function TruckProfile() {
             {biz.description && <p className="mt-5 max-w-xl text-lg text-cream/85">{biz.description}</p>}
             {!biz.description && biz.tagline && <p className="mt-5 max-w-xl text-lg text-cream/85">{biz.tagline}</p>}
 
+            {(primaryCat || specialties.length > 0) && (
+              <div className="mt-6 flex flex-wrap items-center gap-2">
+                {primaryCat && (
+                  <Link to={`/category/${primaryCat.slug}`}
+                    className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-foreground hover:bg-primary/90">
+                    {primaryCat.emoji && <span>{primaryCat.emoji}</span>}{primaryCat.name}
+                  </Link>
+                )}
+                {specialties.map((s) => (
+                  <Link key={s.id} to={`/specialty/${s.slug}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-cream/25 bg-cream/5 px-3 py-1 text-xs font-medium text-cream backdrop-blur hover:bg-cream/10">
+                    {s.emoji && <span>{s.emoji}</span>}{s.name}
+                  </Link>
+                ))}
+              </div>
+            )}
+
             <div className="mt-8 flex flex-wrap gap-2.5">
               {showOrdering && (
                 <Button asChild className="h-11 rounded-full bg-primary px-5 text-primary-foreground shadow-ember hover:bg-primary/90">
