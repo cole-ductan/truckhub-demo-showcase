@@ -14,10 +14,10 @@ import { useToast } from "@/hooks/use-toast";
 import { resolveImage } from "@/lib/assets";
 import {
   ExternalLink, Pencil, MapPin, Clock, Phone, Mail, Globe, Instagram, Facebook,
-  ShoppingBag, Eye, EyeOff, Image as ImageIcon, Plus, Save, Trash2, CheckCircle2,
+  ShoppingBag, Eye, EyeOff, Image as ImageIcon, Plus, Save, Trash2, CheckCircle2, X,
 } from "lucide-react";
 
-type Cat = { id: string; name: string; emoji: string | null };
+type Cat = { id: string; name: string; emoji: string | null; parent_id: string | null };
 type Photo = { id: string; url: string; caption: string | null; sort_order: number };
 type SavedLocation = {
   id: string; business_id: string; label: string; address: string | null;
@@ -34,9 +34,10 @@ export default function OwnerProfile() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [savedLocs, setSavedLocs] = useState<SavedLocation[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [specialtyIds, setSpecialtyIds] = useState<string[]>([]);
 
   useEffect(() => {
-    supabase.from("business_categories").select("id,name,emoji").order("sort_order")
+    supabase.from("business_categories").select("id,name,emoji,parent_id").order("sort_order")
       .then(({ data }) => setCats((data ?? []) as Cat[]));
   }, []);
 
@@ -47,6 +48,9 @@ export default function OwnerProfile() {
     supabase.from("saved_locations")
       .select("*").eq("business_id", business.id).order("sort_order")
       .then(({ data }: any) => setSavedLocs((data ?? []) as SavedLocation[]));
+    (supabase as any).from("business_subcategories")
+      .select("category_id").eq("business_id", business.id)
+      .then(({ data }: any) => setSpecialtyIds(((data ?? []) as any[]).map((r) => r.category_id)));
   }, [business]);
 
   if (loading) return <div className="text-muted-foreground">Loading…</div>;
@@ -271,6 +275,8 @@ export default function OwnerProfile() {
         setPhotos={setPhotos}
         savedLocs={savedLocs}
         setSavedLocs={setSavedLocs}
+        specialtyIds={specialtyIds}
+        setSpecialtyIds={setSpecialtyIds}
         onSaved={(next) => setBusiness(next)}
       />
     </div>
@@ -307,7 +313,7 @@ function ConnectedRow({ ok, label }: { ok: boolean; label: string }) {
 /* -------------------- Editor Sheet -------------------- */
 
 function EditorSheet({
-  open, onOpenChange, business, cats, photos, setPhotos, savedLocs, setSavedLocs, onSaved,
+  open, onOpenChange, business, cats, photos, setPhotos, savedLocs, setSavedLocs, specialtyIds, setSpecialtyIds, onSaved,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -317,6 +323,8 @@ function EditorSheet({
   setPhotos: React.Dispatch<React.SetStateAction<Photo[]>>;
   savedLocs: SavedLocation[];
   setSavedLocs: React.Dispatch<React.SetStateAction<SavedLocation[]>>;
+  specialtyIds: string[];
+  setSpecialtyIds: React.Dispatch<React.SetStateAction<string[]>>;
   onSaved: (b: Business) => void;
 }) {
   const { toast } = useToast();
@@ -324,6 +332,25 @@ function EditorSheet({
   const [saving, setSaving] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
   const [newPhotoCaption, setNewPhotoCaption] = useState("");
+  const [specialtySearch, setSpecialtySearch] = useState("");
+
+  const parentCats = cats.filter((c) => !c.parent_id);
+  const childCats = cats.filter((c) => !!c.parent_id);
+
+  async function toggleSpecialty(catId: string) {
+    const has = specialtyIds.includes(catId);
+    if (has) {
+      const { error } = await (supabase as any).from("business_subcategories")
+        .delete().eq("business_id", business.id).eq("category_id", catId);
+      if (error) return toast({ title: "Could not remove", description: error.message, variant: "destructive" });
+      setSpecialtyIds((ids) => ids.filter((x) => x !== catId));
+    } else {
+      const { error } = await (supabase as any).from("business_subcategories")
+        .insert({ business_id: business.id, category_id: catId });
+      if (error) return toast({ title: "Could not add", description: error.message, variant: "destructive" });
+      setSpecialtyIds((ids) => [...ids, catId]);
+    }
+  }
 
   useEffect(() => { if (open) setForm(business); }, [open, business]);
 
@@ -421,6 +448,7 @@ function EditorSheet({
         <Tabs defaultValue="basics" className="mt-5">
           <TabsList className="flex w-full flex-wrap justify-start gap-1 bg-transparent p-0">
             <TabsTrigger value="basics">Basics</TabsTrigger>
+            <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="media">Media</TabsTrigger>
             <TabsTrigger value="contact">Contact</TabsTrigger>
             <TabsTrigger value="ordering">Ordering</TabsTrigger>
@@ -441,11 +469,11 @@ function EditorSheet({
             <Field label="Description"><Textarea rows={4} value={form.description ?? ""} onChange={(e) => set("description", e.target.value)} placeholder="Tell customers what you do best." /></Field>
             <FieldRow>
               <Field label="Cuisine"><Input value={form.cuisine ?? ""} onChange={(e) => set("cuisine", e.target.value)} placeholder="BBQ, Tacos, Pizza…" /></Field>
-              <Field label="Category">
+              <Field label="Primary Category" hint="Pick the top-level category. Manage specialties in the Categories tab.">
                 <select value={form.category_id ?? ""} onChange={(e) => set("category_id", e.target.value || null)}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                   <option value="">— None —</option>
-                  {cats.map((c) => <option key={c.id} value={c.id}>{c.emoji ? `${c.emoji} ` : ""}{c.name}</option>)}
+                  {parentCats.map((c) => <option key={c.id} value={c.id}>{c.emoji ? `${c.emoji} ` : ""}{c.name}</option>)}
                 </select>
               </Field>
             </FieldRow>
@@ -455,6 +483,69 @@ function EditorSheet({
             </FieldRow>
           </TabsContent>
 
+          <TabsContent value="categories" className="space-y-4 pt-4">
+            <Field label="Primary Category" hint="The main category your truck appears under in the directory.">
+              <select value={form.category_id ?? ""} onChange={(e) => set("category_id", e.target.value || null)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <option value="">— None —</option>
+                {parentCats.map((c) => <option key={c.id} value={c.id}>{c.emoji ? `${c.emoji} ` : ""}{c.name}</option>)}
+              </select>
+            </Field>
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Specialties</Label>
+              <p className="mt-1 text-xs text-muted-foreground">Pick all subcategories that describe your truck. Changes save instantly.</p>
+              <Input
+                placeholder="Search specialties…"
+                value={specialtySearch}
+                onChange={(e) => setSpecialtySearch(e.target.value)}
+                className="mt-3"
+              />
+              {specialtyIds.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {specialtyIds.map((id) => {
+                    const c = childCats.find((x) => x.id === id);
+                    if (!c) return null;
+                    return (
+                      <button key={id} onClick={() => toggleSpecialty(id)}
+                        className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+                        {c.emoji && <span>{c.emoji}</span>}{c.name}
+                        <X className="h-3 w-3" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="mt-4 max-h-[400px] space-y-3 overflow-y-auto rounded-lg border border-border p-3">
+                {parentCats.map((p) => {
+                  const kids = childCats.filter((c) => c.parent_id === p.id)
+                    .filter((c) => !specialtySearch || c.name.toLowerCase().includes(specialtySearch.toLowerCase()));
+                  if (kids.length === 0) return null;
+                  return (
+                    <div key={p.id}>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        {p.emoji && <span className="mr-1">{p.emoji}</span>}{p.name}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {kids.map((c) => {
+                          const selected = specialtyIds.includes(c.id);
+                          return (
+                            <button key={c.id} onClick={() => toggleSpecialty(c.id)}
+                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                                selected
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border bg-background text-foreground/80 hover:border-primary/40"
+                              }`}>
+                              {c.emoji && <span>{c.emoji}</span>}{c.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </TabsContent>
           <TabsContent value="media" className="space-y-4 pt-4">
             <Field label="Logo URL"><Input value={form.logo_url ?? ""} onChange={(e) => set("logo_url", e.target.value)} placeholder="https://… or asset:logo.png" /></Field>
             <Field label="Hero image URL"><Input value={form.hero_image_url ?? ""} onChange={(e) => set("hero_image_url", e.target.value)} placeholder="https://… or asset:hero.jpg" /></Field>

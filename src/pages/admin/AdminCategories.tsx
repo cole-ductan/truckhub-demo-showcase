@@ -1,12 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Save, X } from "lucide-react";
+import { Plus, Trash2, Save, X, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 type Cat = {
@@ -16,6 +15,7 @@ type Cat = {
   emoji: string | null;
   sort_order: number;
   is_active: boolean;
+  parent_id: string | null;
 };
 
 function slugify(s: string) {
@@ -24,11 +24,15 @@ function slugify(s: string) {
 
 export default function AdminCategories() {
   const [cats, setCats] = useState<Cat[]>([]);
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [primaryCounts, setPrimaryCounts] = useState<Record<string, number>>({});
+  const [specialtyCounts, setSpecialtyCounts] = useState<Record<string, number>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<Cat>>({});
-  const [creating, setCreating] = useState(false);
-  const [newCat, setNewCat] = useState<Partial<Cat>>({ name: "", emoji: "", sort_order: 0, is_active: true });
+  const [creatingParent, setCreatingParent] = useState(false);
+  const [newParent, setNewParent] = useState<Partial<Cat>>({ name: "", emoji: "", sort_order: 0, is_active: true });
+  const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
+  const [newSub, setNewSub] = useState<Partial<Cat>>({ name: "", emoji: "", sort_order: 0, is_active: true });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const load = async () => {
     const { data } = await supabase.from("business_categories").select("*").order("sort_order").order("name");
@@ -36,10 +40,17 @@ export default function AdminCategories() {
     const { data: bs } = await supabase.from("businesses").select("category_id");
     const c: Record<string, number> = {};
     (bs ?? []).forEach((b: any) => { if (b.category_id) c[b.category_id] = (c[b.category_id] ?? 0) + 1; });
-    setCounts(c);
+    setPrimaryCounts(c);
+    const { data: subs } = await (supabase as any).from("business_subcategories").select("category_id");
+    const sc: Record<string, number> = {};
+    (subs ?? []).forEach((r: any) => { sc[r.category_id] = (sc[r.category_id] ?? 0) + 1; });
+    setSpecialtyCounts(sc);
   };
 
   useEffect(() => { load(); }, []);
+
+  const parents = useMemo(() => cats.filter((c) => !c.parent_id), [cats]);
+  const childrenOf = (pid: string) => cats.filter((c) => c.parent_id === pid);
 
   const startEdit = (c: Cat) => { setEditingId(c.id); setDraft(c); };
   const cancelEdit = () => { setEditingId(null); setDraft({}); };
@@ -49,25 +60,43 @@ export default function AdminCategories() {
       name: draft.name, emoji: draft.emoji ?? null, sort_order: draft.sort_order ?? 0, is_active: draft.is_active ?? true,
     }).eq("id", editingId);
     if (error) return toast.error(error.message);
-    toast.success("Category updated");
+    toast.success("Saved");
     cancelEdit();
     load();
   };
-  const create = async () => {
-    if (!newCat.name) return toast.error("Name required");
+  const createParent = async () => {
+    if (!newParent.name) return toast.error("Name required");
     const { error } = await supabase.from("business_categories").insert({
-      name: newCat.name, slug: slugify(newCat.name),
-      emoji: newCat.emoji ?? null, sort_order: newCat.sort_order ?? 0, is_active: newCat.is_active ?? true,
+      name: newParent.name, slug: slugify(newParent.name),
+      emoji: newParent.emoji ?? null, sort_order: newParent.sort_order ?? 0,
+      is_active: newParent.is_active ?? true, parent_id: null,
     });
     if (error) return toast.error(error.message);
-    toast.success("Category created");
-    setCreating(false);
-    setNewCat({ name: "", emoji: "", sort_order: 0, is_active: true });
+    toast.success("Parent created");
+    setCreatingParent(false);
+    setNewParent({ name: "", emoji: "", sort_order: 0, is_active: true });
+    load();
+  };
+  const createSub = async (parentId: string) => {
+    if (!newSub.name) return toast.error("Name required");
+    const { error } = await supabase.from("business_categories").insert({
+      name: newSub.name, slug: slugify(newSub.name),
+      emoji: newSub.emoji ?? null, sort_order: newSub.sort_order ?? 0,
+      is_active: newSub.is_active ?? true, parent_id: parentId,
+    });
+    if (error) return toast.error(error.message);
+    toast.success("Subcategory created");
+    setAddingSubFor(null);
+    setNewSub({ name: "", emoji: "", sort_order: 0, is_active: true });
+    setExpanded((e) => ({ ...e, [parentId]: true }));
     load();
   };
   const remove = async (c: Cat) => {
-    if ((counts[c.id] ?? 0) > 0) return toast.error("Cannot delete: category is in use.");
-    if (!confirm(`Delete category "${c.name}"?`)) return;
+    const childCount = childrenOf(c.id).length;
+    const used = (primaryCounts[c.id] ?? 0) + (specialtyCounts[c.id] ?? 0);
+    if (childCount > 0) return toast.error("Remove subcategories first.");
+    if (used > 0) return toast.error("Cannot delete: category is in use.");
+    if (!confirm(`Delete "${c.name}"?`)) return;
     const { error } = await supabase.from("business_categories").delete().eq("id", c.id);
     if (error) return toast.error(error.message);
     toast.success("Deleted");
@@ -79,92 +108,105 @@ export default function AdminCategories() {
     load();
   };
 
+  const renderEditableRow = (c: Cat, isChild: boolean) => {
+    const editing = editingId === c.id;
+    const used = (primaryCounts[c.id] ?? 0) + (specialtyCounts[c.id] ?? 0);
+    return (
+      <div className={`flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 ${isChild ? "ml-8" : ""}`}>
+        {editing ? (
+          <>
+            <Input value={draft.emoji ?? ""} onChange={(e) => setDraft({ ...draft, emoji: e.target.value })} className="h-8 w-14" placeholder="🍔" />
+            <Input value={draft.name ?? ""} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className="h-8 flex-1 min-w-[150px]" />
+            <Input type="number" value={draft.sort_order ?? 0} onChange={(e) => setDraft({ ...draft, sort_order: Number(e.target.value) })} className="h-8 w-20" />
+            <Switch checked={!!draft.is_active} onCheckedChange={(v) => setDraft({ ...draft, is_active: v })} />
+            <Button size="sm" onClick={saveEdit}><Save className="h-3.5 w-3.5" /></Button>
+            <Button size="sm" variant="ghost" onClick={cancelEdit}><X className="h-3.5 w-3.5" /></Button>
+          </>
+        ) : (
+          <>
+            <span className="text-lg w-7 text-center">{c.emoji ?? ""}</span>
+            <span className={`flex-1 min-w-[120px] ${isChild ? "" : "font-semibold"}`}>{c.name}</span>
+            <span className="text-xs text-muted-foreground font-mono">{c.slug}</span>
+            <Badge variant="outline" className="text-[10px]">#{c.sort_order}</Badge>
+            {used > 0 && <Badge variant="secondary" className="text-[10px]">{used} use{used === 1 ? "" : "s"}</Badge>}
+            {!c.is_active && <Badge variant="outline" className="text-[10px] text-muted-foreground">Inactive</Badge>}
+            <Switch checked={c.is_active} onCheckedChange={() => toggleActive(c)} />
+            <Button size="sm" variant="ghost" onClick={() => startEdit(c)}>Edit</Button>
+            <Button size="sm" variant="ghost" onClick={() => remove(c)}><Trash2 className="h-3.5 w-3.5" /></Button>
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-3xl font-bold">Categories</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{cats.length} categories</p>
+          <p className="mt-1 text-sm text-muted-foreground">{parents.length} parents · {cats.length - parents.length} subcategories</p>
         </div>
-        <Button onClick={() => setCreating(true)}><Plus className="mr-1 h-4 w-4" /> New</Button>
+        <Button onClick={() => setCreatingParent(true)}><Plus className="mr-1 h-4 w-4" /> New parent</Button>
       </div>
 
-      {creating && (
+      {creatingParent && (
         <Card className="rounded-2xl">
-          <CardContent className="grid gap-3 p-4 sm:grid-cols-[60px_1fr_120px_auto]">
-            <Input placeholder="🌮" value={newCat.emoji ?? ""} onChange={(e) => setNewCat({ ...newCat, emoji: e.target.value })} />
-            <Input placeholder="Name" value={newCat.name ?? ""} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} />
-            <Input type="number" placeholder="Sort" value={newCat.sort_order ?? 0} onChange={(e) => setNewCat({ ...newCat, sort_order: Number(e.target.value) })} />
+          <CardContent className="grid gap-2 p-4 sm:grid-cols-[60px_1fr_100px_auto]">
+            <Input placeholder="🍔" value={newParent.emoji ?? ""} onChange={(e) => setNewParent({ ...newParent, emoji: e.target.value })} />
+            <Input placeholder="Parent name" value={newParent.name ?? ""} onChange={(e) => setNewParent({ ...newParent, name: e.target.value })} />
+            <Input type="number" placeholder="Sort" value={newParent.sort_order ?? 0} onChange={(e) => setNewParent({ ...newParent, sort_order: Number(e.target.value) })} />
             <div className="flex gap-2">
-              <Button onClick={create}><Save className="mr-1 h-4 w-4" /> Save</Button>
-              <Button variant="ghost" onClick={() => setCreating(false)}><X className="h-4 w-4" /></Button>
+              <Button onClick={createParent}><Save className="mr-1 h-4 w-4" /> Save</Button>
+              <Button variant="ghost" onClick={() => setCreatingParent(false)}><X className="h-4 w-4" /></Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      <Card className="rounded-2xl">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[60px]">Emoji</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead className="w-[80px]">Sort</TableHead>
-              <TableHead className="w-[100px]">Active</TableHead>
-              <TableHead>Used by</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {cats.map((c) => {
-              const editing = editingId === c.id;
-              return (
-                <TableRow key={c.id}>
-                  <TableCell>
-                    {editing
-                      ? <Input value={draft.emoji ?? ""} onChange={(e) => setDraft({ ...draft, emoji: e.target.value })} className="h-8" />
-                      : <span className="text-lg">{c.emoji ?? "—"}</span>}
-                  </TableCell>
-                  <TableCell>
-                    {editing
-                      ? <Input value={draft.name ?? ""} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className="h-8" />
-                      : <span className="font-medium">{c.name}</span>}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{c.slug}</TableCell>
-                  <TableCell>
-                    {editing
-                      ? <Input type="number" value={draft.sort_order ?? 0} onChange={(e) => setDraft({ ...draft, sort_order: Number(e.target.value) })} className="h-8" />
-                      : c.sort_order}
-                  </TableCell>
-                  <TableCell>
-                    <Switch checked={editing ? !!draft.is_active : c.is_active} onCheckedChange={(v) => editing ? setDraft({ ...draft, is_active: v }) : toggleActive(c)} />
-                  </TableCell>
-                  <TableCell><Badge variant="outline">{counts[c.id] ?? 0}</Badge></TableCell>
-                  <TableCell className="text-right">
-                    {editing ? (
-                      <div className="inline-flex gap-1">
-                        <Button size="sm" onClick={saveEdit}><Save className="mr-1 h-3.5 w-3.5" /> Save</Button>
-                        <Button size="sm" variant="ghost" onClick={cancelEdit}><X className="h-3.5 w-3.5" /></Button>
+      <div className="space-y-3">
+        {parents.map((p) => {
+          const kids = childrenOf(p.id);
+          const isOpen = expanded[p.id] ?? true;
+          return (
+            <Card key={p.id} className="rounded-2xl">
+              <CardContent className="space-y-2 p-4">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setExpanded((e) => ({ ...e, [p.id]: !isOpen }))} className="rounded p-1 hover:bg-muted">
+                    {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </button>
+                  <div className="flex-1">{renderEditableRow(p, false)}</div>
+                </div>
+
+                {isOpen && (
+                  <div className="space-y-2 pt-2">
+                    {kids.map((k) => <div key={k.id}>{renderEditableRow(k, true)}</div>)}
+                    {kids.length === 0 && <p className="ml-8 text-xs text-muted-foreground">No subcategories yet.</p>}
+
+                    {addingSubFor === p.id ? (
+                      <div className="ml-8 grid gap-2 rounded-lg border border-dashed border-border p-3 sm:grid-cols-[60px_1fr_100px_auto]">
+                        <Input placeholder="🍦" value={newSub.emoji ?? ""} onChange={(e) => setNewSub({ ...newSub, emoji: e.target.value })} />
+                        <Input placeholder="Subcategory name" value={newSub.name ?? ""} onChange={(e) => setNewSub({ ...newSub, name: e.target.value })} />
+                        <Input type="number" placeholder="Sort" value={newSub.sort_order ?? 0} onChange={(e) => setNewSub({ ...newSub, sort_order: Number(e.target.value) })} />
+                        <div className="flex gap-1">
+                          <Button size="sm" onClick={() => createSub(p.id)}><Save className="h-3.5 w-3.5" /></Button>
+                          <Button size="sm" variant="ghost" onClick={() => { setAddingSubFor(null); setNewSub({ name: "", emoji: "", sort_order: 0, is_active: true }); }}><X className="h-3.5 w-3.5" /></Button>
+                        </div>
                       </div>
                     ) : (
-                      <div className="inline-flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => startEdit(c)}>Edit</Button>
-                        <Button size="sm" variant="ghost" onClick={() => remove(c)} disabled={(counts[c.id] ?? 0) > 0}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                      <Button variant="ghost" size="sm" className="ml-8" onClick={() => setAddingSubFor(p.id)}>
+                        <Plus className="mr-1 h-3.5 w-3.5" /> Add subcategory
+                      </Button>
                     )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {cats.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center text-sm text-muted-foreground">No categories yet.</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+        {parents.length === 0 && (
+          <p className="text-center text-sm text-muted-foreground">No parent categories yet.</p>
+        )}
+      </div>
     </div>
   );
 }

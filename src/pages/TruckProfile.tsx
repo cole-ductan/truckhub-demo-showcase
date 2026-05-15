@@ -11,7 +11,7 @@ import { useSEO } from "@/hooks/useSEO";
 
 type Biz = {
   id: string; slug: string; name: string; tagline: string | null; description: string | null;
-  cuisine: string | null; emoji: string | null; hero_image_url: string | null;
+  cuisine: string | null; emoji: string | null; hero_image_url: string | null; category_id: string | null;
   logo_url: string | null;
   phone: string | null; email: string | null; website: string | null;
   instagram: string | null; facebook: string | null;
@@ -27,6 +27,7 @@ type SavedLoc = {
   id: string; label: string; address: string | null; weekday: string | null;
   start_time: string | null; end_time: string | null; is_recurring: boolean; sort_order: number;
 };
+type CategoryRef = { id: string; name: string; slug: string; emoji: string | null; parent_id: string | null };
 
 const weekdayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -38,6 +39,8 @@ export default function TruckProfile() {
   const [events, setEvents] = useState<Event[]>([]);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [savedLocs, setSavedLocs] = useState<SavedLoc[]>([]);
+  const [primaryCat, setPrimaryCat] = useState<CategoryRef | null>(null);
+  const [specialties, setSpecialties] = useState<CategoryRef[]>([]);
 
   useEffect(() => {
     if (!slug) return;
@@ -57,6 +60,25 @@ export default function TruckProfile() {
       setEvents((ev ?? []) as Event[]);
       setPhotos((ph ?? []) as Photo[]);
       setSavedLocs((sl ?? []) as SavedLoc[]);
+
+      // Categories: primary + specialties
+      const [{ data: primary }, { data: subRows }] = await Promise.all([
+        b.category_id
+          ? supabase.from("business_categories").select("id,name,slug,emoji,parent_id").eq("id", b.category_id).maybeSingle()
+          : Promise.resolve({ data: null } as any),
+        (supabase as any).from("business_subcategories").select("category_id").eq("business_id", b.id),
+      ]);
+      setPrimaryCat((primary as CategoryRef) ?? null);
+      const subIds = ((subRows ?? []) as any[]).map((r) => r.category_id);
+      if (subIds.length > 0) {
+        const { data: subCats } = await supabase
+          .from("business_categories")
+          .select("id,name,slug,emoji,parent_id")
+          .in("id", subIds);
+        setSpecialties((subCats ?? []) as CategoryRef[]);
+      } else {
+        setSpecialties([]);
+      }
     })();
   }, [slug]);
 
@@ -160,6 +182,23 @@ export default function TruckProfile() {
             </div>
             {biz.description && <p className="mt-5 max-w-xl text-lg text-cream/85">{biz.description}</p>}
             {!biz.description && biz.tagline && <p className="mt-5 max-w-xl text-lg text-cream/85">{biz.tagline}</p>}
+
+            {(primaryCat || specialties.length > 0) && (
+              <div className="mt-6 flex flex-wrap items-center gap-2">
+                {primaryCat && (
+                  <Link to={`/category/${primaryCat.slug}`}
+                    className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-foreground hover:bg-primary/90">
+                    {primaryCat.emoji && <span>{primaryCat.emoji}</span>}{primaryCat.name}
+                  </Link>
+                )}
+                {specialties.map((s) => (
+                  <Link key={s.id} to={`/specialty/${s.slug}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-cream/25 bg-cream/5 px-3 py-1 text-xs font-medium text-cream backdrop-blur hover:bg-cream/10">
+                    {s.emoji && <span>{s.emoji}</span>}{s.name}
+                  </Link>
+                ))}
+              </div>
+            )}
 
             <div className="mt-8 flex flex-wrap gap-2.5">
               {showOrdering && (

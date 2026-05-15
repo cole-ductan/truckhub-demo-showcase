@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
@@ -28,7 +28,7 @@ type Biz = {
   order_button_label: string | null;
 };
 
-type Category = { id: string; name: string; slug: string; emoji: string | null };
+type Category = { id: string; name: string; slug: string; emoji: string | null; parent_id: string | null };
 
 const StatusDot = ({ status }: { status: Biz["status"] }) => {
   const map = {
@@ -48,18 +48,34 @@ const StatusDot = ({ status }: { status: Biz["status"] }) => {
 };
 
 export default function FoodTrucks() {
+  const { categorySlug, specialtySlug } = useParams<{ categorySlug?: string; specialtySlug?: string }>();
   const [list, setList] = useState<Biz[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [subPivot, setSubPivot] = useState<Array<{ business_id: string; category_id: string }>>([]);
   const [q, setQ] = useState("");
   const [categoryId, setCategoryId] = useState<string>("all");
+  const [subcategoryId, setSubcategoryId] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "open" | "soon" | "closed">("all");
   const [featuredOnly, setFeaturedOnly] = useState(false);
   const [cityFilter, setCityFilter] = useState<string>("all");
 
-  useSEO({
-    title: "Food Trucks in Green Bay — TruckHub Directory",
-    description: "Browse every food truck in Green Bay. See today's locations, hours, cuisines, and order or book catering — all in one place.",
-  });
+  const parentCats = categories.filter((c) => !c.parent_id);
+  const childrenOf = (pid: string) => categories.filter((c) => c.parent_id === pid);
+
+  const activeParent = parentCats.find((c) => c.id === categoryId);
+  const activeSub = categories.find((c) => c.id === subcategoryId && c.parent_id);
+
+  const seoTitle = activeSub
+    ? `${activeSub.name} Food Trucks — TruckHub`
+    : activeParent
+    ? `${activeParent.name} Food Trucks — TruckHub`
+    : "Food Trucks in Green Bay — TruckHub Directory";
+  const seoDesc = activeSub
+    ? `Find ${activeSub.name.toLowerCase()} food trucks. Locations, menus, and catering — all in one place.`
+    : activeParent
+    ? `Browse ${activeParent.name.toLowerCase()} food trucks. Today's locations, hours, and catering.`
+    : "Browse every food truck in Green Bay. See today's locations, hours, cuisines, and order or book catering — all in one place.";
+  useSEO({ title: seoTitle, description: seoDesc });
 
   useEffect(() => {
     supabase
@@ -71,15 +87,37 @@ export default function FoodTrucks() {
       .then(({ data }) => setList((data ?? []) as Biz[]));
     supabase
       .from("business_categories")
-      .select("id,name,slug,emoji")
+      .select("id,name,slug,emoji,parent_id")
       .eq("is_active", true)
       .order("sort_order")
       .then(({ data }) => setCategories((data ?? []) as Category[]));
+    (supabase as any)
+      .from("business_subcategories")
+      .select("business_id,category_id")
+      .then(({ data }: any) => setSubPivot((data ?? []) as Array<{ business_id: string; category_id: string }>));
   }, []);
+
+  // Apply route params (/category/:slug, /specialty/:slug) once categories loaded
+  useEffect(() => {
+    if (categories.length === 0) return;
+    if (categorySlug) {
+      const match = categories.find((c) => c.slug === categorySlug && !c.parent_id);
+      if (match) { setCategoryId(match.id); setSubcategoryId("all"); }
+    } else if (specialtySlug) {
+      const match = categories.find((c) => c.slug === specialtySlug && c.parent_id);
+      if (match) { setCategoryId(match.parent_id!); setSubcategoryId(match.id); }
+    }
+  }, [categorySlug, specialtySlug, categories]);
+
+  // Build set of business_ids matching selected subcategory
+  const subFilteredBizIds = subcategoryId !== "all"
+    ? new Set(subPivot.filter((p) => p.category_id === subcategoryId).map((p) => p.business_id))
+    : null;
 
   const filtered = (list ?? []).filter((t) => {
     if (q && !(t.name + " " + (t.cuisine ?? "") + " " + (t.today_location ?? "") + " " + (t.city ?? "")).toLowerCase().includes(q.toLowerCase())) return false;
     if (categoryId !== "all" && t.category_id !== categoryId) return false;
+    if (subFilteredBizIds && !subFilteredBizIds.has(t.id)) return false;
     if (statusFilter !== "all" && t.status !== statusFilter) return false;
     if (featuredOnly && !t.is_featured) return false;
     if (cityFilter !== "all" && (t.city ?? "") !== cityFilter) return false;
@@ -87,8 +125,8 @@ export default function FoodTrucks() {
   });
 
   const cities = Array.from(new Set((list ?? []).map((t) => t.city).filter(Boolean) as string[])).sort();
-  const hasActiveFilters = !!q || categoryId !== "all" || statusFilter !== "all" || featuredOnly || cityFilter !== "all";
-  function clearFilters() { setQ(""); setCategoryId("all"); setStatusFilter("all"); setFeaturedOnly(false); setCityFilter("all"); }
+  const hasActiveFilters = !!q || categoryId !== "all" || subcategoryId !== "all" || statusFilter !== "all" || featuredOnly || cityFilter !== "all";
+  function clearFilters() { setQ(""); setCategoryId("all"); setSubcategoryId("all"); setStatusFilter("all"); setFeaturedOnly(false); setCityFilter("all"); }
 
   return (
     <div className="min-h-screen bg-background">
@@ -156,10 +194,10 @@ export default function FoodTrucks() {
             )}
           </div>
 
-          {categories.length > 0 && (
+          {parentCats.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               <button
-                onClick={() => setCategoryId("all")}
+                onClick={() => { setCategoryId("all"); setSubcategoryId("all"); }}
                 className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
                   categoryId === "all"
                     ? "border-primary bg-primary text-primary-foreground"
@@ -168,10 +206,10 @@ export default function FoodTrucks() {
               >
                 All cuisines
               </button>
-              {categories.map((c) => (
+              {parentCats.map((c) => (
                 <button
                   key={c.id}
-                  onClick={() => setCategoryId(c.id)}
+                  onClick={() => { setCategoryId(c.id); setSubcategoryId("all"); }}
                   className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
                     categoryId === c.id
                       ? "border-primary bg-primary text-primary-foreground"
@@ -180,6 +218,36 @@ export default function FoodTrucks() {
                 >
                   {c.emoji && <span className="mr-1">{c.emoji}</span>}
                   {c.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {activeParent && childrenOf(activeParent.id).length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2 border-l-2 border-primary/30 pl-3">
+              <span className="self-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Specialty:</span>
+              <button
+                onClick={() => setSubcategoryId("all")}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                  subcategoryId === "all"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-card text-foreground/70 hover:border-foreground/30"
+                }`}
+              >
+                All
+              </button>
+              {childrenOf(activeParent.id).map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setSubcategoryId(s.id)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                    subcategoryId === s.id
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-card text-foreground/70 hover:border-foreground/30"
+                  }`}
+                >
+                  {s.emoji && <span className="mr-1">{s.emoji}</span>}
+                  {s.name}
                 </button>
               ))}
             </div>
