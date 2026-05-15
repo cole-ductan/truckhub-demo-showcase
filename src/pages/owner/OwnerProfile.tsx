@@ -448,6 +448,7 @@ function EditorSheet({
         <Tabs defaultValue="basics" className="mt-5">
           <TabsList className="flex w-full flex-wrap justify-start gap-1 bg-transparent p-0">
             <TabsTrigger value="basics">Basics</TabsTrigger>
+            <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="media">Media</TabsTrigger>
             <TabsTrigger value="contact">Contact</TabsTrigger>
             <TabsTrigger value="ordering">Ordering</TabsTrigger>
