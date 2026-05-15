@@ -17,7 +17,7 @@ import {
   ShoppingBag, Eye, EyeOff, Image as ImageIcon, Plus, Save, Trash2, CheckCircle2,
 } from "lucide-react";
 
-type Cat = { id: string; name: string; emoji: string | null };
+type Cat = { id: string; name: string; emoji: string | null; parent_id: string | null };
 type Photo = { id: string; url: string; caption: string | null; sort_order: number };
 type SavedLocation = {
   id: string; business_id: string; label: string; address: string | null;
@@ -34,9 +34,10 @@ export default function OwnerProfile() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [savedLocs, setSavedLocs] = useState<SavedLocation[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [specialtyIds, setSpecialtyIds] = useState<string[]>([]);
 
   useEffect(() => {
-    supabase.from("business_categories").select("id,name,emoji").order("sort_order")
+    supabase.from("business_categories").select("id,name,emoji,parent_id").order("sort_order")
       .then(({ data }) => setCats((data ?? []) as Cat[]));
   }, []);
 
@@ -47,6 +48,9 @@ export default function OwnerProfile() {
     supabase.from("saved_locations")
       .select("*").eq("business_id", business.id).order("sort_order")
       .then(({ data }: any) => setSavedLocs((data ?? []) as SavedLocation[]));
+    (supabase as any).from("business_subcategories")
+      .select("category_id").eq("business_id", business.id)
+      .then(({ data }: any) => setSpecialtyIds(((data ?? []) as any[]).map((r) => r.category_id)));
   }, [business]);
 
   if (loading) return <div className="text-muted-foreground">Loading…</div>;
