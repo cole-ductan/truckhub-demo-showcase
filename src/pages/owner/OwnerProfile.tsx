@@ -275,6 +275,8 @@ export default function OwnerProfile() {
         setPhotos={setPhotos}
         savedLocs={savedLocs}
         setSavedLocs={setSavedLocs}
+        specialtyIds={specialtyIds}
+        setSpecialtyIds={setSpecialtyIds}
         onSaved={(next) => setBusiness(next)}
       />
     </div>
