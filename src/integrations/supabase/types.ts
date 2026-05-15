@@ -75,6 +75,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          parent_id: string | null
           slug: string
           sort_order: number
         }
@@ -84,6 +85,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          parent_id?: string | null
           slug: string
           sort_order?: number
         }
@@ -93,10 +95,19 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          parent_id?: string | null
           slug?: string
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "business_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "business_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       business_events: {
         Row: {
@@ -191,6 +202,35 @@ export type Database = {
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_subcategories: {
+        Row: {
+          business_id: string
+          category_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          business_id: string
+          category_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          business_id?: string
+          category_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_subcategories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "business_categories"
             referencedColumns: ["id"]
           },
         ]
