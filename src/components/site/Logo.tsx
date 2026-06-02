@@ -17,7 +17,7 @@ export const Logo = ({ variant = "default", className = "" }: Props) => {
         </svg>
       </span>
       <span className={`font-display text-xl font-bold tracking-tight ${isLight ? "text-cream" : "text-foreground"}`}>
-        food<span className="text-primary">X</span>Mobile
+        Food<span className="text-primary">X</span>Mobile
       </span>
     </Link>
   );
