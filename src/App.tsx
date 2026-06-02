@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index.tsx";
+import CustomerHome from "./pages/SmokeTrail.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import FoodTrucks from "./pages/FoodTrucks.tsx";
 import TruckProfile from "./pages/TruckProfile.tsx";
@@ -42,16 +43,21 @@ const App = () => (
         <AuthProvider>
           <DemoTourProvider>
             <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<CustomerHome />} />
+            <Route path="/for-vendors" element={<Index />} />
+            <Route path="/explore" element={<Navigate to="/food-trucks" replace />} />
+            <Route path="/markets" element={<Navigate to="/food-trucks" replace />} />
+            <Route path="/events" element={<Navigate to="/food-trucks" replace />} />
+            <Route path="/vendors" element={<Navigate to="/food-trucks" replace />} />
             <Route path="/food-trucks" element={<FoodTrucks />} />
             <Route path="/food-trucks/:slug" element={<TruckProfile />} />
             <Route path="/category/:categorySlug" element={<FoodTrucks />} />
             <Route path="/specialty/:specialtySlug" element={<FoodTrucks />} />
             <Route path="/book/:truckSlug" element={<Book />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/owner/login" element={<Navigate to="/auth" replace />} />
             <Route path="/payment/success" element={<PaymentSuccess />} />
             <Route path="/payment/cancel" element={<PaymentCancel />} />
-            {/* Legacy alias kept for any existing links */}
             <Route path="/smoke-trail-bbq" element={<Navigate to="/food-trucks/smoke-trail-bbq" replace />} />
 
             <Route path="/owner" element={<OwnerLayout />}>
@@ -74,7 +80,6 @@ const App = () => (
               <Route path="demo-tools" element={<AdminDemoTools />} />
             </Route>
 
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
             </Routes>
             <GuidedTour />

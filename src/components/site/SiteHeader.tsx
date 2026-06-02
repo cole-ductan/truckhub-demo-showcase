@@ -6,18 +6,17 @@ import { Menu, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const nav = [
-  { label: "Home", href: "/" },
-  { label: "Food Trucks", href: "/food-trucks" },
-  { label: "Events", href: "/#events" },
-  { label: "Pricing", href: "/#pricing" },
-  { label: "Sample Truck", href: "/food-trucks/smoke-trail-bbq" },
+  { label: "Explore", href: "/food-trucks" },
+  { label: "Markets", href: "/markets" },
+  { label: "Events", href: "/events" },
+  { label: "For Vendors", href: "/for-vendors" },
 ];
 
 export const SiteHeader = ({ withBanner = false }: { withBanner?: boolean }) => {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
-  const { user, isOwner, isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -29,79 +28,25 @@ export const SiteHeader = ({ withBanner = false }: { withBanner?: boolean }) => 
   useEffect(() => setOpen(false), [pathname]);
 
   return (
-    <header
-      className={`fixed inset-x-0 ${withBanner && !scrolled ? "top-8" : "top-0"} z-50 transition-all duration-300 ${
-        scrolled ? "bg-background/85 backdrop-blur-xl border-b border-border" : "bg-transparent"
-      }`}
-    >
+    <header className={`fixed inset-x-0 ${withBanner && !scrolled ? "top-8" : "top-0"} z-50 transition-all duration-300 ${scrolled ? "bg-background/85 backdrop-blur-xl border-b border-border" : "bg-transparent"}`}>
       <div className="container-tight flex h-16 items-center justify-between gap-4">
         <Logo />
         <nav className="hidden items-center gap-7 md:flex" aria-label="Primary">
-          {nav.map((n) => (
-            <a
-              key={n.href}
-              href={n.href}
-              className="text-sm font-medium text-foreground/75 transition-colors hover:text-foreground"
-            >
-              {n.label}
-            </a>
-          ))}
+          {nav.map((n) => <a key={n.href} href={n.href} className="text-sm font-medium text-foreground/75 transition-colors hover:text-foreground">{n.label}</a>)}
         </nav>
         <div className="hidden items-center gap-2 md:flex">
           {user ? (
-            <Button asChild size="sm" className="rounded-full bg-primary text-primary-foreground shadow-ember hover:bg-primary/90">
-              <Link to={isAdmin ? "/admin" : "/owner"}>{isAdmin ? "Admin" : "My Console"}</Link>
-            </Button>
+            <Button asChild size="sm" className="rounded-full bg-primary text-primary-foreground shadow-ember hover:bg-primary/90"><Link to={isAdmin ? "/admin" : "/owner"}>{isAdmin ? "Admin" : "My Console"}</Link></Button>
           ) : (
-            <>
-              <Button asChild variant="ghost" size="sm">
-                <Link to="/auth">Owner Sign in</Link>
-              </Button>
-              <Button asChild size="sm" className="rounded-full bg-primary text-primary-foreground shadow-ember hover:bg-primary/90">
-                <a href="/#demo">Book a Demo</a>
-              </Button>
-            </>
+            <><Button asChild variant="ghost" size="sm"><Link to="/owner/login">Owner Login</Link></Button><Button asChild size="sm" className="rounded-full bg-primary text-primary-foreground shadow-ember hover:bg-primary/90"><Link to="/food-trucks">Explore Near Me</Link></Button></>
           )}
         </div>
-        <button
-          className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card md:hidden"
-          onClick={() => setOpen((v) => !v)}
-          aria-label="Toggle menu"
-        >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <button className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card md:hidden" onClick={() => setOpen((v) => !v)} aria-label="Toggle menu">{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
       </div>
-      {open && (
-        <div className="border-t border-border bg-background md:hidden">
-          <div className="container-tight flex flex-col gap-1 py-4">
-            {nav.map((n) => (
-              <a
-                key={n.href}
-                href={n.href}
-                className="rounded-lg px-3 py-3 text-base font-medium text-foreground/85 hover:bg-muted"
-              >
-                {n.label}
-              </a>
-            ))}
-            <div className="mt-2 flex gap-2">
-              {user ? (
-                <Button asChild className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">
-                  <Link to={isAdmin ? "/admin" : "/owner"}>{isAdmin ? "Admin" : "My Console"}</Link>
-                </Button>
-              ) : (
-                <>
-                  <Button asChild variant="outline" className="flex-1">
-                    <Link to="/auth">Sign in</Link>
-                  </Button>
-                  <Button asChild className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">
-                    <a href="/#demo">Book Demo</a>
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {open && <div className="border-t border-border bg-background md:hidden"><div className="container-tight flex flex-col gap-1 py-4">
+        {nav.map((n) => <a key={n.href} href={n.href} className="rounded-lg px-3 py-3 text-base font-medium text-foreground/85 hover:bg-muted">{n.label}</a>)}
+        <div className="mt-2 flex gap-2">{user ? <Button asChild className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"><Link to={isAdmin ? "/admin" : "/owner"}>{isAdmin ? "Admin" : "My Console"}</Link></Button> : <><Button asChild variant="outline" className="flex-1"><Link to="/owner/login">Owner Login</Link></Button><Button asChild className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"><Link to="/food-trucks">Explore</Link></Button></>}</div>
+      </div></div>}
     </header>
   );
 };
