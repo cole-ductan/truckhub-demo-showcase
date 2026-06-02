@@ -45,6 +45,10 @@ const App = () => (
             <Routes>
             <Route path="/" element={<CustomerHome />} />
             <Route path="/for-vendors" element={<Index />} />
+            <Route path="/explore" element={<Navigate to="/food-trucks" replace />} />
+            <Route path="/markets" element={<Navigate to="/food-trucks" replace />} />
+            <Route path="/events" element={<Navigate to="/food-trucks" replace />} />
+            <Route path="/vendors" element={<Navigate to="/food-trucks" replace />} />
             <Route path="/food-trucks" element={<FoodTrucks />} />
             <Route path="/food-trucks/:slug" element={<TruckProfile />} />
             <Route path="/category/:categorySlug" element={<FoodTrucks />} />
