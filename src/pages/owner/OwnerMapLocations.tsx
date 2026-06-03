@@ -20,8 +20,11 @@ const validLat = (v: number) => Number.isFinite(v) && v >= -90 && v <= 90;
 const validLng = (v: number) => Number.isFinite(v) && v >= -180 && v <= 180;
 
 function coords(lat: string | number | null | undefined, lng: string | number | null | undefined) {
-  const latitude = Number(lat);
-  const longitude = Number(lng);
+  const latitudeText = String(lat ?? "").trim();
+  const longitudeText = String(lng ?? "").trim();
+  if (!latitudeText || !longitudeText) return null;
+  const latitude = Number(latitudeText);
+  const longitude = Number(longitudeText);
   return validLat(latitude) && validLng(longitude) ? { latitude, longitude } : null;
 }
 
@@ -52,7 +55,6 @@ export default function OwnerMapLocations() {
 
   if (loading) return <div className="text-muted-foreground">Loading…</div>;
   if (!business) return <Onboarding />;
-  const b = business as any;
 
   async function saveCurrent() {
     const point = coords(current.latitude, current.longitude);
