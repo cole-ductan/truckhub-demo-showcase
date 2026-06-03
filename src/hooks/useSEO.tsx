@@ -8,6 +8,12 @@ type SEOOptions = {
   jsonLd?: Record<string, any> | Record<string, any>[];
 };
 
+const SITE_NAME = "FoodXMobile";
+const normalizeBrand = (value: string) => value
+  .replaceAll("TruckHub Green Bay", SITE_NAME)
+  .replaceAll("TruckHub", SITE_NAME)
+  .replaceAll("truckhubgb.com", "foodxmobile.com");
+
 const upsertMeta = (selector: string, attrs: Record<string, string>) => {
   let el = document.head.querySelector<HTMLMetaElement>(selector);
   if (!el) {
@@ -22,18 +28,22 @@ const upsertMeta = (selector: string, attrs: Record<string, string>) => {
 
 export const useSEO = ({ title, description, canonical, image, jsonLd }: SEOOptions) => {
   useEffect(() => {
-    if (title) document.title = title.length > 60 ? title.slice(0, 57) + "…" : title;
+    const normalizedTitle = title ? normalizeBrand(title) : undefined;
+    const normalizedDescription = description ? normalizeBrand(description) : undefined;
 
-    if (description) {
-      const desc = description.length > 160 ? description.slice(0, 157) + "…" : description;
+    if (normalizedTitle) document.title = normalizedTitle.length > 60 ? normalizedTitle.slice(0, 57) + "…" : normalizedTitle;
+    upsertMeta('meta[property="og:site_name"]', { property: "og:site_name", content: SITE_NAME });
+
+    if (normalizedDescription) {
+      const desc = normalizedDescription.length > 160 ? normalizedDescription.slice(0, 157) + "…" : normalizedDescription;
       upsertMeta('meta[name="description"]', { name: "description", content: desc });
       upsertMeta('meta[property="og:description"]', { property: "og:description", content: desc });
       upsertMeta('meta[name="twitter:description"]', { name: "twitter:description", content: desc });
     }
 
-    if (title) {
-      upsertMeta('meta[property="og:title"]', { property: "og:title", content: title });
-      upsertMeta('meta[name="twitter:title"]', { name: "twitter:title", content: title });
+    if (normalizedTitle) {
+      upsertMeta('meta[property="og:title"]', { property: "og:title", content: normalizedTitle });
+      upsertMeta('meta[name="twitter:title"]', { name: "twitter:title", content: normalizedTitle });
     }
 
     if (image) {
