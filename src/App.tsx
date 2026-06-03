@@ -16,6 +16,9 @@ import OwnerLayout from "./pages/owner/OwnerLayout.tsx";
 import AdminLayout from "./pages/admin/AdminLayout.tsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
 import AdminBusinesses from "./pages/admin/AdminBusinesses.tsx";
+import AdminBusinessEdit from "./pages/admin/AdminBusinessEdit.tsx";
+import AdminImportBusinesses from "./pages/admin/AdminImportBusinesses.tsx";
+import AdminListingReview from "./pages/admin/AdminListingReview.tsx";
 import AdminUsers from "./pages/admin/AdminUsers.tsx";
 import AdminCategories from "./pages/admin/AdminCategories.tsx";
 import AdminLeads from "./pages/admin/AdminLeads.tsx";
@@ -76,6 +79,9 @@ const App = () => (
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="businesses" element={<AdminBusinesses />} />
+              <Route path="businesses/:id/edit" element={<AdminBusinessEdit />} />
+              <Route path="import-businesses" element={<AdminImportBusinesses />} />
+              <Route path="listing-review" element={<AdminListingReview />} />
               <Route path="leads" element={<AdminLeads />} />
               <Route path="users" element={<AdminUsers />} />
               <Route path="categories" element={<AdminCategories />} />
