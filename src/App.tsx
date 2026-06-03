@@ -23,6 +23,7 @@ import AdminDemoTools from "./pages/admin/AdminDemoTools.tsx";
 import OwnerProfile from "./pages/owner/OwnerProfile.tsx";
 import OwnerMenu from "./pages/owner/OwnerMenu.tsx";
 import OwnerCalendar from "./pages/owner/OwnerCalendar.tsx";
+import OwnerMapLocations from "./pages/owner/OwnerMapLocations.tsx";
 import OwnerLeads from "./pages/owner/OwnerLeads.tsx";
 import OwnerMessages from "./pages/owner/OwnerMessages.tsx";
 import OwnerBookings from "./pages/owner/OwnerBookings.tsx";
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="profile" element={<OwnerProfile />} />
               <Route path="menu" element={<OwnerMenu />} />
               <Route path="calendar" element={<OwnerCalendar />} />
+              <Route path="map" element={<OwnerMapLocations />} />
               <Route path="leads" element={<OwnerLeads />} />
               <Route path="messages" element={<OwnerMessages />} />
               <Route path="bookings" element={<OwnerBookings />} />

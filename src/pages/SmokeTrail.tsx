@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { DemoBanner } from "@/components/site/DemoBanner";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
+import { LiveDiscoveryMap } from "@/components/site/LiveDiscoveryMap";
 import { useSEO } from "@/hooks/useSEO";
 import heroTruck from "@/assets/hero-truck.jpg";
 
@@ -46,6 +47,8 @@ export default function SmokeTrail() {
             </div>
           </div>
         </section>
+
+        <LiveDiscoveryMap />
 
         <section className="bg-cream-deep py-20 md:py-24">
           <div className="container-tight">
