@@ -237,10 +237,16 @@ export type Database = {
       }
       businesses: {
         Row: {
+          booking_inquiry_enabled: boolean
           category_id: string | null
+          catering_available: boolean
           city: string | null
+          contact_name: string | null
           created_at: string
           cuisine: string | null
+          current_address: string | null
+          current_latitude: number | null
+          current_longitude: number | null
           description: string | null
           email: string | null
           emoji: string | null
@@ -248,17 +254,21 @@ export type Database = {
           hero_image_url: string | null
           id: string
           instagram: string | null
+          internal_notes: string | null
           is_demo: boolean
           is_featured: boolean
           is_published: boolean
+          listing_status: Database["public"]["Enums"]["listing_status"]
           logo_url: string | null
           name: string
           online_ordering_url: string | null
           order_button_label: string | null
           ordering_enabled: boolean
+          outreach_email: string | null
           owner_id: string | null
           phone: string | null
           region: string | null
+          service_area: string | null
           slug: string
           status: Database["public"]["Enums"]["business_status"]
           tagline: string | null
@@ -268,10 +278,16 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          booking_inquiry_enabled?: boolean
           category_id?: string | null
+          catering_available?: boolean
           city?: string | null
+          contact_name?: string | null
           created_at?: string
           cuisine?: string | null
+          current_address?: string | null
+          current_latitude?: number | null
+          current_longitude?: number | null
           description?: string | null
           email?: string | null
           emoji?: string | null
@@ -279,17 +295,21 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           instagram?: string | null
+          internal_notes?: string | null
           is_demo?: boolean
           is_featured?: boolean
           is_published?: boolean
+          listing_status?: Database["public"]["Enums"]["listing_status"]
           logo_url?: string | null
           name: string
           online_ordering_url?: string | null
           order_button_label?: string | null
           ordering_enabled?: boolean
+          outreach_email?: string | null
           owner_id?: string | null
           phone?: string | null
           region?: string | null
+          service_area?: string | null
           slug: string
           status?: Database["public"]["Enums"]["business_status"]
           tagline?: string | null
@@ -299,10 +319,16 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          booking_inquiry_enabled?: boolean
           category_id?: string | null
+          catering_available?: boolean
           city?: string | null
+          contact_name?: string | null
           created_at?: string
           cuisine?: string | null
+          current_address?: string | null
+          current_latitude?: number | null
+          current_longitude?: number | null
           description?: string | null
           email?: string | null
           emoji?: string | null
@@ -310,17 +336,21 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           instagram?: string | null
+          internal_notes?: string | null
           is_demo?: boolean
           is_featured?: boolean
           is_published?: boolean
+          listing_status?: Database["public"]["Enums"]["listing_status"]
           logo_url?: string | null
           name?: string
           online_ordering_url?: string | null
           order_button_label?: string | null
           ordering_enabled?: boolean
+          outreach_email?: string | null
           owner_id?: string | null
           phone?: string | null
           region?: string | null
+          service_area?: string | null
           slug?: string
           status?: Database["public"]["Enums"]["business_status"]
           tagline?: string | null
@@ -770,10 +800,16 @@ export type Database = {
       claim_business: {
         Args: { _business_id: string }
         Returns: {
+          booking_inquiry_enabled: boolean
           category_id: string | null
+          catering_available: boolean
           city: string | null
+          contact_name: string | null
           created_at: string
           cuisine: string | null
+          current_address: string | null
+          current_latitude: number | null
+          current_longitude: number | null
           description: string | null
           email: string | null
           emoji: string | null
@@ -781,17 +817,21 @@ export type Database = {
           hero_image_url: string | null
           id: string
           instagram: string | null
+          internal_notes: string | null
           is_demo: boolean
           is_featured: boolean
           is_published: boolean
+          listing_status: Database["public"]["Enums"]["listing_status"]
           logo_url: string | null
           name: string
           online_ordering_url: string | null
           order_button_label: string | null
           ordering_enabled: boolean
+          outreach_email: string | null
           owner_id: string | null
           phone: string | null
           region: string | null
+          service_area: string | null
           slug: string
           status: Database["public"]["Enums"]["business_status"]
           tagline: string | null
@@ -832,6 +872,12 @@ export type Database = {
         | "booked"
         | "completed"
         | "lost"
+      listing_status:
+        | "draft"
+        | "unclaimed"
+        | "claimed_free"
+        | "premium"
+        | "archived"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -970,6 +1016,13 @@ export const Constants = {
         "booked",
         "completed",
         "lost",
+      ],
+      listing_status: [
+        "draft",
+        "unclaimed",
+        "claimed_free",
+        "premium",
+        "archived",
       ],
     },
   },
