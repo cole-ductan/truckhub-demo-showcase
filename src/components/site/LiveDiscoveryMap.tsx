@@ -47,6 +47,7 @@ export function LiveDiscoveryMap() {
   const [events, setEvents] = useState<EventPin[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [loading, setLoading] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
   const key = (import.meta as any).env?.VITE_MAPTILER_KEY as string | undefined;
 
   useEffect(() => {
@@ -77,13 +78,14 @@ export function LiveDiscoveryMap() {
       zoom: 11.5,
     });
     map.addControl(new window.maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    map.on("load", () => setMapReady(true));
     mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; };
+    return () => { map.remove(); mapRef.current = null; setMapReady(false); };
   }, [key]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !window.maplibregl) return;
+    if (!map || !mapReady || !window.maplibregl) return;
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
     const bounds = new window.maplibregl.LngLatBounds();
@@ -105,7 +107,7 @@ export function LiveDiscoveryMap() {
     });
 
     if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 70, maxZoom: 13.5, duration: 600 });
-  }, [filteredTrucks, filteredEvents]);
+  }, [filteredTrucks, filteredEvents, mapReady]);
 
   const filters: Array<{ id: Filter; label: string }> = [
     { id: "all", label: "All nearby" }, { id: "open", label: "Open now" },
