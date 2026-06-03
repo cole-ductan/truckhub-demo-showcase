@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import { ExternalLink, Star, StarOff, Eye, EyeOff, Search } from "lucide-react";
 import { toast } from "sonner";
+import { LISTING_STATUSES, LISTING_STATUS_LABEL, LISTING_STATUS_VARIANT, type ListingStatus } from "@/lib/listingStatus";
 
 type Biz = {
   id: string;
@@ -24,6 +25,7 @@ type Biz = {
   is_featured: boolean;
   owner_id: string | null;
   updated_at: string;
+  listing_status: ListingStatus;
 };
 
 export default function AdminBusinesses() {
@@ -35,12 +37,13 @@ export default function AdminBusinesses() {
   const [q, setQ] = useState(params.get("q") ?? "");
   const [pub, setPub] = useState<string>("all");
   const [feat, setFeat] = useState<string>("all");
+  const [lstatus, setLstatus] = useState<string>("all");
   const [open, setOpen] = useState<Biz | null>(null);
 
   const load = async () => {
     const { data: bs } = await supabase
       .from("businesses")
-      .select("id,name,slug,city,cuisine,category_id,is_published,is_featured,owner_id,updated_at")
+      .select("id,name,slug,city,cuisine,category_id,is_published,is_featured,owner_id,updated_at,listing_status")
       .order("updated_at", { ascending: false });
     const list = (bs ?? []) as Biz[];
     setRows(list);
@@ -72,12 +75,13 @@ export default function AdminBusinesses() {
       if (pub === "draft" && r.is_published) return false;
       if (feat === "featured" && !r.is_featured) return false;
       if (feat === "not" && r.is_featured) return false;
+      if (lstatus !== "all" && r.listing_status !== lstatus) return false;
       if (!term) return true;
       const owner = r.owner_id ? profiles[r.owner_id]?.display_name ?? "" : "";
       return [r.name, r.city, r.cuisine, owner, r.category_id ? cats[r.category_id] : ""]
         .filter(Boolean).join(" ").toLowerCase().includes(term);
     });
-  }, [rows, q, pub, feat, profiles, cats]);
+  }, [rows, q, pub, feat, lstatus, profiles, cats]);
 
   const togglePublish = async (b: Biz) => {
     const { error } = await supabase.from("businesses").update({ is_published: !b.is_published }).eq("id", b.id);
@@ -136,6 +140,15 @@ export default function AdminBusinesses() {
               <SelectItem value="not">Not featured</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={lstatus} onValueChange={setLstatus}>
+            <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All listing status</SelectItem>
+              {LISTING_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>{LISTING_STATUS_LABEL[s]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </CardContent>
       </Card>
 
@@ -147,6 +160,7 @@ export default function AdminBusinesses() {
               <TableHead>Owner</TableHead>
               <TableHead>City</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>Listing</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Leads</TableHead>
               <TableHead>Updated</TableHead>
@@ -163,6 +177,9 @@ export default function AdminBusinesses() {
                 <TableCell className="text-sm">{b.city ?? "—"}</TableCell>
                 <TableCell className="text-sm">{b.category_id ? cats[b.category_id] : (b.cuisine ?? "—")}</TableCell>
                 <TableCell>
+                  <Badge variant={LISTING_STATUS_VARIANT[b.listing_status]}>{LISTING_STATUS_LABEL[b.listing_status]}</Badge>
+                </TableCell>
+                <TableCell>
                   <div className="flex flex-wrap gap-1">
                     <Badge variant={b.is_published ? "default" : "outline"}>{b.is_published ? "Live" : "Draft"}</Badge>
                     {b.is_featured && <Badge variant="secondary" className="gap-1"><Star className="h-3 w-3" /> Featured</Badge>}
@@ -172,6 +189,9 @@ export default function AdminBusinesses() {
                 <TableCell className="text-xs text-muted-foreground">{new Date(b.updated_at).toLocaleDateString()}</TableCell>
                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="inline-flex gap-1">
+                    <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-xs" title="Edit">
+                      <Link to={`/admin/businesses/${b.id}/edit`}>Edit</Link>
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => togglePublish(b)} title={b.is_published ? "Unpublish" : "Publish"}>
                       {b.is_published ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
@@ -188,7 +208,7 @@ export default function AdminBusinesses() {
               </TableRow>
             ))}
             {filtered.length === 0 && (
-              <TableRow><TableCell colSpan={8} className="text-center text-sm text-muted-foreground">No businesses match.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center text-sm text-muted-foreground">No businesses match.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -204,15 +224,34 @@ export default function AdminBusinesses() {
               </SheetHeader>
               <div className="mt-6 space-y-4 text-sm">
                 <div className="flex flex-wrap gap-1.5">
+                  <Badge variant={LISTING_STATUS_VARIANT[open.listing_status]}>{LISTING_STATUS_LABEL[open.listing_status]}</Badge>
                   <Badge variant={open.is_published ? "default" : "outline"}>{open.is_published ? "Published" : "Draft"}</Badge>
                   {open.is_featured && <Badge variant="secondary">Featured</Badge>}
                   <Badge variant="outline">{leadCounts[open.id] ?? 0} leads</Badge>
+                </div>
+                <div>
+                  <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Listing status</p>
+                  <Select value={open.listing_status} onValueChange={async (v) => {
+                    const { error } = await supabase.from("businesses").update({ listing_status: v as ListingStatus }).eq("id", open.id);
+                    if (error) return toast.error(error.message);
+                    toast.success("Listing status updated");
+                    load();
+                    setOpen((o) => o && o.id === open.id ? { ...o, listing_status: v as ListingStatus } : o);
+                  }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {LISTING_STATUSES.map((s) => <SelectItem key={s} value={s}>{LISTING_STATUS_LABEL[s]}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase text-muted-foreground">Owner</p>
                   <p>{open.owner_id ? (profiles[open.owner_id]?.display_name ?? open.owner_id) : <span className="italic text-muted-foreground">Unclaimed</span>}</p>
                 </div>
                 <div className="grid gap-2">
+                  <Button asChild variant="default">
+                    <Link to={`/admin/businesses/${open.id}/edit`}>Open full editor</Link>
+                  </Button>
                   <Button variant="outline" onClick={() => togglePublish(open)}>
                     {open.is_published ? "Unpublish" : "Publish"}
                   </Button>
