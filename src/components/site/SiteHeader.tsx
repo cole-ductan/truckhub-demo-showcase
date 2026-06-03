@@ -17,6 +17,7 @@ export const SiteHeader = ({ withBanner = false }: { withBanner?: boolean }) => 
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
   const { user, isAdmin } = useAuth();
+  const bannerAware = withBanner || pathname.startsWith("/food-trucks/") || pathname.startsWith("/book/");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -27,8 +28,27 @@ export const SiteHeader = ({ withBanner = false }: { withBanner?: boolean }) => 
 
   useEffect(() => setOpen(false), [pathname]);
 
+  useEffect(() => {
+    const replaceLegacyBrand = () => {
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        const current = node.nodeValue ?? "";
+        const next = current
+          .replaceAll("TruckHub Green Bay", "FoodXMobile")
+          .replaceAll("TruckHub", "FoodXMobile")
+          .replaceAll("truckhubgb.com", "foodxmobile.com");
+        if (next !== current) node.nodeValue = next;
+      }
+    };
+    replaceLegacyBrand();
+    const observer = new MutationObserver(replaceLegacyBrand);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [pathname]);
+
   return (
-    <header className={`fixed inset-x-0 ${withBanner && !scrolled ? "top-8" : "top-0"} z-50 transition-all duration-300 ${scrolled ? "bg-background/85 backdrop-blur-xl border-b border-border" : "bg-transparent"}`}>
+    <header className={`fixed inset-x-0 ${bannerAware && !scrolled ? "top-8" : "top-0"} z-50 transition-all duration-300 ${scrolled ? "bg-background/85 backdrop-blur-xl border-b border-border" : "bg-transparent"}`}>
       <div className="container-tight flex h-16 items-center justify-between gap-4">
         <Logo />
         <nav className="hidden items-center gap-7 md:flex" aria-label="Primary">
