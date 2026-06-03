@@ -35,9 +35,9 @@ export const SiteHeader = ({ withBanner = false }: { withBanner?: boolean }) => 
       while ((node = walker.nextNode())) {
         const current = node.nodeValue ?? "";
         const next = current
-          .replaceAll("TruckHub Green Bay", "FoodXMobile")
-          .replaceAll("TruckHub", "FoodXMobile")
-          .replaceAll("truckhubgb.com", "foodxmobile.com");
+          .replace(new RegExp("TruckHub Green Bay", "g"), "FoodXMobile")
+          .replace(new RegExp("TruckHub", "g"), "FoodXMobile")
+          .replace(new RegExp("truckhubgb.com", "g"), "foodxmobile.com");
         if (next !== current) node.nodeValue = next;
       }
     };
