@@ -7,13 +7,23 @@ AS $$
 DECLARE
   matched_lat double precision;
   matched_lng double precision;
+  location_changed boolean;
+  coordinates_unchanged boolean;
 BEGIN
+  location_changed := TG_OP = 'INSERT';
+  coordinates_unchanged := NEW.today_latitude IS NULL OR NEW.today_longitude IS NULL;
+
+  IF TG_OP = 'UPDATE' THEN
+    location_changed := NEW.today_location IS DISTINCT FROM OLD.today_location;
+    coordinates_unchanged := coordinates_unchanged OR (
+      NEW.today_latitude IS NOT DISTINCT FROM OLD.today_latitude
+      AND NEW.today_longitude IS NOT DISTINCT FROM OLD.today_longitude
+    );
+  END IF;
+
   -- Preserve manually supplied coordinates. When only the text location changes,
   -- copy coordinates from a matching saved stop when available.
-  IF NEW.today_location IS NOT NULL
-     AND (TG_OP = 'INSERT' OR NEW.today_location IS DISTINCT FROM OLD.today_location)
-     AND (NEW.today_latitude IS NULL OR NEW.today_longitude IS NULL
-          OR (TG_OP = 'UPDATE' AND NEW.today_latitude = OLD.today_latitude AND NEW.today_longitude = OLD.today_longitude)) THEN
+  IF NEW.today_location IS NOT NULL AND location_changed AND coordinates_unchanged THEN
     SELECT sl.latitude, sl.longitude
       INTO matched_lat, matched_lng
       FROM public.saved_locations sl
@@ -42,7 +52,7 @@ $$;
 
 DROP TRIGGER IF EXISTS sync_business_today_coordinates_trigger ON public.businesses;
 CREATE TRIGGER sync_business_today_coordinates_trigger
-BEFORE INSERT OR UPDATE OF today_location, today_latitude, today_longitude ON public.businesses
+BEFORE INSERT OR UPDATE ON public.businesses
 FOR EACH ROW EXECUTE FUNCTION public.sync_business_today_coordinates();
 
 CREATE OR REPLACE FUNCTION public.seed_demo_saved_location_coordinates()
@@ -65,7 +75,7 @@ $$;
 
 DROP TRIGGER IF EXISTS seed_demo_saved_location_coordinates_trigger ON public.saved_locations;
 CREATE TRIGGER seed_demo_saved_location_coordinates_trigger
-BEFORE INSERT OR UPDATE OF label, latitude, longitude ON public.saved_locations
+BEFORE INSERT OR UPDATE ON public.saved_locations
 FOR EACH ROW EXECUTE FUNCTION public.seed_demo_saved_location_coordinates();
 
 CREATE OR REPLACE FUNCTION public.seed_demo_event_coordinates()
@@ -91,5 +101,5 @@ $$;
 
 DROP TRIGGER IF EXISTS seed_demo_event_coordinates_trigger ON public.business_events;
 CREATE TRIGGER seed_demo_event_coordinates_trigger
-BEFORE INSERT OR UPDATE OF title, latitude, longitude ON public.business_events
+BEFORE INSERT OR UPDATE ON public.business_events
 FOR EACH ROW EXECUTE FUNCTION public.seed_demo_event_coordinates();
