@@ -17,6 +17,7 @@ type Row = {
   is_published: boolean; listing_status: ListingStatus; updated_at: string;
   internal_notes: string | null;
 };
+type DupeRow = Pick<Row, "name" | "slug" | "email" | "phone" | "website">;
 
 function completeness(r: Row) {
   const contact = [r.phone, r.email, r.website].filter(Boolean).length / 3;
@@ -27,25 +28,30 @@ function completeness(r: Row) {
 
 export default function AdminListingReview() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [allListings, setAllListings] = useState<DupeRow[]>([]);
   const load = async () => {
-    const { data } = await (supabase as any)
-      .from("businesses")
-      .select("id,name,slug,city,cuisine,phone,email,website,hero_image_url,logo_url,current_address,today_latitude,today_longitude,is_published,listing_status,updated_at,internal_notes")
-      .in("listing_status", ["draft", "unclaimed"])
-      .order("updated_at", { ascending: false });
-    setRows((data ?? []) as Row[]);
+    const [{ data: queue }, { data: all }] = await Promise.all([
+      (supabase as any)
+        .from("businesses")
+        .select("id,name,slug,city,cuisine,phone,email,website,hero_image_url,logo_url,current_address,today_latitude,today_longitude,is_published,listing_status,updated_at,internal_notes")
+        .in("listing_status", ["draft", "unclaimed"])
+        .order("updated_at", { ascending: false }),
+      supabase.from("businesses").select("name,slug,email,phone,website"),
+    ]);
+    setRows((queue ?? []) as Row[]);
+    setAllListings((all ?? []) as DupeRow[]);
   };
   useEffect(() => { load(); }, []);
 
   const dupeKeys = useMemo(() => {
     const map = new Map<string, number>();
-    rows.forEach((r) => {
+    allListings.forEach((r) => {
       [normalize(r.name), normalize(r.slug), normalize(r.email), normalize(r.phone), normalize(r.website)]
         .filter(Boolean)
         .forEach((k) => map.set(k, (map.get(k) ?? 0) + 1));
     });
     return map;
-  }, [rows]);
+  }, [allListings]);
 
   const isDupe = (r: Row) =>
     [normalize(r.name), normalize(r.slug), normalize(r.email), normalize(r.phone), normalize(r.website)]
