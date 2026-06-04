@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
-import { ExternalLink, Star, StarOff, Eye, EyeOff, Search } from "lucide-react";
+import { ExternalLink, Star, StarOff, Eye, EyeOff, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { LISTING_STATUSES, LISTING_STATUS_LABEL, LISTING_STATUS_VARIANT, type ListingStatus } from "@/lib/listingStatus";
 
@@ -28,11 +28,15 @@ type Biz = {
   listing_status: ListingStatus;
 };
 
+type ClaimSummary = { pending: number; moreInfo: number; approved: number };
+const emptyClaimSummary: ClaimSummary = { pending: 0, moreInfo: 0, approved: 0 };
+
 export default function AdminBusinesses() {
   const [params, setParams] = useSearchParams();
   const [rows, setRows] = useState<Biz[]>([]);
   const [profiles, setProfiles] = useState<Record<string, { display_name: string | null }>>({});
   const [leadCounts, setLeadCounts] = useState<Record<string, number>>({});
+  const [claimSummaries, setClaimSummaries] = useState<Record<string, ClaimSummary>>({});
   const [cats, setCats] = useState<Record<string, string>>({});
   const [q, setQ] = useState(params.get("q") ?? "");
   const [pub, setPub] = useState<string>("all");
@@ -59,6 +63,19 @@ export default function AdminBusinesses() {
     const lc: Record<string, number> = {};
     (ls ?? []).forEach((l) => { lc[l.business_id] = (lc[l.business_id] ?? 0) + 1; });
     setLeadCounts(lc);
+
+    const { data: claims } = await supabase
+      .from("claim_requests")
+      .select("business_id,status");
+    const cm2: Record<string, ClaimSummary> = {};
+    (claims ?? []).forEach((c: any) => {
+      const cur = cm2[c.business_id] ?? { ...emptyClaimSummary };
+      if (c.status === "pending") cur.pending += 1;
+      else if (c.status === "more_info_requested") cur.moreInfo += 1;
+      else if (c.status === "approved") cur.approved += 1;
+      cm2[c.business_id] = cur;
+    });
+    setClaimSummaries(cm2);
 
     const { data: cs } = await supabase.from("business_categories").select("id,name");
     const cm: Record<string, string> = {};
@@ -108,9 +125,14 @@ export default function AdminBusinesses() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl font-bold">Businesses</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{filtered.length} of {rows.length} businesses</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl font-bold">Businesses</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{filtered.length} of {rows.length} businesses</p>
+        </div>
+        <Button asChild className="rounded-full">
+          <Link to="/admin/businesses/new"><Plus className="mr-1.5 h-4 w-4" /> Create Listing</Link>
+        </Button>
       </div>
 
       <Card className="rounded-2xl">
@@ -158,6 +180,7 @@ export default function AdminBusinesses() {
             <TableRow>
               <TableHead>Business</TableHead>
               <TableHead>Owner</TableHead>
+              <TableHead>Claims</TableHead>
               <TableHead>City</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Listing</TableHead>
@@ -173,6 +196,9 @@ export default function AdminBusinesses() {
                 <TableCell className="font-medium">{b.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {b.owner_id ? (profiles[b.owner_id]?.display_name ?? "—") : <span className="italic">Unclaimed</span>}
+                </TableCell>
+                <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
+                  <ClaimsBadges summary={claimSummaries[b.id] ?? emptyClaimSummary} businessId={b.id} />
                 </TableCell>
                 <TableCell className="text-sm">{b.city ?? "—"}</TableCell>
                 <TableCell className="text-sm">{b.category_id ? cats[b.category_id] : (b.cuisine ?? "—")}</TableCell>
@@ -208,7 +234,7 @@ export default function AdminBusinesses() {
               </TableRow>
             ))}
             {filtered.length === 0 && (
-              <TableRow><TableCell colSpan={9} className="text-center text-sm text-muted-foreground">No businesses match.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="text-center text-sm text-muted-foreground">No businesses match.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -276,5 +302,30 @@ export default function AdminBusinesses() {
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+function ClaimsBadges({ summary, businessId }: { summary: ClaimSummary; businessId: string }) {
+  const total = summary.pending + summary.moreInfo;
+  if (summary.approved > 0 && total === 0) {
+    return (
+      <Link to={`/admin/claim-requests?biz=${businessId}`} className="inline-block">
+        <Badge variant="default">Approved</Badge>
+      </Link>
+    );
+  }
+  if (total === 0) return <span className="text-muted-foreground">—</span>;
+  if (summary.moreInfo > 0) {
+    return (
+      <Link to={`/admin/claim-requests?biz=${businessId}`} className="inline-flex gap-1">
+        <Badge variant="outline">Needs response</Badge>
+        {summary.pending > 0 && <Badge variant="secondary">{summary.pending} Pending</Badge>}
+      </Link>
+    );
+  }
+  return (
+    <Link to={`/admin/claim-requests?biz=${businessId}`} className="inline-block">
+      <Badge variant="secondary">{summary.pending} Pending</Badge>
+    </Link>
   );
 }
