@@ -18,6 +18,7 @@ type Biz = {
   today_location: string | null; today_hours: string | null;
   status: "open" | "soon" | "closed";
   online_ordering_url: string | null; order_button_label: string | null; ordering_enabled: boolean;
+  listing_status: string; owner_id: string | null;
 };
 type MenuCat = { id: string; name: string; sort_order: number };
 type MenuItem = { id: string; category_id: string; name: string; description: string | null; price: string | null; sort_order: number; is_featured: boolean };
@@ -52,6 +53,7 @@ export default function TruckProfile() {
         "phone", "email", "website", "instagram", "facebook",
         "today_location", "today_hours", "status",
         "online_ordering_url", "order_button_label", "ordering_enabled",
+        "listing_status", "owner_id",
       ].join(",");
       const { data: b } = await supabase
         .from("businesses")
@@ -165,7 +167,17 @@ export default function TruckProfile() {
           <Link to="/food-trucks" className="inline-flex items-center gap-1.5 text-foreground/80 hover:text-primary">
             <ArrowLeft className="h-3.5 w-3.5" /> All trucks
           </Link>
-          <span className="text-muted-foreground">Live page · powered by FoodXMobile</span>
+          <div className="flex items-center gap-3">
+            {biz.listing_status === "unclaimed" && !biz.owner_id && (
+              <Link
+                to={`/claim/${biz.slug}`}
+                className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondary-foreground hover:bg-secondary/90"
+              >
+                Claim this listing
+              </Link>
+            )}
+            <span className="text-muted-foreground">Live page · powered by FoodXMobile</span>
+          </div>
         </div>
       </div>
 

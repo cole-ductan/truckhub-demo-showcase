@@ -15,6 +15,7 @@ const crumbs: Record<string, string> = {
   "/owner/menu": "Menu",
   "/owner/profile": "Truck Page",
   "/owner/messages": "Messages",
+  "/owner/claims": "My Claims",
   "/owner/settings": "Settings",
 };
 

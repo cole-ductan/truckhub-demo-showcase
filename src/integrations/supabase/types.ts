@@ -413,6 +413,68 @@ export type Database = {
           },
         ]
       }
+      claim_requests: {
+        Row: {
+          admin_notes: string | null
+          business_id: string
+          created_at: string
+          id: string
+          relationship_to_business: string | null
+          requester_email: string
+          requester_name: string
+          requester_phone: string | null
+          requester_user_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["claim_request_status"]
+          updated_at: string
+          verification_notes: string | null
+          verification_url: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          business_id: string
+          created_at?: string
+          id?: string
+          relationship_to_business?: string | null
+          requester_email: string
+          requester_name: string
+          requester_phone?: string | null
+          requester_user_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["claim_request_status"]
+          updated_at?: string
+          verification_notes?: string | null
+          verification_url?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          business_id?: string
+          created_at?: string
+          id?: string
+          relationship_to_business?: string | null
+          requester_email?: string
+          requester_name?: string
+          requester_phone?: string | null
+          requester_user_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["claim_request_status"]
+          updated_at?: string
+          verification_notes?: string | null
+          verification_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_requests_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deposit_requests: {
         Row: {
           amount_total: number | null
@@ -847,6 +909,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_claim_request: {
+        Args: { _claim_request_id: string }
+        Returns: {
+          admin_notes: string | null
+          business_id: string
+          created_at: string
+          id: string
+          relationship_to_business: string | null
+          requester_email: string
+          requester_name: string
+          requester_phone: string | null
+          requester_user_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["claim_request_status"]
+          updated_at: string
+          verification_notes: string | null
+          verification_url: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "claim_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       claim_business: {
         Args: { _business_id: string }
         Returns: {
@@ -899,6 +987,32 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      deny_claim_request: {
+        Args: { _admin_notes?: string; _claim_request_id: string }
+        Returns: {
+          admin_notes: string | null
+          business_id: string
+          created_at: string
+          id: string
+          relationship_to_business: string | null
+          requester_email: string
+          requester_name: string
+          requester_phone: string | null
+          requester_user_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["claim_request_status"]
+          updated_at: string
+          verification_notes: string | null
+          verification_url: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "claim_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -911,10 +1025,68 @@ export type Database = {
         Args: { _business_id: string; _user_id: string }
         Returns: boolean
       }
+      request_more_info_claim_request: {
+        Args: { _admin_notes: string; _claim_request_id: string }
+        Returns: {
+          admin_notes: string | null
+          business_id: string
+          created_at: string
+          id: string
+          relationship_to_business: string | null
+          requester_email: string
+          requester_name: string
+          requester_phone: string | null
+          requester_user_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["claim_request_status"]
+          updated_at: string
+          verification_notes: string | null
+          verification_url: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "claim_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      withdraw_claim_request: {
+        Args: { _claim_request_id: string }
+        Returns: {
+          admin_notes: string | null
+          business_id: string
+          created_at: string
+          id: string
+          relationship_to_business: string | null
+          requester_email: string
+          requester_name: string
+          requester_phone: string | null
+          requester_user_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["claim_request_status"]
+          updated_at: string
+          verification_notes: string | null
+          verification_url: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "claim_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       app_role: "admin" | "owner"
       business_status: "open" | "soon" | "closed"
+      claim_request_status:
+        | "pending"
+        | "approved"
+        | "denied"
+        | "more_info_requested"
+        | "withdrawn"
       event_kind: "weekly" | "one_off"
       lead_stage:
         | "new"
@@ -1059,6 +1231,13 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "owner"],
       business_status: ["open", "soon", "closed"],
+      claim_request_status: [
+        "pending",
+        "approved",
+        "denied",
+        "more_info_requested",
+        "withdrawn",
+      ],
       event_kind: ["weekly", "one_off"],
       lead_stage: [
         "new",
