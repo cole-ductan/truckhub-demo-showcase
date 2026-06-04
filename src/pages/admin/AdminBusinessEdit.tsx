@@ -43,7 +43,7 @@ export default function AdminBusinessEdit() {
   const save = async () => {
     if (!form) return;
     setSaving(true);
-    const { id: _id, created_at, updated_at, ...payload } = form;
+    const { id: _id, created_at, updated_at, current_latitude, current_longitude, ...payload } = form;
     const { error } = await supabase.from("businesses").update(payload).eq("id", id!);
     if (error) { toast.error(error.message); setSaving(false); return; }
 
@@ -96,8 +96,7 @@ export default function AdminBusinessEdit() {
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Short description" className="md:col-span-2"><Textarea rows={2} value={form.tagline ?? ""} onChange={(e) => set("tagline", e.target.value)} /></Field>
-          <Field label="Full description" className="md:col-span-2"><Textarea rows={5} value={form.description ?? ""} onChange={(e) => set("description", e.target.value)} /></Field>
+          <Field label="Description" className="md:col-span-2"><Textarea rows={5} value={form.description ?? ""} onChange={(e) => set("description", e.target.value)} /></Field>
           <Field label="Specialties" className="md:col-span-2">
             <div className="flex flex-wrap gap-2">
               {children.length === 0 && <p className="text-xs text-muted-foreground">No specialties defined yet.</p>}
@@ -146,14 +145,15 @@ export default function AdminBusinessEdit() {
         <CardContent className="grid gap-4 md:grid-cols-2">
           <Field label="Current location label"><Input value={form.today_location ?? ""} onChange={(e) => set("today_location", e.target.value)} /></Field>
           <Field label="Current address"><Input value={form.current_address ?? ""} onChange={(e) => set("current_address", e.target.value)} /></Field>
-          <Field label="Latitude"><Input type="number" step="0.000001" value={form.current_latitude ?? ""} onChange={(e) => set("current_latitude", e.target.value === "" ? null : Number(e.target.value))} /></Field>
-          <Field label="Longitude"><Input type="number" step="0.000001" value={form.current_longitude ?? ""} onChange={(e) => set("current_longitude", e.target.value === "" ? null : Number(e.target.value))} /></Field>
+          <Field label="Live map latitude"><Input type="number" step="0.000001" value={form.today_latitude ?? ""} onChange={(e) => set("today_latitude", e.target.value === "" ? null : Number(e.target.value))} /></Field>
+          <Field label="Live map longitude"><Input type="number" step="0.000001" value={form.today_longitude ?? ""} onChange={(e) => set("today_longitude", e.target.value === "" ? null : Number(e.target.value))} /></Field>
           <Field label="Current hours"><Input value={form.today_hours ?? ""} onChange={(e) => set("today_hours", e.target.value)} /></Field>
           <Field label="Current status">
             <Select value={form.status} onValueChange={(v) => set("status", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="soon">Opening soon</SelectItem>
                 <SelectItem value="closed">Closed</SelectItem>
               </SelectContent>
             </Select>
