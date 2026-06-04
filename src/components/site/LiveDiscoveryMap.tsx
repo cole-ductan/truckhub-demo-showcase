@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, MapPin, Truck, UnlockKeyhole } from "lucide-react";
+import { MapPin, UnlockKeyhole } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { applyCartoonStyle } from "@/lib/cartoonMapStyle";
+import {
+  renderPinElement, categorizeEvent, categorizeBusiness,
+  CATEGORY_LABEL, LegendDot, type PinCategory,
+} from "@/lib/mapPinIcons";
 
 declare global {
   interface Window { maplibregl?: any; }
@@ -22,22 +27,6 @@ type Filter = "all" | "open" | "trucks" | "events";
 const GREEN_BAY_CENTER: [number, number] = [-88.0198, 44.5133];
 const styleUrl = (key: string) => `https://api.maptiler.com/maps/streets-v2/style.json?key=${encodeURIComponent(key)}`;
 const clean = (v?: string | null) => (v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] ?? c));
-
-function markerElement(icon: string, kind: "truck" | "event", open = false) {
-  const el = document.createElement("button");
-  el.type = "button";
-  el.setAttribute("aria-label", kind === "truck" ? "Food truck map pin" : "Event map pin");
-  el.textContent = icon;
-  el.style.cssText = [
-    "width:42px", "height:42px", "display:grid", "place-items:center", "border-radius:999px",
-    "border:3px solid white", "box-shadow:0 8px 20px rgba(31,22,14,.28)", "cursor:pointer",
-    `background:${kind === "event" ? "#1f160e" : open ? "#ea580c" : "#f97316"}`,
-    "font-size:19px", "line-height:1", "transition:transform .18s ease"
-  ].join(";");
-  el.onmouseenter = () => { el.style.transform = "scale(1.12)"; };
-  el.onmouseleave = () => { el.style.transform = "scale(1)"; };
-  return el;
-}
 
 export function LiveDiscoveryMap() {
   const mapRef = useRef<any>(null);
@@ -78,7 +67,10 @@ export function LiveDiscoveryMap() {
       zoom: 11.5,
     });
     map.addControl(new window.maplibregl.NavigationControl({ showCompass: false }), "top-right");
-    map.on("load", () => setMapReady(true));
+    map.on("load", () => {
+      try { applyCartoonStyle(map); } catch (e) { console.warn("cartoon style failed", e); }
+      setMapReady(true);
+    });
     mapRef.current = map;
     return () => { map.remove(); mapRef.current = null; setMapReady(false); };
   }, [key]);
@@ -91,17 +83,19 @@ export function LiveDiscoveryMap() {
     const bounds = new window.maplibregl.LngLatBounds();
 
     filteredTrucks.forEach((t) => {
+      const category = categorizeBusiness({ cuisine: t.cuisine });
       const popup = new window.maplibregl.Popup({ offset: 22 }).setHTML(`<div style="min-width:190px"><strong>${clean(t.emoji)} ${clean(t.name)}</strong><div style="margin-top:5px;font-size:12px">${clean(t.cuisine)}</div><div style="margin-top:5px;font-size:12px">${clean(t.today_location)}${t.today_hours ? ` · ${clean(t.today_hours)}` : ""}</div><a href="/food-trucks/${clean(t.slug)}" style="display:inline-block;margin-top:9px;color:#ea580c;font-weight:700;font-size:12px">View listing →</a></div>`);
-      const marker = new window.maplibregl.Marker({ element: markerElement(t.emoji || "🚚", "truck", t.status === "open") })
+      const marker = new window.maplibregl.Marker({ element: renderPinElement(category, { status: t.status }), anchor: "bottom" })
         .setLngLat([t.today_longitude, t.today_latitude]).setPopup(popup).addTo(map);
       markersRef.current.push(marker); bounds.extend([t.today_longitude, t.today_latitude]);
     });
 
     filteredEvents.forEach((e) => {
+      const category = categorizeEvent(e.tag);
       const vendor = e.businesses?.name ? `<div style="margin-top:5px;font-size:12px">Hosted by ${clean(e.businesses.name)}</div>` : "";
       const link = e.businesses?.slug ? `<a href="/food-trucks/${clean(e.businesses.slug)}" style="display:inline-block;margin-top:9px;color:#ea580c;font-weight:700;font-size:12px">View listing →</a>` : "";
-      const popup = new window.maplibregl.Popup({ offset: 22 }).setHTML(`<div style="min-width:190px"><strong>📅 ${clean(e.title)}</strong><div style="margin-top:5px;font-size:12px">${clean(e.location)}${e.start_time ? ` · ${clean(e.start_time)}${e.end_time ? `–${clean(e.end_time)}` : ""}` : ""}</div>${vendor}${link}</div>`);
-      const marker = new window.maplibregl.Marker({ element: markerElement("📅", "event") })
+      const popup = new window.maplibregl.Popup({ offset: 22 }).setHTML(`<div style="min-width:190px"><strong>${clean(CATEGORY_LABEL[category])} · ${clean(e.title)}</strong><div style="margin-top:5px;font-size:12px">${clean(e.location)}${e.start_time ? ` · ${clean(e.start_time)}${e.end_time ? `–${clean(e.end_time)}` : ""}` : ""}</div>${vendor}${link}</div>`);
+      const marker = new window.maplibregl.Marker({ element: renderPinElement(category), anchor: "bottom" })
         .setLngLat([e.longitude, e.latitude]).setPopup(popup).addTo(map);
       markersRef.current.push(marker); bounds.extend([e.longitude, e.latitude]);
     });
@@ -112,6 +106,10 @@ export function LiveDiscoveryMap() {
   const filters: Array<{ id: Filter; label: string }> = [
     { id: "all", label: "All nearby" }, { id: "open", label: "Open now" },
     { id: "trucks", label: "Food trucks" }, { id: "events", label: "Events" },
+  ];
+
+  const legendCategories: PinCategory[] = [
+    "truck", "market", "event", "concert", "workshop", "pub_crawl", "wine_walk", "featured",
   ];
 
   return (
@@ -139,10 +137,16 @@ export function LiveDiscoveryMap() {
             </div>
           )}
           {loading && key && <div className="absolute inset-0 grid place-items-center bg-card/70 text-sm text-muted-foreground backdrop-blur-sm">Loading nearby trucks and events…</div>}
-          <div className="pointer-events-none absolute bottom-4 left-4 flex flex-wrap gap-2 rounded-full bg-background/90 px-3 py-2 text-xs shadow-soft backdrop-blur">
-            <span className="inline-flex items-center gap-1.5"><Truck className="h-3.5 w-3.5 text-primary" /> Food trucks</span>
-            <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" /> Events</span>
-            <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Northeast Wisconsin</span>
+          <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-background/92 px-3 py-2 text-xs shadow-soft backdrop-blur md:right-auto">
+            {legendCategories.map((c) => (
+              <span key={c} className="inline-flex items-center gap-1.5">
+                <LegendDot category={c} />
+                <span className="font-medium text-foreground/80">{CATEGORY_LABEL[c]}</span>
+              </span>
+            ))}
+            <span className="ml-auto inline-flex items-center gap-1.5 text-muted-foreground">
+              <MapPin className="h-3.5 w-3.5" /> Northeast Wisconsin
+            </span>
           </div>
         </div>
       </div>
