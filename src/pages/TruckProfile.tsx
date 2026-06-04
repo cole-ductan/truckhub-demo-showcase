@@ -173,7 +173,7 @@ export default function TruckProfile() {
                 to={`/claim/${biz.slug}`}
                 className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondary-foreground hover:bg-secondary/90"
               >
-                Claim this listing
+                Own this business? Claim this listing
               </Link>
             )}
             <span className="text-muted-foreground">Live page · powered by FoodXMobile</span>
