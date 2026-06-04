@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ExternalLink, ShieldCheck, CheckCircle2, XCircle, MessageCircleQuestion } from "lucide-react";
+import { ExternalLink, ShieldCheck, CheckCircle2, XCircle, MessageCircleQuestion, X } from "lucide-react";
 
 type Status = "pending" | "approved" | "denied" | "more_info_requested" | "withdrawn";
 
@@ -55,6 +54,8 @@ const FILTERS: Array<{ key: "all" | Status; label: string }> = [
 ];
 
 export default function AdminClaimRequests() {
+  const [params, setParams] = useSearchParams();
+  const businessId = params.get("biz");
   const [rows, setRows] = useState<Row[]>([]);
   const [filter, setFilter] = useState<"all" | Status>("pending");
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -75,15 +76,25 @@ export default function AdminClaimRequests() {
   };
   useEffect(() => { load(); }, []);
 
+  const scopedRows = useMemo(
+    () => businessId ? rows.filter((r) => r.business?.id === businessId) : rows,
+    [rows, businessId],
+  );
+
+  const scopedBusinessName = useMemo(
+    () => scopedRows.find((r) => r.business?.id === businessId)?.business?.name ?? null,
+    [scopedRows, businessId],
+  );
+
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: rows.length };
-    rows.forEach((r) => { c[r.status] = (c[r.status] ?? 0) + 1; });
+    const c: Record<string, number> = { all: scopedRows.length };
+    scopedRows.forEach((r) => { c[r.status] = (c[r.status] ?? 0) + 1; });
     return c;
-  }, [rows]);
+  }, [scopedRows]);
 
   const visible = useMemo(
-    () => filter === "all" ? rows : rows.filter((r) => r.status === filter),
-    [rows, filter],
+    () => filter === "all" ? scopedRows : scopedRows.filter((r) => r.status === filter),
+    [scopedRows, filter],
   );
 
   async function approve(r: Row) {
@@ -121,6 +132,12 @@ export default function AdminClaimRequests() {
     load();
   }
 
+  const clearBusinessFilter = () => {
+    const next = new URLSearchParams(params);
+    next.delete("biz");
+    setParams(next, { replace: true });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-3">
@@ -132,6 +149,16 @@ export default function AdminClaimRequests() {
           <ShieldCheck className="h-3 w-3" /> {counts.pending ?? 0} pending
         </span>
       </div>
+
+      {businessId && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm">
+          <span className="text-muted-foreground">Filtered to:</span>
+          <span className="font-semibold">{scopedBusinessName ?? "Selected business"}</span>
+          <Button variant="ghost" size="sm" className="ml-auto h-7 gap-1 px-2" onClick={clearBusinessFilter}>
+            <X className="h-3.5 w-3.5" /> Clear filter
+          </Button>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
