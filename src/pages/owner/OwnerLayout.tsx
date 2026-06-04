@@ -21,28 +21,33 @@ const crumbs: Record<string, string> = {
 
 function Topbar() {
   const { pathname } = useLocation();
-  const { business } = useOwnerBusiness();
+  const { business, businesses } = useOwnerBusiness();
   const label = crumbs[pathname] ?? "Workspace";
+  const isClaimantOnly = businesses.length === 0;
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-xl">
       <div className="flex items-center gap-3">
         <SidebarTrigger />
         <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
-          <span className="font-semibold text-foreground/70">{business?.name ?? "Workspace"}</span>
+          <span className="font-semibold text-foreground/70">{business?.name ?? (isClaimantOnly ? "Listing claims" : "Workspace")}</span>
           <span>/</span>
           <span>{label}</span>
         </div>
       </div>
       <div className="flex items-center gap-2">
         <span className="hidden items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary md:inline-flex">
-          <Sparkles className="h-3 w-3" /> Owner Console
+          <Sparkles className="h-3 w-3" /> {isClaimantOnly ? "Claimant Console" : "Owner Console"}
         </span>
-        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" aria-label="Notifications">
-          <Bell className="h-4 w-4" />
-        </Button>
-        <Button size="sm" className="h-9 rounded-full" asChild>
-          <a href="/owner/calendar"><Plus className="mr-1 h-3.5 w-3.5" /> New</a>
-        </Button>
+        {!isClaimantOnly && (
+          <>
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" aria-label="Notifications">
+              <Bell className="h-4 w-4" />
+            </Button>
+            <Button size="sm" className="h-9 rounded-full" asChild>
+              <a href="/owner/calendar"><Plus className="mr-1 h-3.5 w-3.5" /> New</a>
+            </Button>
+          </>
+        )}
       </div>
     </header>
   );
