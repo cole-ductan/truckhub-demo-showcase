@@ -265,7 +265,7 @@ export default function AdminImportBusinesses() {
               <div>
                 <p className="font-semibold text-foreground">Required headers (column must exist, value may be blank when noted)</p>
                 <p className="mt-1 font-mono text-[11px] text-muted-foreground">{REQUIRED.join(", ")}</p>
-                <p className="mt-1 text-muted-foreground"><span className="font-semibold">Must have a value:</span> business_name, slug, listing_status, is_published. All other required columns may be left blank.</p>
+                <p className="mt-1 text-muted-foreground"><span className="font-semibold">Must have a value:</span> business_name. <code>slug</code> may be blank and is generated from <code>business_name</code>. <code>listing_status</code> may be blank and defaults to <code>unclaimed</code>. <code>is_published</code> may be blank and defaults to <code>false</code>. All other required columns may be left blank.</p>
               </div>
               <div>
                 <p className="font-semibold text-foreground">Optional headers</p>
