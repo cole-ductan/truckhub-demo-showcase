@@ -173,7 +173,7 @@ export default function TruckProfile() {
                 to={`/claim/${biz.slug}`}
                 className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondary-foreground hover:bg-secondary/90"
               >
-                Claim this listing
+                Own this business? Claim this listing
               </Link>
             )}
             <span className="text-muted-foreground">Live page · powered by FoodXMobile</span>
@@ -269,6 +269,15 @@ export default function TruckProfile() {
                 </Button>
               )}
             </div>
+
+            {biz.listing_status === "unclaimed" && !biz.owner_id && (
+              <div className="mt-6 inline-flex flex-wrap items-center gap-3 rounded-2xl border border-cream/25 bg-cream/10 px-5 py-3 text-cream backdrop-blur">
+                <span className="text-sm">Own this business? Claim this listing to manage it on FoodXMobile.</span>
+                <Button asChild size="sm" className="h-9 rounded-full bg-primary px-4 text-primary-foreground shadow-ember hover:bg-primary/90">
+                  <Link to={`/claim/${biz.slug}`}>Claim this listing</Link>
+                </Button>
+              </div>
+            )}
 
             <div className="mt-10 flex flex-wrap items-center gap-3">
               <div className="inline-flex items-center gap-3 rounded-2xl border border-cream/15 bg-cream/5 px-5 py-3 text-sm text-cream backdrop-blur">

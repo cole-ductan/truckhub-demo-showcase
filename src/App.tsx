@@ -17,6 +17,7 @@ import AdminLayout from "./pages/admin/AdminLayout.tsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
 import AdminBusinesses from "./pages/admin/AdminBusinesses.tsx";
 import AdminBusinessEdit from "./pages/admin/AdminBusinessEdit.tsx";
+import AdminBusinessNew from "./pages/admin/AdminBusinessNew.tsx";
 import AdminImportBusinesses from "./pages/admin/AdminImportBusinesses.tsx";
 import AdminListingReview from "./pages/admin/AdminListingReview.tsx";
 import AdminClaimRequests from "./pages/admin/AdminClaimRequests.tsx";
@@ -85,6 +86,7 @@ const App = () => (
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="businesses" element={<AdminBusinesses />} />
+              <Route path="businesses/new" element={<AdminBusinessNew />} />
               <Route path="businesses/:id/edit" element={<AdminBusinessEdit />} />
               <Route path="import-businesses" element={<AdminImportBusinesses />} />
               <Route path="listing-review" element={<AdminListingReview />} />

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Upload, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Download, Upload, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { LISTING_STATUSES, normalize, slugify } from "@/lib/listingStatus";
 
@@ -117,6 +117,42 @@ export default function AdminImportBusinesses() {
     URL.revokeObjectURL(url);
   };
 
+  const downloadExample = () => {
+    const example = {
+      business_name: "Smoke Trail BBQ",
+      slug: "smoke-trail-bbq",
+      cuisine: "BBQ · Brisket",
+      city: "Green Bay",
+      region: "WI",
+      public_phone: "920-555-0142",
+      public_email: "hello@smoketrailbbq.com",
+      website_url: "https://smoketrailbbq.com",
+      instagram_url: "https://instagram.com/smoketrailbbq",
+      facebook_url: "",
+      short_description: "Slow-smoked brisket, ribs, and burnt ends out of a custom rig.",
+      today_location: "Titletown District",
+      today_latitude: "44.5012",
+      today_longitude: "-88.0623",
+      listing_status: "unclaimed",
+      is_published: "false",
+      internal_notes: "Met owner at farmers market 2025-05",
+      contact_name: "Jordan Pike",
+      outreach_email: "jordan@smoketrailbbq.com",
+      service_area: "Greater Green Bay",
+      online_ordering_url: "",
+      today_hours: "11am – 8pm",
+      catering_available: "true",
+      booking_inquiry_enabled: "true",
+      hero_image_url: "",
+    };
+    const csv = Papa.unparse([example]);
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "foodxmobile-listings-example.csv"; a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleFile = async (file: File) => {
     setSummary(null);
     const text = await file.text();
@@ -218,10 +254,45 @@ export default function AdminImportBusinesses() {
 
       <Card className="rounded-2xl">
         <CardHeader><CardTitle className="text-base">1. Get the template</CardTitle></CardHeader>
-        <CardContent>
-          <Button onClick={downloadTemplate} variant="outline"><Download className="mr-2 h-4 w-4" />Download CSV template</Button>
-          <p className="mt-2 text-xs text-muted-foreground">Required headers: {REQUIRED.join(", ")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Optional headers: {OPTIONAL.join(", ")}</p>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={downloadTemplate} variant="outline"><Download className="mr-2 h-4 w-4" />Download blank CSV template</Button>
+            <Button onClick={downloadExample} variant="outline"><FileText className="mr-2 h-4 w-4" />Download example CSV</Button>
+          </div>
+          <details className="rounded-lg border border-border bg-muted/30 p-3 text-xs">
+            <summary className="cursor-pointer font-semibold text-sm">CSV formatting guide</summary>
+            <div className="mt-3 space-y-3">
+              <div>
+                <p className="font-semibold text-foreground">Required headers (column must exist, value may be blank when noted)</p>
+                <p className="mt-1 font-mono text-[11px] text-muted-foreground">{REQUIRED.join(", ")}</p>
+                <p className="mt-1 text-muted-foreground"><span className="font-semibold">Must have a value:</span> business_name, slug, listing_status, is_published. All other required columns may be left blank.</p>
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">Optional headers</p>
+                <p className="mt-1 font-mono text-[11px] text-muted-foreground">{OPTIONAL.join(", ")}</p>
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">URLs</p>
+                <p className="text-muted-foreground">Leave blank or use a full <code>https://</code> URL. Plain domain names (e.g. <code>example.com</code>) are rejected. Applies to website_url, instagram_url, facebook_url, online_ordering_url, hero_image_url.</p>
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">listing_status</p>
+                <p className="text-muted-foreground">Accepted: <code>draft</code>, <code>unclaimed</code>, <code>claimed_free</code>, <code>premium</code>, <code>archived</code>. Unknown values fall back to <code>unclaimed</code>.</p>
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">Booleans</p>
+                <p className="text-muted-foreground">Accepted: <code>true/false</code>, <code>yes/no</code>, or <code>1/0</code>. Applies to is_published, catering_available, booking_inquiry_enabled.</p>
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">Coordinates</p>
+                <p className="text-muted-foreground">today_latitude must be between <code>-90</code> and <code>90</code>. today_longitude must be between <code>-180</code> and <code>180</code>. Leave both blank if unknown.</p>
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">Recommended defaults for new inventory</p>
+                <p className="text-muted-foreground">Set <code>listing_status = unclaimed</code> and <code>is_published = false</code> so the listing flows into the Review Queue and Outreach CRM before going live.</p>
+              </div>
+            </div>
+          </details>
         </CardContent>
       </Card>
 

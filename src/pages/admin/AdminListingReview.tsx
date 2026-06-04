@@ -31,15 +31,27 @@ export default function AdminListingReview() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = async () => {
-    const [{ data: queue }, { data: all }] = await Promise.all([
+    const [{ data: queue }, { data: all }, { data: outreachRows }] = await Promise.all([
       (supabase as any)
         .from("businesses")
         .select("id,name,slug,city,cuisine,phone,email,website,hero_image_url,logo_url,current_address,today_latitude,today_longitude,is_published,listing_status,updated_at")
         .in("listing_status", ["draft", "unclaimed"])
         .order("updated_at", { ascending: false }),
       supabase.from("businesses").select("name,slug,email,phone,website"),
+      (supabase as any).from("business_outreach").select("business_id,outreach_status"),
     ]);
-    setRows((queue ?? []) as Row[]);
+    // Joined outreach-status filter: hide listings already handed off to the CRM.
+    // We keep the active Review Queue limited to inventory whose outreach is
+    // still "not_contacted" or "researching" (or has no outreach row at all).
+    // Anything at "ready_to_contact" or later belongs to /admin/outreach.
+    const REVIEW_ELIGIBLE_OUTREACH = new Set(["not_contacted", "researching"]);
+    const outreachByBiz = new Map<string, string>();
+    (outreachRows ?? []).forEach((o: any) => outreachByBiz.set(o.business_id, o.outreach_status));
+    const filteredQueue = (queue ?? []).filter((b: any) => {
+      const status = outreachByBiz.get(b.id);
+      return !status || REVIEW_ELIGIBLE_OUTREACH.has(status);
+    });
+    setRows(filteredQueue as Row[]);
     setAllListings((all ?? []) as DupeRow[]);
   };
   useEffect(() => { load(); }, []);

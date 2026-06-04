@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const nav = [
   { label: "Explore", href: "/food-trucks" },
@@ -18,6 +19,26 @@ export const SiteHeader = ({ withBanner = false }: { withBanner?: boolean }) => 
   const { pathname } = useLocation();
   const { user, isAdmin } = useAuth();
   const bannerAware = withBanner || pathname.startsWith("/food-trucks/") || pathname.startsWith("/book/");
+  const [ownerStatus, setOwnerStatus] = useState<"owner" | "claimant" | "newcomer">("newcomer");
+
+  useEffect(() => {
+    if (!user || isAdmin) return;
+    let cancelled = false;
+    (async () => {
+      const [{ count: bizCount }, { count: claimCount }] = await Promise.all([
+        supabase.from("businesses").select("id", { count: "exact", head: true }).eq("owner_id", user.id),
+        supabase.from("claim_requests").select("id", { count: "exact", head: true }).eq("requester_user_id", user.id),
+      ]);
+      if (cancelled) return;
+      if ((bizCount ?? 0) > 0) setOwnerStatus("owner");
+      else if ((claimCount ?? 0) > 0) setOwnerStatus("claimant");
+      else setOwnerStatus("newcomer");
+    })();
+    return () => { cancelled = true; };
+  }, [user, isAdmin]);
+
+  const ctaLabel = isAdmin ? "Admin" : ownerStatus === "owner" ? "My Console" : ownerStatus === "claimant" ? "My Listing Claims" : "Get Started";
+  const ctaTo = isAdmin ? "/admin" : ownerStatus === "claimant" ? "/owner/claims" : "/owner";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -56,7 +77,7 @@ export const SiteHeader = ({ withBanner = false }: { withBanner?: boolean }) => 
         </nav>
         <div className="hidden items-center gap-2 md:flex">
           {user ? (
-            <Button asChild size="sm" className="rounded-full bg-primary text-primary-foreground shadow-ember hover:bg-primary/90"><Link to={isAdmin ? "/admin" : "/owner"}>{isAdmin ? "Admin" : "My Console"}</Link></Button>
+            <Button asChild size="sm" className="rounded-full bg-primary text-primary-foreground shadow-ember hover:bg-primary/90"><Link to={ctaTo}>{ctaLabel}</Link></Button>
           ) : (
             <><Button asChild variant="ghost" size="sm"><Link to="/owner/login">Owner Login</Link></Button><Button asChild size="sm" className="rounded-full bg-primary text-primary-foreground shadow-ember hover:bg-primary/90"><Link to="/food-trucks">Explore Near Me</Link></Button></>
           )}
@@ -65,7 +86,7 @@ export const SiteHeader = ({ withBanner = false }: { withBanner?: boolean }) => 
       </div>
       {open && <div className="border-t border-border bg-background md:hidden"><div className="container-tight flex flex-col gap-1 py-4">
         {nav.map((n) => <a key={n.href} href={n.href} className="rounded-lg px-3 py-3 text-base font-medium text-foreground/85 hover:bg-muted">{n.label}</a>)}
-        <div className="mt-2 flex gap-2">{user ? <Button asChild className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"><Link to={isAdmin ? "/admin" : "/owner"}>{isAdmin ? "Admin" : "My Console"}</Link></Button> : <><Button asChild variant="outline" className="flex-1"><Link to="/owner/login">Owner Login</Link></Button><Button asChild className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"><Link to="/food-trucks">Explore</Link></Button></>}</div>
+        <div className="mt-2 flex gap-2">{user ? <Button asChild className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"><Link to={ctaTo}>{ctaLabel}</Link></Button> : <><Button asChild variant="outline" className="flex-1"><Link to="/owner/login">Owner Login</Link></Button><Button asChild className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"><Link to="/food-trucks">Explore</Link></Button></>}</div>
       </div></div>}
     </header>
   );
