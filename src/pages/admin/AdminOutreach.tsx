@@ -300,15 +300,13 @@ function OutreachDrawer({ row, onClose, onSaved }: { row: Row | null; onClose: (
   if (!row) return null;
 
   const savePipeline = async () => {
-    const patch: any = { outreach_status: status, priority, next_follow_up_at: followUp ? new Date(followUp).toISOString() : null };
-    const { error } = await (supabase as any).from("business_outreach").update(patch).eq("business_id", row.business_id);
+    const { error } = await (supabase as any).rpc("update_business_outreach_pipeline", {
+      _business_id: row.business_id,
+      _outreach_status: status,
+      _priority: priority,
+      _next_follow_up_at: followUp ? new Date(followUp).toISOString() : null,
+    });
     if (error) return toast.error(error.message);
-    if (status !== row.outreach_status) {
-      await (supabase as any).from("business_outreach_activities").insert({
-        business_id: row.business_id, activity_type: "status_changed",
-        summary: `Status changed from ${row.outreach_status} to ${status}`,
-      });
-    }
     toast.success("Pipeline updated"); onSaved();
   };
 
@@ -321,19 +319,13 @@ function OutreachDrawer({ row, onClose, onSaved }: { row: Row | null; onClose: (
 
   const addActivity = async () => {
     if (!actSummary.trim()) return toast.error("Summary required");
-    const { error } = await (supabase as any).from("business_outreach_activities").insert({
-      business_id: row.business_id, activity_type: actType,
-      contact_method: actMethod === "none" ? null : actMethod,
-      summary: actSummary.trim(),
+    const { error } = await (supabase as any).rpc("log_business_outreach_activity", {
+      _business_id: row.business_id,
+      _activity_type: actType,
+      _contact_method: actMethod === "none" ? null : actMethod,
+      _summary: actSummary.trim(),
     });
     if (error) return toast.error(error.message);
-    const isContact = ["email_sent","phone_call","text_message","social_dm","claim_invite_sent"].includes(actType);
-    if (isContact) {
-      await (supabase as any).from("business_outreach").update({
-        last_contacted_at: new Date().toISOString(),
-        contact_attempt_count: (row.contact_attempt_count ?? 0) + 1,
-      }).eq("business_id", row.business_id);
-    }
     setActSummary("");
     toast.success("Activity logged");
     const { data } = await (supabase as any).from("business_outreach_activities")
@@ -343,11 +335,13 @@ function OutreachDrawer({ row, onClose, onSaved }: { row: Row | null; onClose: (
   };
 
   const markDnc = async () => {
-    const { error } = await (supabase as any).from("business_outreach").update({ outreach_status: "do_not_contact" }).eq("business_id", row.business_id);
-    if (error) return toast.error(error.message);
-    await (supabase as any).from("business_outreach_activities").insert({
-      business_id: row.business_id, activity_type: "status_changed", summary: "Marked do-not-contact.",
+    const { error } = await (supabase as any).rpc("update_business_outreach_pipeline", {
+      _business_id: row.business_id,
+      _outreach_status: "do_not_contact",
+      _priority: row.priority,
+      _next_follow_up_at: row.next_follow_up_at,
     });
+    if (error) return toast.error(error.message);
     setStatus("do_not_contact"); toast.success("Marked do-not-contact"); onSaved();
   };
 
