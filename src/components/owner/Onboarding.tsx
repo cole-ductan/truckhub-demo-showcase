@@ -76,7 +76,7 @@ export function Onboarding() {
     <div className="space-y-8">
       <div>
         <span className="badge-ember"><Sparkles className="h-3 w-3" /> Let's get started</span>
-        <h1 className="mt-3 font-display text-4xl font-bold leading-tight">Set up your truck on TruckHub.</h1>
+        <h1 className="mt-3 font-display text-4xl font-bold leading-tight">Set up your truck on FoodXMobile.</h1>
         <p className="mt-3 max-w-xl text-muted-foreground">
           Create a brand new business profile, or — for this demo — claim one of the sample trucks to explore everything as an owner.
         </p>

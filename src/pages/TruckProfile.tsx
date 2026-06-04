@@ -85,7 +85,7 @@ export default function TruckProfile() {
   const bizLoaded = biz && biz !== "missing" ? biz : null;
   const seoTitle = bizLoaded
     ? `${bizLoaded.name} — Food Truck in Green Bay, WI`
-    : "Food Truck — TruckHub Green Bay";
+    : "Food Truck — FoodXMobile";
   const seoDesc = bizLoaded
     ? (bizLoaded.description?.slice(0, 155) || bizLoaded.tagline || `${bizLoaded.name}: ${bizLoaded.cuisine ?? "food truck"} in Green Bay.`)
     : "Discover food trucks in Green Bay, WI.";
@@ -152,7 +152,7 @@ export default function TruckProfile() {
           <Link to="/food-trucks" className="inline-flex items-center gap-1.5 text-foreground/80 hover:text-primary">
             <ArrowLeft className="h-3.5 w-3.5" /> All trucks
           </Link>
-          <span className="text-muted-foreground">Live page · powered by TruckHub</span>
+          <span className="text-muted-foreground">Live page · powered by FoodXMobile</span>
         </div>
       </div>
 
