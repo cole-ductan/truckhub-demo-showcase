@@ -7,7 +7,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import {
   Home, LayoutDashboard, LogOut, ShieldCheck, Store, Tag, Users, Inbox,
-  ExternalLink, Wrench, Upload, ClipboardCheck,
+  ExternalLink, Wrench, Upload, ClipboardCheck, KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -16,6 +16,7 @@ const links = [
   { to: "/admin/businesses", label: "Businesses", icon: Store },
   { to: "/admin/import-businesses", label: "Import Listings", icon: Upload },
   { to: "/admin/listing-review", label: "Review Queue", icon: ClipboardCheck },
+  { to: "/admin/claim-requests", label: "Claim Requests", icon: KeyRound },
   { to: "/admin/leads", label: "Leads", icon: Inbox },
   { to: "/admin/users", label: "Users & Roles", icon: Users },
   { to: "/admin/categories", label: "Categories", icon: Tag },
