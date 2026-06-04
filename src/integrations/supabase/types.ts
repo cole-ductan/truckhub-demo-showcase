@@ -1051,6 +1051,36 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      resubmit_claim_request: {
+        Args: {
+          _claim_request_id: string
+          _verification_notes: string
+          _verification_url?: string
+        }
+        Returns: {
+          admin_notes: string | null
+          business_id: string
+          created_at: string
+          id: string
+          relationship_to_business: string | null
+          requester_email: string
+          requester_name: string
+          requester_phone: string | null
+          requester_user_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["claim_request_status"]
+          updated_at: string
+          verification_notes: string | null
+          verification_url: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "claim_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       withdraw_claim_request: {
         Args: { _claim_request_id: string }
         Returns: {
