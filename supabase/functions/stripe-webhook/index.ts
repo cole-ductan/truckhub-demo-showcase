@@ -1,5 +1,5 @@
 // Stripe webhook receiver. Updates deposit_requests on checkout.session.completed.
-// Public endpoint — no JWT. Validates Stripe signature when STRIPE_WEBHOOK_SECRET is set.
+// Public endpoint — no JWT. Always validates the Stripe signature.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 Deno.serve(async (req) => {
@@ -10,23 +10,23 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  if (!secret) {
-    return new Response(JSON.stringify({ ok: false, error: "Stripe not configured" }), { status: 200 });
+  if (!secret || !whSecret) {
+    return new Response(JSON.stringify({ ok: false, error: "Stripe webhook is not fully configured" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const Stripe = (await import("https://esm.sh/stripe@17.6.0?target=deno&deno-std=0.224.0")).default;
   const stripe = new Stripe(secret, { apiVersion: "2024-11-20.acacia" });
 
   const sig = req.headers.get("stripe-signature");
+  if (!sig) return new Response("Missing Stripe signature", { status: 400 });
+
   const raw = await req.text();
   let event: any;
   try {
-    if (whSecret && sig) {
-      event = await stripe.webhooks.constructEventAsync(raw, sig, whSecret);
-    } else {
-      // Dev mode — accept unsigned (TODO production: require signature)
-      event = JSON.parse(raw);
-    }
+    event = await stripe.webhooks.constructEventAsync(raw, sig, whSecret);
   } catch (e) {
     return new Response(`Bad signature: ${(e as Error).message}`, { status: 400 });
   }
