@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import type { LucideIcon } from "lucide-react";
 import {
   Truck, Music, Calendar, Tent, Store, Sparkles,
   Wrench, Beer, Wine, MapPin,
@@ -15,7 +16,7 @@ export type PinCategory =
   | "pub_crawl"
   | "wine_walk";
 
-const ICONS: Record<PinCategory, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>> = {
+const ICONS: Record<PinCategory, LucideIcon> = {
   truck: Truck,
   market: Tent,
   event: Calendar,
