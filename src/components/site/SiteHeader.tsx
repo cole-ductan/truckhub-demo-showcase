@@ -35,8 +35,8 @@ export const SiteHeader = ({ withBanner = false }: { withBanner?: boolean }) => 
       while ((node = walker.nextNode())) {
         const current = node.nodeValue ?? "";
         const next = current
-          .replace(new RegExp("FoodXMobile", "g"), "FoodXMobile")
-          .replace(new RegExp("FoodXMobile", "g"), "FoodXMobile")
+          .replace(/TruckHub Green Bay/g, "FoodXMobile")
+          .replace(/TruckHub/g, "FoodXMobile")
           .replace(new RegExp("truckhubgb.com", "g"), "foodxmobile.com");
         if (next !== current) node.nodeValue = next;
       }
