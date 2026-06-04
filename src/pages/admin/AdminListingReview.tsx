@@ -13,7 +13,7 @@ type Row = {
   id: string; name: string; slug: string; city: string | null; cuisine: string | null;
   phone: string | null; email: string | null; website: string | null;
   hero_image_url: string | null; logo_url: string | null;
-  current_address: string | null; current_latitude: number | null; current_longitude: number | null;
+  current_address: string | null; today_latitude: number | null; today_longitude: number | null;
   is_published: boolean; listing_status: ListingStatus; updated_at: string;
 };
 type DupeRow = Pick<Row, "name" | "slug" | "email" | "phone" | "website">;
@@ -21,7 +21,7 @@ type DupeRow = Pick<Row, "name" | "slug" | "email" | "phone" | "website">;
 function completeness(r: Row) {
   const contact = [r.phone, r.email, r.website].filter(Boolean).length / 3;
   const images = [r.hero_image_url, r.logo_url].filter(Boolean).length / 2;
-  const location = [r.current_address, r.current_latitude, r.current_longitude].filter((value) => value !== null && value !== "").length / 3;
+  const location = [r.current_address, r.today_latitude, r.today_longitude].filter((value) => value !== null && value !== "").length / 3;
   return { contact, images, location };
 }
 
@@ -33,7 +33,7 @@ export default function AdminListingReview() {
     const [{ data: queue }, { data: all }] = await Promise.all([
       (supabase as any)
         .from("businesses")
-        .select("id,name,slug,city,cuisine,phone,email,website,hero_image_url,logo_url,current_address,current_latitude,current_longitude,is_published,listing_status,updated_at")
+        .select("id,name,slug,city,cuisine,phone,email,website,hero_image_url,logo_url,current_address,today_latitude,today_longitude,is_published,listing_status,updated_at")
         .in("listing_status", ["draft", "unclaimed"])
         .order("updated_at", { ascending: false }),
       supabase.from("businesses").select("name,slug,email,phone,website"),
