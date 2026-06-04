@@ -62,7 +62,7 @@ export default function AdminDashboard() {
       <div>
         <span className="badge-ember">Platform overview</span>
         <h1 className="mt-3 font-display text-3xl font-bold">Admin Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Live snapshot across every truck on TruckHub.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Live snapshot across every truck on FoodXMobile.</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -136,7 +136,7 @@ export default function OwnerSettings() {
       </Section>
 
       <Section id="payments" icon={CreditCard} title="Payments & deposits" desc="Deposits are an optional power-up. Off by default — turn them on whenever you're ready.">
-        <ToggleRow icon={CreditCard} label="Accept deposits through TruckHub"
+        <ToggleRow icon={CreditCard} label="Accept deposits through FoodXMobile"
           checked={prefs.stripe_deposits_enabled}
           onChange={(v) => setPrefs((p) => ({
             ...p,
@@ -150,7 +150,7 @@ export default function OwnerSettings() {
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Payment mode</Label>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {[
-                  { v: "stripe", label: "Stripe Checkout", sub: "Card payment via TruckHub" },
+                  { v: "stripe", label: "Stripe Checkout", sub: "Card payment via FoodXMobile" },
                   { v: "external_link", label: "External link", sub: "Square, Toast, Venmo, etc." },
                   { v: "manual_instructions", label: "Manual instructions", sub: "Bank transfer, in-person, etc." },
                 ].map((o) => (

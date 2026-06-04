@@ -57,7 +57,7 @@ const tiers = [
     price: "$79",
     period: "/mo",
     blurb: "Everything in Starter, plus we keep it fresh and put you on the map.",
-    features: ["Everything in Starter", "Listed on TruckHub directory", "Weekly schedule updates", "Today's-location widget", "Catering inquiry form"],
+    features: ["Everything in Starter", "Listed on FoodXMobile directory", "Weekly schedule updates", "Today's-location widget", "Catering inquiry form"],
     cta: "Most Popular",
     featured: true,
   },
@@ -94,7 +94,7 @@ const Index = () => {
   const [events, setEvents] = useState<any[]>([]);
 
   useSEO({
-    title: "TruckHub Green Bay — Find Food Trucks & Book Catering",
+    title: "FoodXMobile — Find Food Trucks & Book Catering",
     description: "Discover Green Bay's food trucks: today's locations, menus, upcoming events, and one-tap catering inquiries. Owners — manage leads, bookings, and your page in one hub.",
   });
 
@@ -136,7 +136,7 @@ const Index = () => {
               One clean online <em className="not-italic text-primary">home</em> for your food truck.
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground text-pretty">
-              TruckHub Green Bay gives every truck a beautiful one-page site — menu, today's location,
+              FoodXMobile gives every truck a beautiful one-page site — menu, today's location,
               catering form, all in one link. Plus a city-wide hub where hungry locals actually find you.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -493,7 +493,7 @@ const Index = () => {
               </div>
               <div className="mt-5 rounded-xl bg-cream/10 p-5">
                 <p className="font-display text-lg italic leading-snug text-cream">
-                  "We replaced our Linktree, our outdated website, and three Facebook posts a week — with one TruckHub page. Catering bookings are up 3x."
+                  "We replaced our Linktree, our outdated website, and three Facebook posts a week — with one FoodXMobile page. Catering bookings are up 3x."
                 </p>
                 <p className="mt-3 text-xs uppercase tracking-wider text-cream/60">— Sample testimonial · Smoke Trail BBQ</p>
               </div>
@@ -513,7 +513,7 @@ const Index = () => {
                   <Search className="h-3 w-3" /> 15-minute demo
                 </span>
                 <h2 className="mt-5 font-display text-4xl font-bold leading-tight md:text-5xl">
-                  See your truck on TruckHub. <span className="opacity-80">Free preview.</span>
+                  See your truck on FoodXMobile. <span className="opacity-80">Free preview.</span>
                 </h2>
                 <p className="mt-4 max-w-xl text-lg text-primary-foreground/85">
                   We'll mock up your truck's page in 24 hours — no commitment. If you love it, we go live.

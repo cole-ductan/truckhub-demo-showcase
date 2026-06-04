@@ -76,9 +76,7 @@ function rowToPayload(r: Record<string, string>) {
     today_longitude: toNum(r.today_longitude),
     listing_status: LISTING_STATUSES.includes(cat) ? cat : "unclaimed",
     is_published: toBool(r.is_published) ?? false,
-    internal_notes: r.internal_notes?.trim() || null,
     contact_name: r.contact_name?.trim() || null,
-    outreach_email: r.outreach_email?.trim() || null,
     service_area: r.service_area?.trim() || null,
     online_ordering_url: r.online_ordering_url?.trim() || null,
     today_hours: r.today_hours?.trim() || null,
@@ -86,6 +84,22 @@ function rowToPayload(r: Record<string, string>) {
     booking_inquiry_enabled: toBool(r.booking_inquiry_enabled) ?? true,
     hero_image_url: r.hero_image_url?.trim() || null,
   };
+}
+
+function rowToAdminMeta(r: Record<string, string>) {
+  const outreach = r.outreach_email?.trim() || null;
+  const notes = r.internal_notes?.trim() || null;
+  if (!outreach && !notes) return null;
+  return { outreach_email: outreach, internal_notes: notes };
+}
+
+async function upsertAdminMeta(businessId: string, r: Record<string, string>) {
+  const meta = rowToAdminMeta(r);
+  if (!meta) return null;
+  const { error } = await (supabase as any)
+    .from("business_admin_metadata")
+    .upsert({ business_id: businessId, ...meta }, { onConflict: "business_id" });
+  return error?.message ?? null;
 }
 
 export default function AdminImportBusinesses() {
@@ -174,10 +188,18 @@ export default function AdminImportBusinesses() {
       const payload = rowToPayload(r.raw);
       if (r.action === "overwrite" && r.dupeOfId) {
         const { error } = await (supabase as any).from("businesses").update(payload).eq("id", r.dupeOfId);
-        if (error) { failed++; errs.push(`${payload.name}: ${error.message}`); } else updated++;
+        if (error) { failed++; errs.push(`${payload.name}: ${error.message}`); continue; }
+        const metaErr = await upsertAdminMeta(r.dupeOfId, r.raw);
+        if (metaErr) { failed++; errs.push(`${payload.name} (admin metadata): ${metaErr}`); } else updated++;
       } else {
-        const { error } = await (supabase as any).from("businesses").insert(payload);
-        if (error) { failed++; errs.push(`${payload.name}: ${error.message}`); } else inserted++;
+        const { data: ins, error } = await (supabase as any).from("businesses").insert(payload).select("id").maybeSingle();
+        if (error) { failed++; errs.push(`${payload.name}: ${error.message}`); continue; }
+        const newId = ins?.id;
+        if (newId) {
+          const metaErr = await upsertAdminMeta(newId, r.raw);
+          if (metaErr) { failed++; errs.push(`${payload.name} (admin metadata): ${metaErr}`); continue; }
+        }
+        inserted++;
       }
     }
     setSubmitting(false);

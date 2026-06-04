@@ -13,33 +13,46 @@ type Row = {
   id: string; name: string; slug: string; city: string | null; cuisine: string | null;
   phone: string | null; email: string | null; website: string | null;
   hero_image_url: string | null; logo_url: string | null;
-  current_address: string | null; today_latitude: number | null; today_longitude: number | null;
+  current_address: string | null; current_latitude: number | null; current_longitude: number | null;
   is_published: boolean; listing_status: ListingStatus; updated_at: string;
-  internal_notes: string | null;
 };
 type DupeRow = Pick<Row, "name" | "slug" | "email" | "phone" | "website">;
 
 function completeness(r: Row) {
   const contact = [r.phone, r.email, r.website].filter(Boolean).length / 3;
   const images = [r.hero_image_url, r.logo_url].filter(Boolean).length / 2;
-  const location = [r.current_address, r.today_latitude, r.today_longitude].filter((value) => value !== null && value !== "").length / 3;
+  const location = [r.current_address, r.current_latitude, r.current_longitude].filter((value) => value !== null && value !== "").length / 3;
   return { contact, images, location };
 }
 
 export default function AdminListingReview() {
   const [rows, setRows] = useState<Row[]>([]);
   const [allListings, setAllListings] = useState<DupeRow[]>([]);
+  const [adminNotes, setAdminNotes] = useState<Record<string, string | null>>({});
   const load = async () => {
     const [{ data: queue }, { data: all }] = await Promise.all([
       (supabase as any)
         .from("businesses")
-        .select("id,name,slug,city,cuisine,phone,email,website,hero_image_url,logo_url,current_address,today_latitude,today_longitude,is_published,listing_status,updated_at,internal_notes")
+        .select("id,name,slug,city,cuisine,phone,email,website,hero_image_url,logo_url,current_address,current_latitude,current_longitude,is_published,listing_status,updated_at")
         .in("listing_status", ["draft", "unclaimed"])
         .order("updated_at", { ascending: false }),
       supabase.from("businesses").select("name,slug,email,phone,website"),
     ]);
-    setRows((queue ?? []) as Row[]);
+    const queueRows = (queue ?? []) as Row[];
+    setRows(queueRows);
     setAllListings((all ?? []) as DupeRow[]);
+    if (queueRows.length) {
+      const ids = queueRows.map((r) => r.id);
+      const { data: meta } = await (supabase as any)
+        .from("business_admin_metadata")
+        .select("business_id,internal_notes")
+        .in("business_id", ids);
+      const map: Record<string, string | null> = {};
+      (meta ?? []).forEach((m: any) => { map[m.business_id] = m.internal_notes ?? null; });
+      setAdminNotes(map);
+    } else {
+      setAdminNotes({});
+    }
   };
   useEffect(() => { load(); }, []);
 
@@ -58,8 +71,8 @@ export default function AdminListingReview() {
       .filter(Boolean)
       .some((k) => (dupeKeys.get(k) ?? 0) > 1);
 
-  const update = async (id: string, patch: Partial<Row>) => {
-    const { error } = await supabase.from("businesses").update(patch).eq("id", id);
+  const update = async (id: string, patch: Record<string, any>) => {
+    const { error } = await (supabase as any).from("businesses").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Updated");
     load();
@@ -67,8 +80,13 @@ export default function AdminListingReview() {
 
   const markForOutreach = async (r: Row) => {
     const stamp = `[${new Date().toISOString().slice(0, 10)}] marked ready for outreach`;
-    const notes = r.internal_notes ? `${r.internal_notes}\n${stamp}` : stamp;
-    await update(r.id, { listing_status: "unclaimed", internal_notes: notes });
+    const existing = adminNotes[r.id];
+    const notes = existing ? `${existing}\n${stamp}` : stamp;
+    const { error: metaErr } = await (supabase as any)
+      .from("business_admin_metadata")
+      .upsert({ business_id: r.id, internal_notes: notes }, { onConflict: "business_id" });
+    if (metaErr) return toast.error(metaErr.message);
+    await update(r.id, { listing_status: "unclaimed" });
   };
 
   return (

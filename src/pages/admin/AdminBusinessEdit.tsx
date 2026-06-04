@@ -22,30 +22,59 @@ export default function AdminBusinessEdit() {
   const [form, setForm] = useState<any>(null);
   const [cats, setCats] = useState<Cat[]>([]);
   const [specialtyIds, setSpecialtyIds] = useState<string[]>([]);
+  const [adminMeta, setAdminMeta] = useState<{ outreach_email: string | null; internal_notes: string | null }>({
+    outreach_email: null,
+    internal_notes: null,
+  });
 
   useEffect(() => {
     if (!id) return;
     (async () => {
-      const [{ data: biz }, { data: allCats }, { data: subs }] = await Promise.all([
+      const [{ data: biz }, { data: allCats }, { data: subs }, { data: meta }] = await Promise.all([
         supabase.from("businesses").select("*").eq("id", id).maybeSingle(),
         supabase.from("business_categories").select("id,name,parent_id").order("sort_order"),
         supabase.from("business_subcategories").select("category_id").eq("business_id", id),
+        (supabase as any).from("business_admin_metadata").select("outreach_email,internal_notes").eq("business_id", id).maybeSingle(),
       ]);
       setForm(biz);
       setCats((allCats ?? []) as Cat[]);
       setSpecialtyIds((subs ?? []).map((s: any) => s.category_id));
+      setAdminMeta({
+        outreach_email: meta?.outreach_email ?? null,
+        internal_notes: meta?.internal_notes ?? null,
+      });
       setLoading(false);
     })();
   }, [id]);
 
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+  const setMeta = (k: "outreach_email" | "internal_notes", v: string) =>
+    setAdminMeta((m) => ({ ...m, [k]: v }));
 
   const save = async () => {
     if (!form) return;
     setSaving(true);
-    const { id: _id, created_at, updated_at, current_latitude, current_longitude, ...payload } = form;
-    const { error } = await supabase.from("businesses").update(payload).eq("id", id!);
+    // Strip deprecated/sensitive fields out of the public businesses payload
+    const {
+      id: _id, created_at, updated_at, current_latitude, current_longitude,
+      outreach_email: _oe, internal_notes: _in,
+      ...payload
+    } = form;
+    const { error } = await (supabase as any).from("businesses").update(payload).eq("id", id!);
     if (error) { toast.error(error.message); setSaving(false); return; }
+
+    // Upsert admin-only metadata into the protected table
+    const { error: metaErr } = await (supabase as any)
+      .from("business_admin_metadata")
+      .upsert(
+        {
+          business_id: id!,
+          outreach_email: adminMeta.outreach_email?.toString().trim() || null,
+          internal_notes: adminMeta.internal_notes?.toString().trim() || null,
+        },
+        { onConflict: "business_id" },
+      );
+    if (metaErr) { toast.error(metaErr.message); setSaving(false); return; }
 
     // Sync specialties
     await supabase.from("business_subcategories").delete().eq("business_id", id!);
@@ -133,7 +162,7 @@ export default function AdminBusinessEdit() {
           <Field label="Contact name"><Input value={form.contact_name ?? ""} onChange={(e) => set("contact_name", e.target.value)} /></Field>
           <Field label="Public phone"><Input value={form.phone ?? ""} onChange={(e) => set("phone", e.target.value)} /></Field>
           <Field label="Public email"><Input type="email" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} /></Field>
-          <Field label="Internal outreach email"><Input type="email" value={form.outreach_email ?? ""} onChange={(e) => set("outreach_email", e.target.value)} placeholder="Not shown publicly" /></Field>
+          <Field label="Internal outreach email"><Input type="email" value={adminMeta.outreach_email ?? ""} onChange={(e) => setMeta("outreach_email", e.target.value)} placeholder="Admin-only, never shown publicly" /></Field>
           <Field label="Website"><Input value={form.website ?? ""} onChange={(e) => set("website", e.target.value)} /></Field>
           <Field label="Instagram"><Input value={form.instagram ?? ""} onChange={(e) => set("instagram", e.target.value)} /></Field>
           <Field label="Facebook"><Input value={form.facebook ?? ""} onChange={(e) => set("facebook", e.target.value)} /></Field>
@@ -176,7 +205,7 @@ export default function AdminBusinessEdit() {
           <Field label="Booking inquiry enabled">
             <div className="flex items-center gap-2 pt-2"><Switch checked={!!form.booking_inquiry_enabled} onCheckedChange={(v) => set("booking_inquiry_enabled", v)} /></div>
           </Field>
-          <Field label="Internal admin notes" className="md:col-span-2"><Textarea rows={4} value={form.internal_notes ?? ""} onChange={(e) => set("internal_notes", e.target.value)} placeholder="Not shown publicly" /></Field>
+          <Field label="Internal admin notes" className="md:col-span-2"><Textarea rows={4} value={adminMeta.internal_notes ?? ""} onChange={(e) => setMeta("internal_notes", e.target.value)} placeholder="Admin-only, never shown publicly" /></Field>
         </CardContent>
       </Card>
 

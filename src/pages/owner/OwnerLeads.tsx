@@ -95,7 +95,7 @@ export default function OwnerLeads() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold">Leads</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Catering inquiries from your TruckHub page.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Catering inquiries from your FoodXMobile page.</p>
         </div>
         <div className="inline-flex rounded-full border border-border bg-card p-1">
           <button
@@ -318,7 +318,7 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: Lead | 
               <Textarea rows={2} placeholder="Write a reply…" value={reply} onChange={(e) => setReply(e.target.value)} />
               <Button onClick={sendReply} disabled={!reply.trim()}>Send</Button>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">Replies are saved to TruckHub. Email/SMS delivery coming soon.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Replies are saved to FoodXMobile. Email/SMS delivery coming soon.</p>
           </div>
         </div>
       </SheetContent>

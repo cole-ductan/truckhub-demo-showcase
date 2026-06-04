@@ -45,7 +45,20 @@ export default function TruckProfile() {
   useEffect(() => {
     if (!slug) return;
     (async () => {
-      const { data: b } = await supabase.from("businesses").select("*").eq("slug", slug).eq("is_published", true).maybeSingle();
+      // Public allowlist — never select admin-only fields (outreach_email, internal_notes, etc.)
+      const PUBLIC_FIELDS = [
+        "id", "slug", "name", "tagline", "description",
+        "cuisine", "emoji", "hero_image_url", "category_id", "logo_url",
+        "phone", "email", "website", "instagram", "facebook",
+        "today_location", "today_hours", "status",
+        "online_ordering_url", "order_button_label", "ordering_enabled",
+      ].join(",");
+      const { data: b } = await supabase
+        .from("businesses")
+        .select(PUBLIC_FIELDS)
+        .eq("slug", slug)
+        .eq("is_published", true)
+        .maybeSingle<Biz>();
       if (!b) { setBiz("missing"); return; }
       setBiz(b as Biz);
       const [{ data: c }, { data: it }, { data: ev }, { data: ph }, { data: sl }] = await Promise.all([
@@ -85,7 +98,7 @@ export default function TruckProfile() {
   const bizLoaded = biz && biz !== "missing" ? biz : null;
   const seoTitle = bizLoaded
     ? `${bizLoaded.name} — Food Truck in Green Bay, WI`
-    : "Food Truck — TruckHub Green Bay";
+    : "Food Truck — FoodXMobile";
   const seoDesc = bizLoaded
     ? (bizLoaded.description?.slice(0, 155) || bizLoaded.tagline || `${bizLoaded.name}: ${bizLoaded.cuisine ?? "food truck"} in Green Bay.`)
     : "Discover food trucks in Green Bay, WI.";
@@ -152,7 +165,7 @@ export default function TruckProfile() {
           <Link to="/food-trucks" className="inline-flex items-center gap-1.5 text-foreground/80 hover:text-primary">
             <ArrowLeft className="h-3.5 w-3.5" /> All trucks
           </Link>
-          <span className="text-muted-foreground">Live page · powered by TruckHub</span>
+          <span className="text-muted-foreground">Live page · powered by FoodXMobile</span>
         </div>
       </div>
 

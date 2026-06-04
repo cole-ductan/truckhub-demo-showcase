@@ -41,7 +41,7 @@ export default function AdminHome() {
           <span className="badge-ember">Platform staff only</span>
           <h1 className="mt-3 font-display text-4xl font-bold">Admin Console</h1>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-            Approve trucks, manage users, and moderate content across TruckHub. Full controls ship in Phase 4.
+            Approve trucks, manage users, and moderate content across FoodXMobile. Full controls ship in Phase 4.
           </p>
         </div>
 

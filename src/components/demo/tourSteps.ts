@@ -13,7 +13,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/",
     target: '[data-tour="home-hero"]',
     title: "1. Public homepage",
-    body: "This is what customers and food truck owners see first. Customers find trucks; owners learn what TruckHub does for them.",
+    body: "This is what customers and food truck owners see first. Customers find trucks; owners learn what FoodXMobile does for them.",
     position: "bottom",
   },
   {
