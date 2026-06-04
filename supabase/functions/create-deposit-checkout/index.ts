@@ -61,6 +61,17 @@ Deno.serve(async (req) => {
       return json({ error: "Stripe deposits are not enabled for this business" }, 403);
     }
 
+    if (lead_id) {
+      const { data: lead, error: leadError } = await admin
+        .from("leads")
+        .select("id")
+        .eq("id", lead_id)
+        .eq("business_id", business_id)
+        .maybeSingle();
+      if (leadError) return json({ error: leadError.message }, 500);
+      if (!lead) return json({ error: "Lead not found for this business" }, 400);
+    }
+
     // Upsert deposit row (insert if no id)
     let depositRow: any;
     if (deposit_id) {
@@ -118,7 +129,9 @@ Deno.serve(async (req) => {
     const Stripe = (await import("https://esm.sh/stripe@17.6.0?target=deno&deno-std=0.224.0")).default;
     const stripe = new Stripe(stripeKey, { apiVersion: "2024-11-20.acacia" });
 
-    const successBase = origin || new URL(req.url).origin;
+    const successBase = resolveSiteOrigin(origin);
+    if (!successBase) return json({ error: "Site URL is not configured or allowed" }, 500);
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
@@ -154,6 +167,23 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 500);
   }
 });
+
+function resolveSiteOrigin(requestedOrigin: unknown): string | null {
+  const configured = Deno.env.get("PUBLIC_SITE_URL")?.trim();
+  if (configured) {
+    try { return new URL(configured).origin; } catch { return null; }
+  }
+
+  if (typeof requestedOrigin !== "string") return null;
+  try {
+    const url = new URL(requestedOrigin);
+    const host = url.hostname.toLowerCase();
+    const allowed = host === "foodxmobile.com" || host === "www.foodxmobile.com" || host === "localhost" || host === "127.0.0.1" || host.endsWith(".lovable.app");
+    return allowed ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
 
 function json(b: unknown, status = 200) {
   return new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
