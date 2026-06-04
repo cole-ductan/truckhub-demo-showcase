@@ -26,6 +26,12 @@ DROP POLICY IF EXISTS "users withdraw own pending claim" ON public.claim_request
 DROP POLICY IF EXISTS "admins update all claim requests" ON public.claim_requests;
 
 -- 3. Verification URLs shown in the admin console must be http(s) only.
+--    Neutralize malformed test data first so this migration remains safe on existing environments.
+UPDATE public.claim_requests
+SET verification_url = NULL
+WHERE verification_url IS NOT NULL
+  AND verification_url !~* '^https?://';
+
 DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint WHERE conname = 'claim_requests_verification_url_http_only'
