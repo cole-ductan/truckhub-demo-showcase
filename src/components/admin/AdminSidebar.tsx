@@ -49,7 +49,7 @@ export function AdminSidebar() {
             <div className="min-w-0 flex-1">
               <p className="truncate font-display text-sm font-semibold leading-tight">Admin Console</p>
               <p className="truncate text-[10.5px] uppercase tracking-wider text-sidebar-foreground/55">
-                TruckHub platform
+                FoodXMobile platform
               </p>
             </div>
           )}

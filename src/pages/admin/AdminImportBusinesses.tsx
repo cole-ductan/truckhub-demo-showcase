@@ -20,6 +20,7 @@ const OPTIONAL = [
   "catering_available","booking_inquiry_enabled","hero_image_url",
 ] as const;
 const ALL_HEADERS = [...REQUIRED, ...OPTIONAL];
+const URL_FIELDS = ["website_url", "instagram_url", "facebook_url", "online_ordering_url", "hero_image_url"] as const;
 
 type Action = "insert" | "overwrite" | "skip";
 type ParsedRow = {
@@ -27,6 +28,7 @@ type ParsedRow = {
   errors: string[];
   warnings: string[];
   dupeOfId: string | null;
+  dupeWithinFile: boolean;
   action: Action;
 };
 
@@ -41,6 +43,18 @@ function toNum(v: string | undefined) {
   if (!v || v.trim() === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : NaN;
+}
+function isUrl(v: string | undefined) {
+  if (!v?.trim()) return true;
+  try {
+    const url = new URL(v.trim());
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+function rowKeys(r: Record<string, string>) {
+  return [normalize(r.business_name), normalize(r.slug), normalize(r.public_email), normalize(r.public_phone), normalize(r.website_url)].filter(Boolean);
 }
 
 function rowToPayload(r: Record<string, string>) {
@@ -58,8 +72,8 @@ function rowToPayload(r: Record<string, string>) {
     facebook: r.facebook_url?.trim() || null,
     description: r.short_description?.trim() || null,
     today_location: r.today_location?.trim() || null,
-    current_latitude: toNum(r.today_latitude),
-    current_longitude: toNum(r.today_longitude),
+    today_latitude: toNum(r.today_latitude),
+    today_longitude: toNum(r.today_longitude),
     listing_status: LISTING_STATUSES.includes(cat) ? cat : "unclaimed",
     is_published: toBool(r.is_published) ?? false,
     internal_notes: r.internal_notes?.trim() || null,
@@ -93,31 +107,55 @@ export default function AdminImportBusinesses() {
     setSummary(null);
     const text = await file.text();
     const parsed = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true });
+    if (parsed.errors.length) {
+      toast.error(`CSV parse error: ${parsed.errors[0].message}`);
+      setRows([]);
+      return;
+    }
+    const missingHeaders = REQUIRED.filter((header) => !parsed.meta.fields?.includes(header));
+    if (missingHeaders.length) {
+      toast.error(`Missing required CSV headers: ${missingHeaders.join(", ")}`);
+      setRows([]);
+      return;
+    }
     const rawRows = parsed.data ?? [];
 
-    // Pull existing for dupe detection
     const { data: existing } = await supabase
       .from("businesses")
       .select("id,name,slug,email,phone,website");
     const findDupe = (r: Record<string, string>) => {
-      const keys = [normalize(r.business_name), normalize(r.slug), normalize(r.public_email), normalize(r.public_phone), normalize(r.website_url)].filter(Boolean);
+      const keys = rowKeys(r);
       for (const e of existing ?? []) {
-        const ek = [normalize(e.name), normalize(e.slug), normalize(e.email), normalize(e.phone), normalize(e.website)];
-        if (keys.some((k) => ek.includes(k))) return e.id;
+        const existingKeys = [normalize(e.name), normalize(e.slug), normalize(e.email), normalize(e.phone), normalize(e.website)];
+        if (keys.some((k) => existingKeys.includes(k))) return e.id;
       }
       return null;
     };
 
+    const seen = new Set<string>();
     const out: ParsedRow[] = rawRows.map((raw) => {
       const errors: string[] = [];
       const warnings: string[] = [];
       if (!raw.business_name?.trim()) errors.push("missing business_name");
-      if (!raw.slug?.trim() && !raw.business_name?.trim()) errors.push("missing slug");
-      if (raw.today_latitude && Number.isNaN(Number(raw.today_latitude))) errors.push("today_latitude not numeric");
-      if (raw.today_longitude && Number.isNaN(Number(raw.today_longitude))) errors.push("today_longitude not numeric");
+      const slug = raw.slug?.trim() || slugify(raw.business_name || "");
+      if (!slug) errors.push("missing slug");
+      if (slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) errors.push("slug must use lowercase letters, numbers, and hyphens only");
+      const lat = toNum(raw.today_latitude);
+      const lng = toNum(raw.today_longitude);
+      if (Number.isNaN(lat) || (lat != null && (lat < -90 || lat > 90))) errors.push("today_latitude must be between -90 and 90");
+      if (Number.isNaN(lng) || (lng != null && (lng < -180 || lng > 180))) errors.push("today_longitude must be between -180 and 180");
+      URL_FIELDS.forEach((field) => { if (!isUrl(raw[field])) errors.push(`${field} must be a valid http(s) URL`); });
       if (raw.listing_status && !LISTING_STATUSES.includes(raw.listing_status.trim() as any)) warnings.push(`unknown listing_status "${raw.listing_status}" → unclaimed`);
-      const dupeOfId = findDupe(raw);
-      return { raw, errors, warnings, dupeOfId, action: dupeOfId ? "skip" : "insert" };
+      if (raw.is_published && toBool(raw.is_published) === undefined) errors.push("is_published must be true/false, yes/no, or 1/0");
+      if (raw.catering_available && toBool(raw.catering_available) === undefined) errors.push("catering_available must be true/false, yes/no, or 1/0");
+      if (raw.booking_inquiry_enabled && toBool(raw.booking_inquiry_enabled) === undefined) errors.push("booking_inquiry_enabled must be true/false, yes/no, or 1/0");
+
+      const keys = rowKeys({ ...raw, slug });
+      const dupeWithinFile = keys.some((key) => seen.has(key));
+      keys.forEach((key) => seen.add(key));
+      if (dupeWithinFile) warnings.push("possible duplicate within uploaded CSV");
+      const dupeOfId = findDupe({ ...raw, slug });
+      return { raw: { ...raw, slug }, errors, warnings, dupeOfId, dupeWithinFile, action: dupeOfId || dupeWithinFile ? "skip" : "insert" };
     });
     setRows(out);
   };
@@ -135,16 +173,17 @@ export default function AdminImportBusinesses() {
       if (r.errors.length || r.action === "skip") { skipped++; continue; }
       const payload = rowToPayload(r.raw);
       if (r.action === "overwrite" && r.dupeOfId) {
-        const { error } = await supabase.from("businesses").update(payload).eq("id", r.dupeOfId);
+        const { error } = await (supabase as any).from("businesses").update(payload).eq("id", r.dupeOfId);
         if (error) { failed++; errs.push(`${payload.name}: ${error.message}`); } else updated++;
       } else {
-        const { error } = await supabase.from("businesses").insert(payload);
+        const { error } = await (supabase as any).from("businesses").insert(payload);
         if (error) { failed++; errs.push(`${payload.name}: ${error.message}`); } else inserted++;
       }
     }
     setSubmitting(false);
     setSummary({ inserted, updated, skipped, failed, errors: errs });
-    toast.success(`Import complete: ${inserted} inserted, ${updated} updated`);
+    if (failed) toast.error(`Import finished with ${failed} failed row${failed === 1 ? "" : "s"}`);
+    else toast.success(`Import complete: ${inserted} inserted, ${updated} updated`);
     setRows([]);
   };
 
@@ -159,8 +198,8 @@ export default function AdminImportBusinesses() {
         <CardHeader><CardTitle className="text-base">1. Get the template</CardTitle></CardHeader>
         <CardContent>
           <Button onClick={downloadTemplate} variant="outline"><Download className="mr-2 h-4 w-4" />Download CSV template</Button>
-          <p className="mt-2 text-xs text-muted-foreground">Required: {REQUIRED.join(", ")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Optional: {OPTIONAL.join(", ")}</p>
+          <p className="mt-2 text-xs text-muted-foreground">Required headers: {REQUIRED.join(", ")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Optional headers: {OPTIONAL.join(", ")}</p>
         </CardContent>
       </Card>
 
@@ -194,7 +233,7 @@ export default function AdminImportBusinesses() {
               </TableHeader>
               <TableBody>
                 {rows.map((r, i) => (
-                  <TableRow key={i} className={r.errors.length ? "bg-destructive/5" : r.dupeOfId ? "bg-amber-500/5" : ""}>
+                  <TableRow key={i} className={r.errors.length ? "bg-destructive/5" : r.dupeOfId || r.dupeWithinFile ? "bg-amber-500/5" : ""}>
                     <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">{r.raw.business_name || <span className="italic text-muted-foreground">—</span>}</TableCell>
                     <TableCell className="text-sm">{r.raw.city || "—"}</TableCell>
