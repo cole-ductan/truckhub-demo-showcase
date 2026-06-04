@@ -94,12 +94,18 @@ export function renderPinElement(
   );
 
   const wrapper = document.createElement("div");
-  wrapper.style.cssText = `width:${size}px;height:${size + 10}px;cursor:pointer;transform-origin:50% 100%;transition:transform .18s ease;`;
-  wrapper.onmouseenter = () => { wrapper.style.transform = "scale(1.12)"; };
-  wrapper.onmouseleave = () => { wrapper.style.transform = "scale(1)"; };
+  // NOTE: MapLibre controls `transform` on the marker root to position it.
+  // Never set transform here — apply scale to an inner element instead.
+  wrapper.style.cssText = `width:${size}px;height:${size + 10}px;cursor:pointer;`;
+
+  const inner = document.createElement("div");
+  inner.style.cssText = `width:100%;height:100%;transform-origin:50% 100%;transition:transform .18s ease;`;
+  wrapper.appendChild(inner);
+  wrapper.onmouseenter = () => { inner.style.transform = "scale(1.12)"; };
+  wrapper.onmouseleave = () => { inner.style.transform = "scale(1)"; };
 
   // Outer SVG: teardrop body + inner circle for icon
-  wrapper.innerHTML = `
+  inner.innerHTML = `
     <svg width="${size}" height="${size + 10}" viewBox="0 0 48 58" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;filter:drop-shadow(0 6px 8px rgba(31,22,14,.35));">
       <path d="M24 2 C12 2 4 10.5 4 22 C4 34 14 42 24 56 C34 42 44 34 44 22 C44 10.5 36 2 24 2 Z"
             fill="${palette.bg}" stroke="${palette.ring}" stroke-width="3" stroke-linejoin="round" />
