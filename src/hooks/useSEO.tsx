@@ -10,8 +10,8 @@ type SEOOptions = {
 
 const SITE_NAME = "FoodXMobile";
 const normalizeBrand = (value: string) => value
-  .replace(new RegExp("FoodXMobile", "g"), SITE_NAME)
-  .replace(new RegExp("FoodXMobile", "g"), SITE_NAME)
+  .replace(/TruckHub Green Bay/g, SITE_NAME)
+  .replace(/TruckHub/g, SITE_NAME)
   .replace(new RegExp("truckhubgb.com", "g"), "foodxmobile.com");
 
 const upsertMeta = (selector: string, attrs: Record<string, string>) => {

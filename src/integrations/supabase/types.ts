@@ -151,7 +151,9 @@ export type Database = {
           is_demo: boolean
           is_public: boolean
           kind: Database["public"]["Enums"]["event_kind"]
+          latitude: number | null
           location: string | null
+          longitude: number | null
           notes: string | null
           start_time: string | null
           tag: string | null
@@ -167,7 +169,9 @@ export type Database = {
           is_demo?: boolean
           is_public?: boolean
           kind?: Database["public"]["Enums"]["event_kind"]
+          latitude?: number | null
           location?: string | null
+          longitude?: number | null
           notes?: string | null
           start_time?: string | null
           tag?: string | null
@@ -183,7 +187,9 @@ export type Database = {
           is_demo?: boolean
           is_public?: boolean
           kind?: Database["public"]["Enums"]["event_kind"]
+          latitude?: number | null
           location?: string | null
+          longitude?: number | null
           notes?: string | null
           start_time?: string | null
           tag?: string | null
@@ -305,7 +311,9 @@ export type Database = {
           status: Database["public"]["Enums"]["business_status"]
           tagline: string | null
           today_hours: string | null
+          today_latitude: number | null
           today_location: string | null
+          today_longitude: number | null
           updated_at: string
           website: string | null
         }
@@ -346,7 +354,9 @@ export type Database = {
           status?: Database["public"]["Enums"]["business_status"]
           tagline?: string | null
           today_hours?: string | null
+          today_latitude?: number | null
           today_location?: string | null
+          today_longitude?: number | null
           updated_at?: string
           website?: string | null
         }
@@ -387,7 +397,9 @@ export type Database = {
           status?: Database["public"]["Enums"]["business_status"]
           tagline?: string | null
           today_hours?: string | null
+          today_latitude?: number | null
           today_location?: string | null
+          today_longitude?: number | null
           updated_at?: string
           website?: string | null
         }
@@ -765,6 +777,8 @@ export type Database = {
           is_demo: boolean
           is_recurring: boolean
           label: string
+          latitude: number | null
+          longitude: number | null
           notes: string | null
           sort_order: number
           start_time: string | null
@@ -780,6 +794,8 @@ export type Database = {
           is_demo?: boolean
           is_recurring?: boolean
           label: string
+          latitude?: number | null
+          longitude?: number | null
           notes?: string | null
           sort_order?: number
           start_time?: string | null
@@ -795,6 +811,8 @@ export type Database = {
           is_demo?: boolean
           is_recurring?: boolean
           label?: string
+          latitude?: number | null
+          longitude?: number | null
           notes?: string | null
           sort_order?: number
           start_time?: string | null
@@ -868,7 +886,9 @@ export type Database = {
           status: Database["public"]["Enums"]["business_status"]
           tagline: string | null
           today_hours: string | null
+          today_latitude: number | null
           today_location: string | null
+          today_longitude: number | null
           updated_at: string
           website: string | null
         }
