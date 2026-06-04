@@ -116,8 +116,8 @@ export default function OwnerClaims() {
                   {c.business?.slug && (
                     <Button asChild variant="outline" size="sm"><Link to={`/food-trucks/${c.business.slug}`}>View listing</Link></Button>
                   )}
-                  {c.status === "approved" && (
-                    <Button asChild size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90"><Link to="/owner">Open dashboard</Link></Button>
+                  {c.status === "approved" && c.business?.id && (
+                    <Button asChild size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90"><Link to={`/owner?b=${c.business.id}`}>Open dashboard</Link></Button>
                   )}
                   {(c.status === "pending" || c.status === "more_info_requested") && (
                     <Button variant="destructive" size="sm" disabled={busyId === c.id} onClick={() => withdraw(c.id)}>Withdraw</Button>
