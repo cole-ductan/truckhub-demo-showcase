@@ -18,6 +18,7 @@ type Biz = {
   today_location: string | null; today_hours: string | null;
   status: "open" | "soon" | "closed";
   online_ordering_url: string | null; order_button_label: string | null; ordering_enabled: boolean;
+  listing_status: string; owner_id: string | null;
 };
 type MenuCat = { id: string; name: string; sort_order: number };
 type MenuItem = { id: string; category_id: string; name: string; description: string | null; price: string | null; sort_order: number; is_featured: boolean };
@@ -52,6 +53,7 @@ export default function TruckProfile() {
         "phone", "email", "website", "instagram", "facebook",
         "today_location", "today_hours", "status",
         "online_ordering_url", "order_button_label", "ordering_enabled",
+        "listing_status", "owner_id",
       ].join(",");
       const { data: b } = await supabase
         .from("businesses")
