@@ -29,9 +29,8 @@ export function Onboarding() {
   useEffect(() => {
     supabase.from("business_categories").select("id,name,emoji").order("sort_order")
       .then(({ data }) => setCats((data ?? []) as Cat[]));
-    // For demo convenience: list unclaimed seed trucks (admin-only via RLS unless we expose them).
-    // Owners can only read their own; so we hide claim list if it returns empty.
-    supabase.from("businesses").select("id,name,slug,cuisine,emoji").is("owner_id", null)
+    // Demo convenience only. Real inventory listings must use the reviewed public claim workflow.
+    supabase.from("businesses").select("id,name,slug,cuisine,emoji").is("owner_id", null).eq("is_demo", true)
       .then(({ data }) => setUnowned((data ?? []) as Unowned[]));
   }, []);
 
@@ -65,10 +64,10 @@ export function Onboarding() {
     const { error } = await supabase.rpc("claim_business", { _business_id: id });
     setBusy(false);
     if (error) {
-      toast({ title: "Could not claim", description: error.message, variant: "destructive" });
+      toast({ title: "Could not claim demo listing", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: "Claimed", description: "You can now manage this truck." });
+    toast({ title: "Demo listing claimed", description: "You can now explore the owner workspace." });
     await refresh();
   }
 
@@ -78,7 +77,7 @@ export function Onboarding() {
         <span className="badge-ember"><Sparkles className="h-3 w-3" /> Let's get started</span>
         <h1 className="mt-3 font-display text-4xl font-bold leading-tight">Set up your truck on FoodXMobile.</h1>
         <p className="mt-3 max-w-xl text-muted-foreground">
-          Create a brand new business profile, or — for this demo — claim one of the sample trucks to explore everything as an owner.
+          Create a new business profile, or use a sample demo truck to explore the owner workspace. Real published listings must be claimed from their public page and approved by an admin.
         </p>
       </div>
 
@@ -94,7 +93,7 @@ export function Onboarding() {
             <div>
               <Label htmlFor="bs">URL slug</Label>
               <Input id="bs" value={slug} onChange={(e) => setSlug(slugify(e.target.value))} placeholder="bay-burger-co" className="mt-1.5" />
-              <p className="mt-1 text-xs text-muted-foreground">truckhub.gb/food-trucks/<span className="font-mono">{slug || "your-slug"}</span></p>
+              <p className="mt-1 text-xs text-muted-foreground">foodxmobile.com/food-trucks/<span className="font-mono">{slug || "your-slug"}</span></p>
             </div>
             <div>
               <Label htmlFor="cat">Category</Label>
@@ -112,7 +111,7 @@ export function Onboarding() {
         {unowned.length > 0 && (
           <div className="rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-6">
             <h2 className="font-display text-xl font-semibold">Or claim a demo truck</h2>
-            <p className="mt-1 text-sm text-muted-foreground">For exploring the dashboard with real seeded data.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Sample data only. This bypass is intentionally disabled for real listings.</p>
             <div className="mt-5 space-y-2">
               {unowned.map((u) => (
                 <div key={u.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-3">
@@ -123,7 +122,7 @@ export function Onboarding() {
                       <p className="truncate text-xs text-muted-foreground">{u.cuisine ?? u.slug}</p>
                     </div>
                   </div>
-                  <Button onClick={() => claim(u.id)} disabled={busy} size="sm" variant="outline">Claim</Button>
+                  <Button onClick={() => claim(u.id)} disabled={busy} size="sm" variant="outline">Claim demo</Button>
                 </div>
               ))}
             </div>
