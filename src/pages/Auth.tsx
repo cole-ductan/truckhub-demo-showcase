@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,11 @@ export default function Auth() {
   const [busy, setBusy] = useState(false);
   const nav = useNavigate();
   const { toast } = useToast();
+  const [params] = useSearchParams();
+  const next = params.get("next");
+  const dest = next && next.startsWith("/") ? next : "/owner";
 
-  useEffect(() => { supabase.auth.getSession().then(({ data }) => { if (data.session) nav("/owner", { replace: true }); }); }, [nav]);
+  useEffect(() => { supabase.auth.getSession().then(({ data }) => { if (data.session) nav(dest, { replace: true }); }); }, [nav, dest]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,12 +36,12 @@ export default function Auth() {
       if (mode === "sign-in") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        nav("/owner", { replace: true });
+        nav(dest, { replace: true });
       } else {
-        const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + "/owner", data: { display_name: displayName } } });
+        const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + dest, data: { display_name: displayName } } });
         if (error) throw error;
         toast({ title: "Welcome aboard!", description: "Account created. Setting up your dashboard…" });
-        nav("/owner", { replace: true });
+        nav(dest, { replace: true });
       }
     } catch (err: any) { toast({ title: "Auth error", description: err.message ?? String(err), variant: "destructive" }); }
     finally { setBusy(false); }
@@ -46,7 +49,7 @@ export default function Auth() {
 
   async function google() {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/owner" });
+    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + dest });
     if (result.error) { toast({ title: "Google sign-in failed", description: String(result.error), variant: "destructive" }); setBusy(false); }
   }
 
