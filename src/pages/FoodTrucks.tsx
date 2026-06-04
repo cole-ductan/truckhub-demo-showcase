@@ -5,7 +5,7 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { DemoBanner } from "@/components/site/DemoBanner";
 import { resolveImage } from "@/lib/assets";
-import { ArrowUpRight, Clock, MapPin, Search, ShoppingBag, Briefcase, Sparkles, X } from "lucide-react";
+import { ArrowUpRight, Clock, KeyRound, MapPin, Search, ShoppingBag, Briefcase, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSEO } from "@/hooks/useSEO";
 
@@ -26,6 +26,8 @@ type Biz = {
   ordering_enabled: boolean;
   online_ordering_url: string | null;
   order_button_label: string | null;
+  owner_id: string | null;
+  listing_status: string;
 };
 
 type Category = { id: string; name: string; slug: string; emoji: string | null; parent_id: string | null };
@@ -80,7 +82,7 @@ export default function FoodTrucks() {
   useEffect(() => {
     supabase
       .from("businesses")
-      .select("id,slug,name,tagline,cuisine,emoji,hero_image_url,today_location,today_hours,status,is_featured,category_id,city,ordering_enabled,online_ordering_url,order_button_label")
+      .select("id,slug,name,tagline,cuisine,emoji,hero_image_url,today_location,today_hours,status,is_featured,category_id,city,ordering_enabled,online_ordering_url,order_button_label,owner_id,listing_status")
       .eq("is_published", true)
       .order("is_featured", { ascending: false })
       .order("name", { ascending: true })
@@ -322,6 +324,13 @@ export default function FoodTrucks() {
                           <a href={t.online_ordering_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
                             <ShoppingBag className="mr-1.5 h-3 w-3" /> {t.order_button_label || "Order"}
                           </a>
+                        </Button>
+                      )}
+                      {t.listing_status === "unclaimed" && !t.owner_id && (
+                        <Button asChild size="sm" variant="outline" className="rounded-full">
+                          <Link to={`/claim/${t.slug}`} onClick={(e) => e.stopPropagation()}>
+                            <KeyRound className="mr-1.5 h-3 w-3" /> Claim listing
+                          </Link>
                         </Button>
                       )}
                       <Button asChild size="sm" className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90">
