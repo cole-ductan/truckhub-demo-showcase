@@ -86,6 +86,14 @@ export default function AdminListingReview() {
       .from("business_admin_metadata")
       .upsert({ business_id: r.id, internal_notes: notes }, { onConflict: "business_id" });
     if (metaErr) return toast.error(metaErr.message);
+    const { error: crmErr } = await (supabase as any)
+      .from("business_outreach")
+      .upsert({ business_id: r.id, outreach_status: "ready_to_contact" }, { onConflict: "business_id" });
+    if (crmErr) return toast.error(crmErr.message);
+    await (supabase as any).from("business_outreach_activities").insert({
+      business_id: r.id, activity_type: "status_changed",
+      summary: "Marked ready for outreach from review queue.",
+    });
     await update(r.id, { listing_status: "unclaimed" });
   };
 

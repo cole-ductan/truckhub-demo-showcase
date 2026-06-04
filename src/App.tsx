@@ -20,6 +20,7 @@ import AdminBusinessEdit from "./pages/admin/AdminBusinessEdit.tsx";
 import AdminImportBusinesses from "./pages/admin/AdminImportBusinesses.tsx";
 import AdminListingReview from "./pages/admin/AdminListingReview.tsx";
 import AdminClaimRequests from "./pages/admin/AdminClaimRequests.tsx";
+import AdminOutreach from "./pages/admin/AdminOutreach.tsx";
 import AdminUsers from "./pages/admin/AdminUsers.tsx";
 import AdminCategories from "./pages/admin/AdminCategories.tsx";
 import AdminLeads from "./pages/admin/AdminLeads.tsx";
@@ -88,6 +89,7 @@ const App = () => (
               <Route path="import-businesses" element={<AdminImportBusinesses />} />
               <Route path="listing-review" element={<AdminListingReview />} />
               <Route path="claim-requests" element={<AdminClaimRequests />} />
+              <Route path="outreach" element={<AdminOutreach />} />
               <Route path="leads" element={<AdminLeads />} />
               <Route path="users" element={<AdminUsers />} />
               <Route path="categories" element={<AdminCategories />} />

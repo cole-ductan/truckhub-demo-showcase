@@ -206,6 +206,97 @@ export type Database = {
           },
         ]
       }
+      business_outreach: {
+        Row: {
+          assigned_to: string | null
+          business_id: string
+          contact_attempt_count: number
+          created_at: string
+          last_contacted_at: string | null
+          next_follow_up_at: string | null
+          outreach_status: string
+          preferred_contact_method: string | null
+          priority: string
+          source: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          business_id: string
+          contact_attempt_count?: number
+          created_at?: string
+          last_contacted_at?: string | null
+          next_follow_up_at?: string | null
+          outreach_status?: string
+          preferred_contact_method?: string | null
+          priority?: string
+          source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          business_id?: string
+          contact_attempt_count?: number
+          created_at?: string
+          last_contacted_at?: string | null
+          next_follow_up_at?: string | null
+          outreach_status?: string
+          preferred_contact_method?: string | null
+          priority?: string
+          source?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_outreach_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: true
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_outreach_activities: {
+        Row: {
+          activity_type: string
+          business_id: string
+          contact_method: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          occurred_at: string
+          summary: string
+        }
+        Insert: {
+          activity_type: string
+          business_id: string
+          contact_method?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          occurred_at?: string
+          summary: string
+        }
+        Update: {
+          activity_type?: string
+          business_id?: string
+          contact_method?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          occurred_at?: string
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_outreach_activities_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_photos: {
         Row: {
           business_id: string
