@@ -13,7 +13,7 @@ type Row = {
   id: string; name: string; slug: string; city: string | null; cuisine: string | null;
   phone: string | null; email: string | null; website: string | null;
   hero_image_url: string | null; logo_url: string | null;
-  current_address: string | null; current_latitude: number | null; current_longitude: number | null;
+  current_address: string | null; today_latitude: number | null; today_longitude: number | null;
   is_published: boolean; listing_status: ListingStatus; updated_at: string;
   internal_notes: string | null;
 };
@@ -21,16 +21,16 @@ type Row = {
 function completeness(r: Row) {
   const contact = [r.phone, r.email, r.website].filter(Boolean).length / 3;
   const images = [r.hero_image_url, r.logo_url].filter(Boolean).length / 2;
-  const location = [r.current_address, r.current_latitude, r.current_longitude].filter(Boolean).length / 3;
+  const location = [r.current_address, r.today_latitude, r.today_longitude].filter((value) => value !== null && value !== "").length / 3;
   return { contact, images, location };
 }
 
 export default function AdminListingReview() {
   const [rows, setRows] = useState<Row[]>([]);
   const load = async () => {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("businesses")
-      .select("id,name,slug,city,cuisine,phone,email,website,hero_image_url,logo_url,current_address,current_latitude,current_longitude,is_published,listing_status,updated_at,internal_notes")
+      .select("id,name,slug,city,cuisine,phone,email,website,hero_image_url,logo_url,current_address,today_latitude,today_longitude,is_published,listing_status,updated_at,internal_notes")
       .in("listing_status", ["draft", "unclaimed"])
       .order("updated_at", { ascending: false });
     setRows((data ?? []) as Row[]);
@@ -48,7 +48,7 @@ export default function AdminListingReview() {
   }, [rows]);
 
   const isDupe = (r: Row) =>
-    [normalize(r.name), normalize(r.email), normalize(r.phone), normalize(r.website)]
+    [normalize(r.name), normalize(r.slug), normalize(r.email), normalize(r.phone), normalize(r.website)]
       .filter(Boolean)
       .some((k) => (dupeKeys.get(k) ?? 0) > 1);
 
