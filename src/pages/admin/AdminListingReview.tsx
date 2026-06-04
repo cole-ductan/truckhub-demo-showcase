@@ -28,7 +28,8 @@ function completeness(r: Row) {
 export default function AdminListingReview() {
   const [rows, setRows] = useState<Row[]>([]);
   const [allListings, setAllListings] = useState<DupeRow[]>([]);
-  const [adminNotes, setAdminNotes] = useState<Record<string, string | null>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
+
   const load = async () => {
     const [{ data: queue }, { data: all }] = await Promise.all([
       (supabase as any)
@@ -38,21 +39,8 @@ export default function AdminListingReview() {
         .order("updated_at", { ascending: false }),
       supabase.from("businesses").select("name,slug,email,phone,website"),
     ]);
-    const queueRows = (queue ?? []) as Row[];
-    setRows(queueRows);
+    setRows((queue ?? []) as Row[]);
     setAllListings((all ?? []) as DupeRow[]);
-    if (queueRows.length) {
-      const ids = queueRows.map((r) => r.id);
-      const { data: meta } = await (supabase as any)
-        .from("business_admin_metadata")
-        .select("business_id,internal_notes")
-        .in("business_id", ids);
-      const map: Record<string, string | null> = {};
-      (meta ?? []).forEach((m: any) => { map[m.business_id] = m.internal_notes ?? null; });
-      setAdminNotes(map);
-    } else {
-      setAdminNotes({});
-    }
   };
   useEffect(() => { load(); }, []);
 
@@ -79,22 +67,12 @@ export default function AdminListingReview() {
   };
 
   const markForOutreach = async (r: Row) => {
-    const stamp = `[${new Date().toISOString().slice(0, 10)}] marked ready for outreach`;
-    const existing = adminNotes[r.id];
-    const notes = existing ? `${existing}\n${stamp}` : stamp;
-    const { error: metaErr } = await (supabase as any)
-      .from("business_admin_metadata")
-      .upsert({ business_id: r.id, internal_notes: notes }, { onConflict: "business_id" });
-    if (metaErr) return toast.error(metaErr.message);
-    const { error: crmErr } = await (supabase as any)
-      .from("business_outreach")
-      .upsert({ business_id: r.id, outreach_status: "ready_to_contact" }, { onConflict: "business_id" });
-    if (crmErr) return toast.error(crmErr.message);
-    await (supabase as any).from("business_outreach_activities").insert({
-      business_id: r.id, activity_type: "status_changed",
-      summary: "Marked ready for outreach from review queue.",
-    });
-    await update(r.id, { listing_status: "unclaimed" });
+    setBusyId(r.id);
+    const { error } = await (supabase as any).rpc("mark_business_ready_for_outreach", { _business_id: r.id });
+    setBusyId(null);
+    if (error) return toast.error(error.message);
+    toast.success("Marked ready for outreach");
+    load();
   };
 
   return (
@@ -132,7 +110,7 @@ export default function AdminListingReview() {
                   {!r.is_published && <Button size="sm" onClick={() => update(r.id, { is_published: true })}><Eye className="mr-1 h-3 w-3" />Publish</Button>}
                   {r.listing_status !== "draft" && <Button size="sm" variant="outline" onClick={() => update(r.id, { listing_status: "draft" })}><FileText className="mr-1 h-3 w-3" />Keep Draft</Button>}
                   <Button size="sm" variant="outline" onClick={() => update(r.id, { listing_status: "archived", is_published: false })}><Archive className="mr-1 h-3 w-3" />Archive</Button>
-                  <Button size="sm" variant="secondary" onClick={() => markForOutreach(r)}><Send className="mr-1 h-3 w-3" />Mark Ready for Outreach</Button>
+                  <Button size="sm" variant="secondary" disabled={busyId === r.id} onClick={() => markForOutreach(r)}><Send className="mr-1 h-3 w-3" />{busyId === r.id ? "Marking…" : "Mark Ready for Outreach"}</Button>
                 </div>
               </CardContent>
             </Card>
