@@ -13,6 +13,10 @@ const schema = z.object({
   displayName: z.string().trim().min(1).max(80).optional(),
 });
 
+function safeInternalPath(value: string | null) {
+  return value && /^\/(?!\/)/.test(value) ? value : "/owner";
+}
+
 export default function Auth() {
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
   const [email, setEmail] = useState("");
@@ -22,8 +26,7 @@ export default function Auth() {
   const nav = useNavigate();
   const { toast } = useToast();
   const [params] = useSearchParams();
-  const next = params.get("next");
-  const dest = next && next.startsWith("/") ? next : "/owner";
+  const dest = safeInternalPath(params.get("next"));
 
   useEffect(() => { supabase.auth.getSession().then(({ data }) => { if (data.session) nav(dest, { replace: true }); }); }, [nav, dest]);
 
