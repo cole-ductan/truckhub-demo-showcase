@@ -1112,6 +1112,35 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      log_business_outreach_activity: {
+        Args: {
+          _activity_type: string
+          _business_id: string
+          _contact_method: string
+          _occurred_at?: string
+          _summary: string
+        }
+        Returns: {
+          activity_type: string
+          business_id: string
+          contact_method: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          occurred_at: string
+          summary: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "business_outreach_activities"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      mark_business_ready_for_outreach: {
+        Args: { _business_id: string }
+        Returns: undefined
+      }
       owns_business: {
         Args: { _business_id: string; _user_id: string }
         Returns: boolean
@@ -1168,6 +1197,33 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "claim_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_business_outreach_pipeline: {
+        Args: {
+          _business_id: string
+          _next_follow_up_at?: string
+          _outreach_status: string
+          _priority: string
+        }
+        Returns: {
+          assigned_to: string | null
+          business_id: string
+          contact_attempt_count: number
+          created_at: string
+          last_contacted_at: string | null
+          next_follow_up_at: string | null
+          outreach_status: string
+          preferred_contact_method: string | null
+          priority: string
+          source: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "business_outreach"
           isOneToOne: true
           isSetofReturn: false
         }
