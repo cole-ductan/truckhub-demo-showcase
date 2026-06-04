@@ -15,12 +15,13 @@ type TruckPin = {
   id: string; name: string; slug: string; emoji: string | null; cuisine: string | null;
   status: "open" | "soon" | "closed"; today_location: string | null; today_hours: string | null;
   today_latitude: number; today_longitude: number;
+  hero_image_url: string | null; logo_url: string | null;
 };
 
 type EventPin = {
   id: string; title: string; tag: string | null; location: string | null; start_time: string | null;
   end_time: string | null; event_date: string | null; latitude: number; longitude: number;
-  businesses?: { name?: string; slug?: string; emoji?: string | null } | null;
+  businesses?: { name?: string; slug?: string; emoji?: string | null; hero_image_url?: string | null; logo_url?: string | null } | null;
 };
 
 type Filter = "all" | "open" | "trucks" | "events";
@@ -43,10 +44,10 @@ export function LiveDiscoveryMap() {
     (async () => {
       const [{ data: businessRows }, { data: eventRows }] = await Promise.all([
         (supabase as any).from("businesses")
-          .select("id,name,slug,emoji,cuisine,status,today_location,today_hours,today_latitude,today_longitude")
+          .select("id,name,slug,emoji,cuisine,status,today_location,today_hours,today_latitude,today_longitude,hero_image_url,logo_url")
           .eq("is_published", true).not("today_latitude", "is", null).not("today_longitude", "is", null),
         (supabase as any).from("business_events")
-          .select("id,title,tag,location,start_time,end_time,event_date,latitude,longitude,businesses(name,slug,emoji)")
+          .select("id,title,tag,location,start_time,end_time,event_date,latitude,longitude,businesses(name,slug,emoji,hero_image_url,logo_url)")
           .eq("is_public", true).not("latitude", "is", null).not("longitude", "is", null),
       ]);
       setTrucks((businessRows ?? []) as TruckPin[]);
@@ -84,7 +85,9 @@ export function LiveDiscoveryMap() {
 
     filteredTrucks.forEach((t) => {
       const category = categorizeBusiness({ cuisine: t.cuisine });
-      const popup = new window.maplibregl.Popup({ offset: 22, closeButton: false }).setHTML(`<div style="min-width:190px"><strong>${clean(t.emoji)} ${clean(t.name)}</strong><div style="margin-top:5px;font-size:12px">${clean(t.cuisine)}</div><div style="margin-top:5px;font-size:12px">${clean(t.today_location)}${t.today_hours ? ` · ${clean(t.today_hours)}` : ""}</div><a href="/food-trucks/${clean(t.slug)}" style="display:inline-block;margin-top:9px;color:#ea580c;font-weight:700;font-size:12px">View listing →</a></div>`);
+      const photo = t.hero_image_url || t.logo_url;
+      const photoHtml = photo ? `<img src="${clean(photo)}" alt="${clean(t.name)}" style="display:block;width:100%;height:110px;object-fit:cover;border-radius:10px;margin-bottom:8px"/>` : "";
+      const popup = new window.maplibregl.Popup({ offset: 22, closeButton: false }).setHTML(`<div style="min-width:220px;max-width:240px">${photoHtml}<strong>${clean(t.emoji)} ${clean(t.name)}</strong><div style="margin-top:5px;font-size:12px">${clean(t.cuisine)}</div><div style="margin-top:5px;font-size:12px">${clean(t.today_location)}${t.today_hours ? ` · ${clean(t.today_hours)}` : ""}</div><a href="/food-trucks/${clean(t.slug)}" style="display:inline-block;margin-top:9px;color:#ea580c;font-weight:700;font-size:12px">View listing →</a></div>`);
       const el = renderPinElement(category, { status: t.status });
       const marker = new window.maplibregl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([t.today_longitude, t.today_latitude]).setPopup(popup).addTo(map);
@@ -97,7 +100,9 @@ export function LiveDiscoveryMap() {
       const category = categorizeEvent(e.tag);
       const vendor = e.businesses?.name ? `<div style="margin-top:5px;font-size:12px">Hosted by ${clean(e.businesses.name)}</div>` : "";
       const link = e.businesses?.slug ? `<a href="/food-trucks/${clean(e.businesses.slug)}" style="display:inline-block;margin-top:9px;color:#ea580c;font-weight:700;font-size:12px">View listing →</a>` : "";
-      const popup = new window.maplibregl.Popup({ offset: 22, closeButton: false }).setHTML(`<div style="min-width:190px"><strong>${clean(CATEGORY_LABEL[category])} · ${clean(e.title)}</strong><div style="margin-top:5px;font-size:12px">${clean(e.location)}${e.start_time ? ` · ${clean(e.start_time)}${e.end_time ? `–${clean(e.end_time)}` : ""}` : ""}</div>${vendor}${link}</div>`);
+      const photo = e.businesses?.hero_image_url || e.businesses?.logo_url || null;
+      const photoHtml = photo ? `<img src="${clean(photo)}" alt="${clean(e.title)}" style="display:block;width:100%;height:110px;object-fit:cover;border-radius:10px;margin-bottom:8px"/>` : "";
+      const popup = new window.maplibregl.Popup({ offset: 22, closeButton: false }).setHTML(`<div style="min-width:220px;max-width:240px">${photoHtml}<strong>${clean(CATEGORY_LABEL[category])} · ${clean(e.title)}</strong><div style="margin-top:5px;font-size:12px">${clean(e.location)}${e.start_time ? ` · ${clean(e.start_time)}${e.end_time ? `–${clean(e.end_time)}` : ""}` : ""}</div>${vendor}${link}</div>`);
       const el = renderPinElement(category);
       const marker = new window.maplibregl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([e.longitude, e.latitude]).setPopup(popup).addTo(map);
