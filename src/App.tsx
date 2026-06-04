@@ -19,6 +19,7 @@ import AdminBusinesses from "./pages/admin/AdminBusinesses.tsx";
 import AdminBusinessEdit from "./pages/admin/AdminBusinessEdit.tsx";
 import AdminImportBusinesses from "./pages/admin/AdminImportBusinesses.tsx";
 import AdminListingReview from "./pages/admin/AdminListingReview.tsx";
+import AdminClaimRequests from "./pages/admin/AdminClaimRequests.tsx";
 import AdminUsers from "./pages/admin/AdminUsers.tsx";
 import AdminCategories from "./pages/admin/AdminCategories.tsx";
 import AdminLeads from "./pages/admin/AdminLeads.tsx";
@@ -31,6 +32,8 @@ import OwnerLeads from "./pages/owner/OwnerLeads.tsx";
 import OwnerMessages from "./pages/owner/OwnerMessages.tsx";
 import OwnerBookings from "./pages/owner/OwnerBookings.tsx";
 import OwnerSettings from "./pages/owner/OwnerSettings.tsx";
+import OwnerClaims from "./pages/owner/OwnerClaims.tsx";
+import ClaimListing from "./pages/ClaimListing.tsx";
 import { PaymentSuccess, PaymentCancel } from "./pages/PaymentResult.tsx";
 import { DemoTourProvider } from "@/components/demo/useDemoTour";
 import { GuidedTour } from "@/components/demo/GuidedTour";
@@ -58,6 +61,7 @@ const App = () => (
             <Route path="/category/:categorySlug" element={<FoodTrucks />} />
             <Route path="/specialty/:specialtySlug" element={<FoodTrucks />} />
             <Route path="/book/:truckSlug" element={<Book />} />
+            <Route path="/claim/:businessSlug" element={<ClaimListing />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/owner/login" element={<Navigate to="/auth" replace />} />
             <Route path="/payment/success" element={<PaymentSuccess />} />
@@ -74,6 +78,7 @@ const App = () => (
               <Route path="messages" element={<OwnerMessages />} />
               <Route path="bookings" element={<OwnerBookings />} />
               <Route path="settings" element={<OwnerSettings />} />
+              <Route path="claims" element={<OwnerClaims />} />
             </Route>
 
             <Route path="/admin" element={<AdminLayout />}>
@@ -82,6 +87,7 @@ const App = () => (
               <Route path="businesses/:id/edit" element={<AdminBusinessEdit />} />
               <Route path="import-businesses" element={<AdminImportBusinesses />} />
               <Route path="listing-review" element={<AdminListingReview />} />
+              <Route path="claim-requests" element={<AdminClaimRequests />} />
               <Route path="leads" element={<AdminLeads />} />
               <Route path="users" element={<AdminUsers />} />
               <Route path="categories" element={<AdminCategories />} />
