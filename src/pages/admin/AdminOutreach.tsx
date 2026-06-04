@@ -219,7 +219,8 @@ export default function AdminOutreach() {
                   <Badge variant={LISTING_STATUS_VARIANT[r.business.listing_status]}>{LISTING_STATUS_LABEL[r.business.listing_status]}</Badge>
                   <Badge variant={statusVariant(r.outreach_status)}>{OUTREACH_STATUS_LABEL[r.outreach_status]}</Badge>
                   <Badge variant={r.priority === "high" ? "destructive" : r.priority === "low" ? "outline" : "secondary"}>{r.priority}</Badge>
-                  {r.activity_count > 0 && <Badge variant="outline">{r.activity_count} activity</Badge>}
+                  <Badge variant="outline">{r.activity_count} {r.activity_count === 1 ? "activity" : "activities"}</Badge>
+                  <Badge variant="outline">Contact attempts: {r.contact_attempt_count}</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {r.business.contact_name ?? "—"} · {r.outreach_email ?? "no email"} · {r.business.phone ?? "no phone"} · {r.business.city ?? "—"}{r.business.region ? `, ${r.business.region}` : ""}
