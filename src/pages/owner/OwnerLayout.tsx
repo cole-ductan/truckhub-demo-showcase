@@ -48,6 +48,18 @@ function Topbar() {
   );
 }
 
+const CLAIMANT_ALLOWED = ["/owner", "/owner/claims", "/owner/settings"];
+
+function ClaimantGate({ children }: { children: React.ReactNode }) {
+  const { businesses, loading } = useOwnerBusiness();
+  const { pathname } = useLocation();
+  if (loading) return <div className="grid min-h-[40vh] place-items-center text-muted-foreground">Loading workspace…</div>;
+  if (businesses.length === 0 && !CLAIMANT_ALLOWED.includes(pathname)) {
+    return <Navigate to="/owner/claims" replace />;
+  }
+  return <>{children}</>;
+}
+
 export default function OwnerLayout() {
   const { user, loading } = useAuth();
   if (loading) return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
@@ -63,7 +75,9 @@ export default function OwnerLayout() {
               <Topbar />
               <main className="flex-1 px-4 py-6 sm:px-6 md:px-8 md:py-8">
                 <div className="mx-auto w-full max-w-6xl">
-                  <Outlet />
+                  <ClaimantGate>
+                    <Outlet />
+                  </ClaimantGate>
                 </div>
               </main>
             </div>
