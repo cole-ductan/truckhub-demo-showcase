@@ -88,7 +88,8 @@ export function LiveDiscoveryMap() {
       const el = renderPinElement(category, { status: t.status });
       const marker = new window.maplibregl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([t.today_longitude, t.today_latitude]).setPopup(popup).addTo(map);
-      el.addEventListener("mouseenter", () => { popup.addTo(map); });
+      el.addEventListener("mouseenter", () => { if (!popup.isOpen()) marker.togglePopup(); });
+      el.addEventListener("mouseleave", () => { setTimeout(() => { if (popup.isOpen() && !el.matches(":hover")) marker.togglePopup(); }, 120); });
       markersRef.current.push(marker); bounds.extend([t.today_longitude, t.today_latitude]);
     });
 
@@ -100,7 +101,8 @@ export function LiveDiscoveryMap() {
       const el = renderPinElement(category);
       const marker = new window.maplibregl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([e.longitude, e.latitude]).setPopup(popup).addTo(map);
-      el.addEventListener("mouseenter", () => { popup.addTo(map); });
+      el.addEventListener("mouseenter", () => { if (!popup.isOpen()) marker.togglePopup(); });
+      el.addEventListener("mouseleave", () => { setTimeout(() => { if (popup.isOpen() && !el.matches(":hover")) marker.togglePopup(); }, 120); });
       markersRef.current.push(marker); bounds.extend([e.longitude, e.latitude]);
     });
 
