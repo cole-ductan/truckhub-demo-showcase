@@ -355,6 +355,10 @@ function OutreachDrawer({ row, onClose, onSaved }: { row: Row | null; onClose: (
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
+          <div className="flex flex-wrap gap-2 text-xs">
+            <Badge variant="outline">{activities.length} {activities.length === 1 ? "activity" : "activities"}</Badge>
+            <Badge variant="outline">Contact attempts: {row.contact_attempt_count}</Badge>
+          </div>
           <section className="space-y-3">
             <h3 className="font-semibold">Pipeline</h3>
             <div className="grid grid-cols-2 gap-3">
