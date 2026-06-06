@@ -1026,6 +1026,58 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      assign_business_owner: {
+        Args: { _business_id: string; _user_id: string }
+        Returns: {
+          booking_inquiry_enabled: boolean
+          category_id: string | null
+          catering_available: boolean
+          city: string | null
+          contact_name: string | null
+          created_at: string
+          cuisine: string | null
+          current_address: string | null
+          current_latitude: number | null
+          current_longitude: number | null
+          description: string | null
+          email: string | null
+          emoji: string | null
+          facebook: string | null
+          hero_image_url: string | null
+          id: string
+          instagram: string | null
+          internal_notes: string | null
+          is_demo: boolean
+          is_featured: boolean
+          is_published: boolean
+          listing_status: Database["public"]["Enums"]["listing_status"]
+          logo_url: string | null
+          name: string
+          online_ordering_url: string | null
+          order_button_label: string | null
+          ordering_enabled: boolean
+          outreach_email: string | null
+          owner_id: string | null
+          phone: string | null
+          region: string | null
+          service_area: string | null
+          slug: string
+          status: Database["public"]["Enums"]["business_status"]
+          tagline: string | null
+          today_hours: string | null
+          today_latitude: number | null
+          today_location: string | null
+          today_longitude: number | null
+          updated_at: string
+          website: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "businesses"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       claim_business: {
         Args: { _business_id: string }
         Returns: {
@@ -1077,6 +1129,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      delete_unlinked_business: {
+        Args: { _business_id: string }
+        Returns: undefined
       }
       deny_claim_request: {
         Args: { _admin_notes?: string; _claim_request_id: string }
@@ -1145,6 +1201,58 @@ export type Database = {
         Args: { _business_id: string; _user_id: string }
         Returns: boolean
       }
+      remove_business_owner: {
+        Args: { _business_id: string }
+        Returns: {
+          booking_inquiry_enabled: boolean
+          category_id: string | null
+          catering_available: boolean
+          city: string | null
+          contact_name: string | null
+          created_at: string
+          cuisine: string | null
+          current_address: string | null
+          current_latitude: number | null
+          current_longitude: number | null
+          description: string | null
+          email: string | null
+          emoji: string | null
+          facebook: string | null
+          hero_image_url: string | null
+          id: string
+          instagram: string | null
+          internal_notes: string | null
+          is_demo: boolean
+          is_featured: boolean
+          is_published: boolean
+          listing_status: Database["public"]["Enums"]["listing_status"]
+          logo_url: string | null
+          name: string
+          online_ordering_url: string | null
+          order_button_label: string | null
+          ordering_enabled: boolean
+          outreach_email: string | null
+          owner_id: string | null
+          phone: string | null
+          region: string | null
+          service_area: string | null
+          slug: string
+          status: Database["public"]["Enums"]["business_status"]
+          tagline: string | null
+          today_hours: string | null
+          today_latitude: number | null
+          today_location: string | null
+          today_longitude: number | null
+          updated_at: string
+          website: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "businesses"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       request_more_info_claim_request: {
         Args: { _admin_notes: string; _claim_request_id: string }
         Returns: {
@@ -1200,6 +1308,18 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      submit_new_business_request: {
+        Args: {
+          _category_id: string
+          _name: string
+          _phone: string
+          _requester_email: string
+          _requester_name: string
+          _requester_phone: string
+          _slug: string
+        }
+        Returns: string
       }
       update_business_outreach_pipeline: {
         Args: {
