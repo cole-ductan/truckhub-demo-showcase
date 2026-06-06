@@ -6,20 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { slugify } from "@/lib/listingStatus";
+import { normalizeSlug, isValidSlug } from "@/lib/listingStatus";
 
 export default function AdminBusinessNew() {
   const nav = useNavigate();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName = name.trim();
-    const cleanSlug = slugify(slug.trim() || cleanName);
+    const cleanSlug = normalizeSlug(slug.trim() || cleanName);
     if (!cleanName) return toast.error("Business name is required");
-    if (!cleanSlug) return toast.error("Enter a valid business name or slug");
+    if (!isValidSlug(cleanSlug)) return toast.error("Slug must be letters, numbers, and hyphens only");
 
     setSaving(true);
     const { data, error } = await (supabase as any)
@@ -41,6 +42,8 @@ export default function AdminBusinessNew() {
     nav(`/admin/businesses/${data.id}/edit`, { replace: true });
   };
 
+  const previewSlug = slugTouched ? slug : normalizeSlug(name);
+
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <div>
@@ -58,10 +61,7 @@ export default function AdminBusinessNew() {
                 id="new-business-name"
                 className="mt-1.5"
                 value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  if (!slug) setSlug(slugify(e.target.value));
-                }}
+                onChange={(e) => setName(e.target.value)}
                 placeholder="FoodXMobile Test Kitchen"
                 autoFocus
               />
@@ -70,12 +70,13 @@ export default function AdminBusinessNew() {
               <Label htmlFor="new-business-slug">URL slug</Label>
               <Input
                 id="new-business-slug"
-                className="mt-1.5"
+                className="mt-1.5 font-mono text-sm"
                 value={slug}
-                onChange={(e) => setSlug(slugify(e.target.value))}
+                onChange={(e) => { setSlugTouched(true); setSlug(e.target.value); }}
+                onBlur={() => setSlug((s) => normalizeSlug(s || name))}
                 placeholder="foodxmobile-test-kitchen"
               />
-              <p className="mt-1 text-xs text-muted-foreground">foodxmobile.com/food-trucks/{slug || "your-listing"}</p>
+              <p className="mt-1 text-xs text-muted-foreground">foodxmobile.com/food-trucks/{previewSlug || "your-listing"}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={saving}>{saving ? "Creating…" : "Create draft listing"}</Button>
