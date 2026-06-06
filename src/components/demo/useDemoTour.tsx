@@ -37,7 +37,10 @@ export function DemoTourProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const canShow = isAdmin || demoMode;
+  // Only surface the demo tour when explicitly enabled via ?demo=1 or Demo Tools.
+  // Admins do NOT see it by default during normal admin use.
+  void isAdmin; // intentionally unused; kept for future per-role gates
+  const canShow = demoMode;
 
   const start = useCallback(() => {
     setStepIndex(0);
