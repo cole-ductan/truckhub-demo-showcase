@@ -1,98 +1,121 @@
-# Checkpoint A — Inventory Foundation
+# Workflow Polish Pass 2
 
-Scope is **Checkpoint A only**. I will stop and summarize after it ships, then wait for approval before Checkpoint B.
+Scope is large but tightly bounded: no Checkpoint D, no Stripe PR changes. Below is the full plan, grouped so each chunk lands cleanly.
 
-## 1. Database migration (single migration, additive only)
+## 1. Reviewed new-business submission flow
 
-Extend `public.businesses` with columns that don't already exist. Nothing renamed, nothing dropped.
+**Migration (single new file):**
+- RPC `public.submit_new_business_request(_name text, _slug text, _category_id uuid, _phone text, _requester_name text, _requester_email text, _requester_phone text)`
+  - `SECURITY DEFINER`, requires `auth.uid()`
+  - Validate name, normalize/validate slug (re-uses slug rules, rejects `/` and unsafe chars), enforce unique slug
+  - Reject if requester already has an active (`pending` / `more_info_requested`) submission for this slug, OR a duplicate active submission tied to (requester, name)
+  - Insert `businesses` row: `owner_id=null`, `listing_status='draft'`, `is_published=false`, name, slug, optional category, optional phone, `is_demo=false`
+  - Insert `claim_requests` row: `business_id`, `requester_user_id=auth.uid()`, requester name/email/phone, `relationship_to_business='creator'`, `verification_notes='New business submission for admin review.'`, `status='pending'`
+  - Upsert `business_admin_metadata`: `outreach_email = requester_email`, append `[YYYY-MM-DD] New business submitted for admin review` to `internal_notes`
+  - Upsert `business_outreach` (the existing `ensure_business_outreach_row` trigger will have run on insert; this call updates `source='self_submitted'`, `outreach_status='not_contacted'`)
+  - Insert `business_outreach_activities` row: `activity_type='status_changed'`, `summary='New business submitted for admin review'`
+  - `GRANT EXECUTE ... TO authenticated`
+- Loosen the existing `users insert own claim requests` policy to also accept `listing_status='draft'` (the RPC is `SECURITY DEFINER` so policy doesn't gate the insert, but keep it consistent for resubmission).
 
-New enum + columns:
+**Frontend (`src/components/owner/Onboarding.tsx`):**
+- Replace direct `businesses` insert with `supabase.rpc('submit_new_business_request', {...})`
+- Capture: business name, slug (auto from name, normalize on blur), category, phone, requester name (default to profile display name), requester email (default to `user.email`), optional requester phone, optional relationship note
+- On success: toast "Submitted for admin review", `navigate('/owner/claims')`
+- Keep demo-claim block unchanged (demo only)
 
-```text
-CREATE TYPE public.listing_status AS ENUM
-  ('draft','unclaimed','claimed_free','premium','archived');
+**Owner routing:**
+- Existing `useOwnerBusiness` returns nothing until `owner_id` is set, so operational pages stay locked. Verify `OwnerLayout` redirects unowned users to onboarding/claims; add a small banner-friendly empty state on `/owner/claims` referencing the new submission.
 
-ALTER TABLE public.businesses
-  ADD COLUMN listing_status   public.listing_status NOT NULL DEFAULT 'draft',
-  ADD COLUMN contact_name     text,
-  ADD COLUMN outreach_email   text,         -- internal, never exposed publicly
-  ADD COLUMN service_area     text,
-  ADD COLUMN current_address  text,
-  ADD COLUMN current_latitude  numeric(9,6),
-  ADD COLUMN current_longitude numeric(9,6),
-  ADD COLUMN catering_available        boolean NOT NULL DEFAULT false,
-  ADD COLUMN booking_inquiry_enabled   boolean NOT NULL DEFAULT true,
-  ADD COLUMN internal_notes  text;          -- admin only
-```
+## 2. Claim-request deep-link status
 
-Reused (NOT re-added): `name, slug, emoji, description, tagline, cuisine, category_id, city, region, is_published, phone, email, website, instagram, facebook, online_ordering_url, today_location, today_hours, status, hero_image_url, logo_url`. Specialty categories continue to use existing `business_subcategories`.
+- `AdminBusinesses.tsx` claim badges: add `&status=pending|more_info_requested|approved` to existing `/admin/claim-requests?biz=...` links.
+- `AdminClaimRequests.tsx`:
+  - On mount, read `status` from `useSearchParams`, set initial `filter`
+  - When `biz` is set and the chosen filter yields zero rows, auto-pick the first status that has rows for that biz; if none, fall back to `all`.
+  - Keep tab clicks updating the URL via `setParams` so deep links stay stable.
 
-Backfill: every existing row gets `listing_status = CASE WHEN owner_id IS NOT NULL THEN 'claimed_free' WHEN is_published THEN 'unclaimed' ELSE 'draft' END`.
+## 3. Admin Businesses table clarity + sortable columns
 
-### RLS adjustments (protect new admin-only fields)
+`src/pages/admin/AdminBusinesses.tsx`:
+- Column rename: header "Listing" → "Lifecycle"; header "Status" → "Public visibility" with two labels only: `Published` / `Unpublished` (no Draft). Keep Featured column.
+- Add click-to-sort on: Business, Owner, Claims, City, Category, Lifecycle, Public visibility, Leads, Updated. Use a small `SortableTh` helper, asc/desc chevron from lucide. Sort is in-memory over already-fetched rows.
 
-The current `public read published businesses` policy grants public SELECT on every column. `outreach_email` and `internal_notes` must stay admin/owner-only.
+## 4. Admin owner assignment
 
-Approach: keep the table policy as-is for owners/admins, but add a column-filtered **view** `public.businesses_public` (security_invoker) that excludes `outreach_email` and `internal_notes`, and revoke public SELECT on those two columns from the `anon` role via `REVOKE SELECT (outreach_email, internal_notes) ON public.businesses FROM anon`. The public site already selects explicit columns, so this is safe.
+**Migration:**
+- RPC `assign_business_owner(_business_id uuid, _user_id uuid)`:
+  - admin only
+  - reject if `listing_status='archived'`
+  - reject if business already has same owner (no-op success ok)
+  - set `owner_id=_user_id`, `listing_status='claimed_free'`
+  - upsert `business_outreach` to `outreach_status='claimed'`
+  - insert `business_outreach_activities` `status_changed` summary "Owner assigned by admin"
+  - leave claim history intact (do NOT auto-deny pending claims; admin can handle)
+  - `GRANT EXECUTE TO authenticated`
+- RPC `remove_business_owner(_business_id uuid)` (admin only): clears `owner_id`, sets `listing_status='unclaimed'`, logs activity. Use this if not already present so UI refresh is consistent.
 
-(Note: the existing `phone`/`email` public-exposure scanner warning is pre-existing and out of scope for Checkpoint A — flagged below.)
+**Frontend:**
+- Admin Businesses detail sheet: add "Assign owner" with searchable user picker (query `profiles` by `display_name` ilike + show id). On submit call RPC, refresh row + sheet.
+- Keep existing Remove owner; after success re-fetch list + sheet so the change is visible.
 
-## 2. Admin UI — Businesses list (`/admin/businesses`)
+## 5. Safe listing deletion (Danger Zone)
 
-Extend `AdminBusinesses.tsx`:
-- Add a `listing_status` badge column with color coding.
-- Add a Listing Status filter: All / Draft / Unclaimed / Claimed Free / Premium / Archived.
-- Detail sheet: dropdown to change `listing_status`.
-- Existing publish/feature/owner controls untouched.
+**Migration:**
+- RPC `delete_unlinked_business(_business_id uuid)`:
+  - admin only
+  - require: `owner_id IS NULL`, no `claim_requests` in (`pending`,`more_info_requested`,`approved`), no `leads`, no `deposit_requests`
+  - on failure raise message: "Listing has linked records. Archive instead."
+  - on success delete dependent rows (`business_admin_metadata`, `business_outreach`, `business_outreach_activities`, `business_photos`, `business_subcategories`, `business_events`, `menu_items`, `menu_categories`, `saved_locations`, `owner_preferences`, denied/withdrawn `claim_requests`) then the business
+  - `GRANT EXECUTE TO authenticated`
 
-## 3. Admin business editor — extended fields
+**Frontend (`AdminBusinessEdit.tsx`):** add bottom Danger Zone card with:
+- Archive listing (sets `listing_status='archived'`, `is_published=false`)
+- Delete permanently (AlertDialog confirm → RPC; show server message on failure)
 
-Add a new admin page `/admin/businesses/:id/edit` (or extend the existing sheet into a full editor route) covering all sections listed in the brief — Core identity, Contact, Location (incl. lat/lng), Media, Operational, plus the new `internal_notes` and `outreach_email` fields. Specialty multi-select writes to `business_subcategories`.
+## 6. Slug UX
 
-## 4. CSV bulk import — `/admin/import-businesses`
+Update both `Onboarding.tsx` and `AdminBusinessNew.tsx`:
+- Allow free typing in the slug input (no per-keystroke `slugify`)
+- Normalize on blur and at submit
+- Reject `/`, whitespace, and unsafe URL chars at submit with a clear toast
+- Show final URL preview `foodxmobile.com/food-trucks/<normalized>`
+- Add `normalizeSlug` helper in `src/lib/listingStatus.ts` (or new util) used everywhere
 
-New page + sidebar entry "Import Listings".
+## 7. Demo tour visibility
 
-Flow:
-1. Download template button (generates CSV with required + optional headers).
-2. File picker → parse client-side with `papaparse` (already in repo? if not, add).
-3. Preview table with per-row validation (required fields, slug format, lat/lng numeric, URLs).
-4. Duplicate detection: normalized match on `slug`, `name`, `email`, `phone`, `website` against existing `businesses`. Per-row action: Skip / Insert / Overwrite-selected.
-5. Submit → batched inserts/updates via supabase client (admin RLS allows). Default `listing_status='unclaimed'`, `is_published=false` unless CSV says otherwise.
-6. Summary screen: inserted / updated / skipped / failed counts with row-level errors.
+`src/components/demo/DemoLauncher.tsx` (and any header mount): only render when
+- `new URLSearchParams(location.search).get('demo') === '1'`, OR
+- `localStorage.getItem('fxm.demo_mode') === '1'` (set by Demo Tools)
+Admin layout: stop auto-mounting unless one of those conditions holds.
 
-Required CSV headers (exactly as spec): `business_name, slug, cuisine, city, region, public_phone, public_email, website_url, instagram_url, facebook_url, short_description, today_location, today_latitude, today_longitude, listing_status, is_published, internal_notes`.
+## 8. Owner editor focus-loss fix
 
-Optional: `contact_name, outreach_email, service_area, online_ordering_url, today_hours, catering_available, booking_inquiry_enabled, hero_image_url`.
+`OwnerProfile.tsx` (Truck Page editor sheet):
+- Stop closing on visibility/blur. Audit any `useEffect` watching `document.visibilitychange`, `window.blur`, `onOpenChange` that depends on focus state — remove that coupling.
+- Track `isDirty` against initial snapshot; show "Unsaved changes" pill.
+- Sheet `onOpenChange`: if closing while dirty, show confirm dialog before actually closing.
+- Add `beforeunload` warning while dirty.
 
-## 5. Admin review queue — `/admin/listing-review`
+## 9. Image URL preview + validation
 
-New page + sidebar entry "Review Queue". Lists businesses with `listing_status IN ('draft','unclaimed')` ordered by `updated_at desc`. Card shows:
-- Name, status, city, cuisine
-- Completeness meters: contact (phone/email/website filled), images (hero+logo), location (address+lat+lng)
-- Published badge
-- Duplicate warning (same heuristic as import)
-- Actions: Edit · Publish · Keep Draft · Archive · Mark Ready for Outreach (sets `listing_status='unclaimed'` + flag in `internal_notes` for now — full outreach tracker is Checkpoint C).
+In owner and admin business editors (`OwnerProfile.tsx`, `AdminBusinessEdit.tsx`):
+- Small preview thumbnail next to `hero_image_url` and `logo_url`
+- Track load error per field; show "Image failed to load. Use a direct HTTPS image URL." helper text
+- Skip validation when value starts with `asset:` (bundled assets)
+- Note in UI: "Storage uploads coming soon"
 
-## 6. Routes & sidebar
+## 10. Verification
 
-`src/App.tsx`: add `/admin/import-businesses`, `/admin/listing-review`, `/admin/businesses/:id/edit`.
-`src/components/admin/AdminSidebar.tsx`: add "Import Listings" and "Review Queue" links under Manage.
+- `tsc --noEmit` + production build via harness
+- Report: migration file path, new RPCs, grants, files changed, behavior notes per area above
 
-## 7. Types
+## Technical details (for reviewer)
 
-`src/integrations/supabase/types.ts` regenerates after the migration runs.
+- Migration file: `supabase/migrations/<ts>_workflow_polish_pass_2.sql` containing all four new RPCs + grants. No table schema changes.
+- All new RPCs are `SECURITY DEFINER` with `set search_path = public` and explicit `GRANT EXECUTE TO authenticated`.
+- `submit_new_business_request` relies on existing `ensure_business_outreach_row` trigger; afterwards updates `source` + `outreach_status` to keep exactly one outreach row.
+- Sort state stored in component via `useState<{key, dir}>`; rows sorted with a stable comparator.
+- User picker queries `profiles` with `select id, display_name` + `ilike` filter, limit 20.
+- No edits to `src/integrations/supabase/{client,types}.ts`, `.env`, `supabase/config.toml`.
 
-## Out of scope (later checkpoints)
-- Claim workflow, `claim_requests` table → Checkpoint B
-- Outreach tracker table/page → Checkpoint C
-- Tier-aware feature flags → Checkpoint D
-- Pilot QA pass → Checkpoint E
-
-## Risks / decisions to flag
-- **Pre-existing security finding**: `businesses.phone` and `businesses.email` are publicly readable. Not introduced by this checkpoint; recommend addressing in a dedicated pass (move private contact to owner-only and expose only what the owner opts in to).
-- The two SECURITY DEFINER linter warnings (`has_role`, `is_admin`, `owns_business`, `claim_business`) are intentional for RLS plumbing; will mark as accepted in security memory if you want.
-- I'll add `papaparse` if not already installed.
-
-## Stop condition
-After implementation I will post: summary, files changed, migrations, new routes, RLS changes, QA checklist — then wait.
+Stopping after Pass 2. Will not touch Stripe PR or start Checkpoint D.
