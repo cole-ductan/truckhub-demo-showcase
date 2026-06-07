@@ -1,121 +1,140 @@
-# Workflow Polish Pass 2
+# Public Discovery + Calendar + Book-a-Truck (Phase 1)
 
-Scope is large but tightly bounded: no Checkpoint D, no Stripe PR changes. Below is the full plan, grouped so each chunk lands cleanly.
+Big scope: 3 new public routes, homepage restructure, For-Vendors trim, new public lead-gen flow, CRM extension, and vendor lead-preference scaffolding. The private owner console, admin rules, and auth flows are not touched.
 
-## 1. Reviewed new-business submission flow
+## Routes
+- `/` — homepage becomes consumer discovery hub
+- `/food-trucks` — unchanged
+- `/calendar` — NEW public events page (works logged out)
+- `/book-a-food-truck` — NEW public booking search + general inquiry
+- `/book-a-food-truck/request-received` — NEW success page
+- `/for-vendors` — trimmed to vendor-conversion only
 
-**Migration (single new file):**
-- RPC `public.submit_new_business_request(_name text, _slug text, _category_id uuid, _phone text, _requester_name text, _requester_email text, _requester_phone text)`
-  - `SECURITY DEFINER`, requires `auth.uid()`
-  - Validate name, normalize/validate slug (re-uses slug rules, rejects `/` and unsafe chars), enforce unique slug
-  - Reject if requester already has an active (`pending` / `more_info_requested`) submission for this slug, OR a duplicate active submission tied to (requester, name)
-  - Insert `businesses` row: `owner_id=null`, `listing_status='draft'`, `is_published=false`, name, slug, optional category, optional phone, `is_demo=false`
-  - Insert `claim_requests` row: `business_id`, `requester_user_id=auth.uid()`, requester name/email/phone, `relationship_to_business='creator'`, `verification_notes='New business submission for admin review.'`, `status='pending'`
-  - Upsert `business_admin_metadata`: `outreach_email = requester_email`, append `[YYYY-MM-DD] New business submitted for admin review` to `internal_notes`
-  - Upsert `business_outreach` (the existing `ensure_business_outreach_row` trigger will have run on insert; this call updates `source='self_submitted'`, `outreach_status='not_contacted'`)
-  - Insert `business_outreach_activities` row: `activity_type='status_changed'`, `summary='New business submitted for admin review'`
-  - `GRANT EXECUTE ... TO authenticated`
-- Loosen the existing `users insert own claim requests` policy to also accept `listing_status='draft'` (the RPC is `SECURITY DEFINER` so policy doesn't gate the insert, but keep it consistent for resubmission).
+## Navigation
+`SiteHeader.tsx`: nav = Home, Food Trucks, Calendar, Book a Truck, For Vendors. Mobile keeps Book a Truck as a prominent button in the sheet.
 
-**Frontend (`src/components/owner/Onboarding.tsx`):**
-- Replace direct `businesses` insert with `supabase.rpc('submit_new_business_request', {...})`
-- Capture: business name, slug (auto from name, normalize on blur), category, phone, requester name (default to profile display name), requester email (default to `user.email`), optional requester phone, optional relationship note
-- On success: toast "Submitted for admin review", `navigate('/owner/claims')`
-- Keep demo-claim block unchanged (demo only)
+## Homepage (`src/pages/SmokeTrail.tsx`)
+1. Hero split: existing copy left, `LiveDiscoveryMap` moved into the right column (responsive height, no duplicate map elsewhere). Hero CTAs: "Explore Food Trucks" → `/food-trucks`, "Book a Truck" → `/book-a-food-truck`.
+2. "Today's Food Trucks" section (moved from For Vendors) — filters businesses with a `business_events` or `saved_locations` entry covering today; empty state copy as specified, links to `/food-trucks`.
+3. Compact "Planning an Event?" CTA card → `/book-a-food-truck`.
+4. "Events This Week" (moved from For Vendors, renamed) with "View Full Calendar" → `/calendar`. Cards link to vendor profile (no broken event-detail links).
+5. Browse Categories strip: Food Trucks → `/food-trucks`, Farmers Markets / Rallies / Local Events → `/calendar` until dedicated routes exist (no broken links).
+6. Vendor CTA retained at bottom: "Claim Your Listing" → `/food-trucks` (claim entry) and "Learn More for Vendors" → `/for-vendors`.
 
-**Owner routing:**
-- Existing `useOwnerBusiness` returns nothing until `owner_id` is set, so operational pages stay locked. Verify `OwnerLayout` redirects unowned users to onboarding/claims; add a small banner-friendly empty state on `/owner/claims` referencing the new submission.
+## `/calendar` (new `src/pages/PublicCalendar.tsx`)
+- Queries `business_events` where `is_public = true` joined to published businesses only.
+- Layout: month calendar + list view tabs (reuses `@/components/ui/calendar` + cards). Filters by category and date range when data supports it.
+- Empty state + SEO meta. No owner notes, drafts, or admin controls surfaced.
 
-## 2. Claim-request deep-link status
+## `/book-a-food-truck` (new `src/pages/BookFoodTruck.tsx`)
+Two tabs/paths on one page:
+- **Browse**: filters (date, event type, location/ZIP, guest count, cuisine/category, optional budget, service style) → vendor cards reusing existing truck card. Availability badge derived from `business_events` + `saved_locations`:
+  - explicit available event on date → "Available"
+  - no conflict, no explicit confirm → "Possibly Available"
+  - no schedule data → "Availability Not Confirmed"
+  - fallback CTA → "Contact Vendor"
+- **Send one request**: form with all fields listed (customer info, event details, request type, recurring, service style, consent). Required: name, email, phone, date, location, guest count, consent. Uses zod + honeypot field, 60s client rate-limit per browser. Submits to `submit_event_inquiry` RPC.
 
-- `AdminBusinesses.tsx` claim badges: add `&status=pending|more_info_requested|approved` to existing `/admin/claim-requests?biz=...` links.
-- `AdminClaimRequests.tsx`:
-  - On mount, read `status` from `useSearchParams`, set initial `filter`
-  - When `biz` is set and the chosen filter yields zero rows, auto-pick the first status that has rows for that biz; if none, fall back to `all`.
-  - Keep tab clicks updating the URL via `setParams` so deep links stay stable.
+## `/book-a-food-truck/request-received`
+Static confirmation page with "Browse Food Trucks" and "Return Home" buttons. No response-time promises.
 
-## 3. Admin Businesses table clarity + sortable columns
+## `/for-vendors` (`src/pages/Index.tsx`)
+Remove Today's Trucks and Events preview sections; keep vendor-conversion content (claim, profile, schedule, promo, inquiries, subscription benefits, CTAs).
 
-`src/pages/admin/AdminBusinesses.tsx`:
-- Column rename: header "Listing" → "Lifecycle"; header "Status" → "Public visibility" with two labels only: `Published` / `Unpublished` (no Draft). Keep Featured column.
-- Add click-to-sort on: Business, Owner, Claims, City, Category, Lifecycle, Public visibility, Leads, Updated. Use a small `SortableTh` helper, asc/desc chevron from lucide. Sort is in-memory over already-fetched rows.
+## Database (single migration)
 
-## 4. Admin owner assignment
+```sql
+-- 1. Extend leads with event-inquiry columns
+ALTER TABLE public.leads
+  ADD COLUMN IF NOT EXISTS lead_type text NOT NULL DEFAULT 'vendor_direct',
+  ADD COLUMN IF NOT EXISTS event_start_time text,
+  ADD COLUMN IF NOT EXISTS event_end_time text,
+  ADD COLUMN IF NOT EXISTS event_location text,
+  ADD COLUMN IF NOT EXISTS event_zip text,
+  ADD COLUMN IF NOT EXISTS request_type text,            -- single | multiple | unsure
+  ADD COLUMN IF NOT EXISTS event_frequency text,         -- one_time | weekly | monthly | seasonal | multiple | unsure
+  ADD COLUMN IF NOT EXISTS service_style text,           -- individual | host_pays | either | unsure
+  ADD COLUMN IF NOT EXISTS cuisine_preference text,
+  ADD COLUMN IF NOT EXISTS budget_range text,
+  ADD COLUMN IF NOT EXISTS consent_at timestamptz,
+  ADD COLUMN IF NOT EXISTS distribution_status text DEFAULT 'pending',
+  ADD COLUMN IF NOT EXISTS matched_vendor_count int DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS assigned_vendor_ids uuid[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS admin_notes text;
 
-**Migration:**
-- RPC `assign_business_owner(_business_id uuid, _user_id uuid)`:
-  - admin only
-  - reject if `listing_status='archived'`
-  - reject if business already has same owner (no-op success ok)
-  - set `owner_id=_user_id`, `listing_status='claimed_free'`
-  - upsert `business_outreach` to `outreach_status='claimed'`
-  - insert `business_outreach_activities` `status_changed` summary "Owner assigned by admin"
-  - leave claim history intact (do NOT auto-deny pending claims; admin can handle)
-  - `GRANT EXECUTE TO authenticated`
-- RPC `remove_business_owner(_business_id uuid)` (admin only): clears `owner_id`, sets `listing_status='unclaimed'`, logs activity. Use this if not already present so UI refresh is consistent.
+-- 2. Vendor lead preferences (scaffold)
+CREATE TABLE IF NOT EXISTS public.vendor_lead_preferences (
+  business_id uuid PRIMARY KEY,
+  receive_inquiries boolean NOT NULL DEFAULT true,
+  paused boolean NOT NULL DEFAULT false,
+  service_area text,
+  max_travel_miles int,
+  cuisine_categories text[] DEFAULT '{}',
+  min_guest_count int,
+  accepts_private boolean DEFAULT true,
+  accepts_festivals boolean DEFAULT true,
+  accepts_catering boolean DEFAULT true,
+  accepts_individual_purchase boolean DEFAULT true,
+  preferred_contact_method text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.vendor_lead_preferences TO authenticated;
+GRANT ALL ON public.vendor_lead_preferences TO service_role;
+ALTER TABLE public.vendor_lead_preferences ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "owners manage own lead prefs" ON public.vendor_lead_preferences
+  FOR ALL USING (public.owns_business(auth.uid(), business_id))
+  WITH CHECK (public.owns_business(auth.uid(), business_id));
+CREATE POLICY "admins manage all lead prefs" ON public.vendor_lead_preferences
+  FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
 
-**Frontend:**
-- Admin Businesses detail sheet: add "Assign owner" with searchable user picker (query `profiles` by `display_name` ilike + show id). On submit call RPC, refresh row + sheet.
-- Keep existing Remove owner; after success re-fetch list + sheet so the change is visible.
+-- 3. Public submission RPC (SECURITY DEFINER, anon-callable, capped vendor distribution)
+CREATE OR REPLACE FUNCTION public.submit_event_inquiry(_payload jsonb) RETURNS uuid ...;
+GRANT EXECUTE ON FUNCTION public.submit_event_inquiry(jsonb) TO anon, authenticated;
+```
 
-## 5. Safe listing deletion (Danger Zone)
+RPC behavior:
+- Validates required fields and consent.
+- Inserts a `leads` row with `business_id = NULL`-equivalent sentinel? — leads currently requires `business_id`; we'll relax with `ALTER TABLE public.leads ALTER COLUMN business_id DROP NOT NULL` and switch `lead_type='event_inquiry'` for null-business rows; existing RLS still covers vendor-direct rows.
+- Matches up to 10 published businesses by cuisine/category, sets `assigned_vendor_ids` + `matched_vendor_count`, `distribution_status = 'matched'` (or `pending_review` if 0 matches).
+- Adds RLS policy `anon insert event inquiries` scoped to `lead_type='event_inquiry' AND business_id IS NULL` via the SECURITY DEFINER function (no direct anon insert policy needed).
+- Admin SELECT already covers it; add owner SELECT for rows where `business_id = ANY(assigned_vendor_ids)`.
 
-**Migration:**
-- RPC `delete_unlinked_business(_business_id uuid)`:
-  - admin only
-  - require: `owner_id IS NULL`, no `claim_requests` in (`pending`,`more_info_requested`,`approved`), no `leads`, no `deposit_requests`
-  - on failure raise message: "Listing has linked records. Archive instead."
-  - on success delete dependent rows (`business_admin_metadata`, `business_outreach`, `business_outreach_activities`, `business_photos`, `business_subcategories`, `business_events`, `menu_items`, `menu_categories`, `saved_locations`, `owner_preferences`, denied/withdrawn `claim_requests`) then the business
-  - `GRANT EXECUTE TO authenticated`
+## Admin CRM
+`AdminLeads.tsx` gains a Source/Type column and filters for `lead_type` and `distribution_status`, plus actions: Mark complete, Archive, Delete, view archived. No new page — extends existing CRM.
 
-**Frontend (`AdminBusinessEdit.tsx`):** add bottom Danger Zone card with:
-- Archive listing (sets `listing_status='archived'`, `is_published=false`)
-- Delete permanently (AlertDialog confirm → RPC; show server message on failure)
+## Vendor lead preferences UI
+Add `src/pages/owner/OwnerLeadPreferences.tsx` route `/owner/lead-preferences` for owners with at least one approved business. Claimants-only (no `businesses.owner_id` rows) see a "Pending approval" notice. Full UI ships now since the data model is small.
 
-## 6. Slug UX
+## Availability helper
+New `src/lib/availability.ts` with `getAvailability(business, date)` returning the four states. Reused by Browse path cards.
 
-Update both `Onboarding.tsx` and `AdminBusinessNew.tsx`:
-- Allow free typing in the slug input (no per-keystroke `slugify`)
-- Normalize on blur and at submit
-- Reject `/`, whitespace, and unsafe URL chars at submit with a clear toast
-- Show final URL preview `foodxmobile.com/food-trucks/<normalized>`
-- Add `normalizeSlug` helper in `src/lib/listingStatus.ts` (or new util) used everywhere
+## Files
 
-## 7. Demo tour visibility
+New:
+- `src/pages/PublicCalendar.tsx`
+- `src/pages/BookFoodTruck.tsx`
+- `src/pages/BookRequestReceived.tsx`
+- `src/pages/owner/OwnerLeadPreferences.tsx`
+- `src/components/site/TodaysFoodTrucks.tsx`
+- `src/components/site/EventsThisWeek.tsx`
+- `src/components/site/BrowseCategories.tsx`
+- `src/components/site/PlanningEventCTA.tsx`
+- `src/lib/availability.ts`
+- `supabase/migrations/<ts>_book_a_truck.sql`
 
-`src/components/demo/DemoLauncher.tsx` (and any header mount): only render when
-- `new URLSearchParams(location.search).get('demo') === '1'`, OR
-- `localStorage.getItem('fxm.demo_mode') === '1'` (set by Demo Tools)
-Admin layout: stop auto-mounting unless one of those conditions holds.
+Edited:
+- `src/App.tsx` (routes)
+- `src/components/site/SiteHeader.tsx` (nav)
+- `src/pages/SmokeTrail.tsx` (homepage restructure, map in hero)
+- `src/pages/Index.tsx` (For Vendors trim)
+- `src/pages/admin/AdminLeads.tsx` (filters + actions)
+- `src/components/owner/OwnerSidebar.tsx` (Lead Preferences link, gated)
 
-## 8. Owner editor focus-loss fix
+## Explicitly deferred
+- Outbound email/SMS automation to matched vendors (data captured, edge function not wired)
+- Stripe-based lead unlocks, subscription tier gating, bidding
+- Dedicated event-detail pages and Farmers Markets / Rallies category routes
+- Honeypot-only spam protection now; full CAPTCHA deferred unless an existing provider is wired
 
-`OwnerProfile.tsx` (Truck Page editor sheet):
-- Stop closing on visibility/blur. Audit any `useEffect` watching `document.visibilitychange`, `window.blur`, `onOpenChange` that depends on focus state — remove that coupling.
-- Track `isDirty` against initial snapshot; show "Unsaved changes" pill.
-- Sheet `onOpenChange`: if closing while dirty, show confirm dialog before actually closing.
-- Add `beforeunload` warning while dirty.
-
-## 9. Image URL preview + validation
-
-In owner and admin business editors (`OwnerProfile.tsx`, `AdminBusinessEdit.tsx`):
-- Small preview thumbnail next to `hero_image_url` and `logo_url`
-- Track load error per field; show "Image failed to load. Use a direct HTTPS image URL." helper text
-- Skip validation when value starts with `asset:` (bundled assets)
-- Note in UI: "Storage uploads coming soon"
-
-## 10. Verification
-
-- `tsc --noEmit` + production build via harness
-- Report: migration file path, new RPCs, grants, files changed, behavior notes per area above
-
-## Technical details (for reviewer)
-
-- Migration file: `supabase/migrations/<ts>_workflow_polish_pass_2.sql` containing all four new RPCs + grants. No table schema changes.
-- All new RPCs are `SECURITY DEFINER` with `set search_path = public` and explicit `GRANT EXECUTE TO authenticated`.
-- `submit_new_business_request` relies on existing `ensure_business_outreach_row` trigger; afterwards updates `source` + `outreach_status` to keep exactly one outreach row.
-- Sort state stored in component via `useState<{key, dir}>`; rows sorted with a stable comparator.
-- User picker queries `profiles` with `select id, display_name` + `ilike` filter, limit 20.
-- No edits to `src/integrations/supabase/{client,types}.ts`, `.env`, `supabase/config.toml`.
-
-Stopping after Pass 2. Will not touch Stripe PR or start Checkpoint D.
+Want me to proceed with this plan?

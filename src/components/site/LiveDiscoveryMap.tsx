@@ -29,7 +29,7 @@ const GREEN_BAY_CENTER: [number, number] = [-88.0198, 44.5133];
 const styleUrl = (key: string) => `https://api.maptiler.com/maps/streets-v2/style.json?key=${encodeURIComponent(key)}`;
 const clean = (v?: string | null) => (v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] ?? c));
 
-export function LiveDiscoveryMap() {
+export function LiveDiscoveryMap({ compact = false }: { compact?: boolean } = {}) {
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -122,6 +122,23 @@ export function LiveDiscoveryMap() {
   const legendCategories: PinCategory[] = [
     "truck", "market", "event", "concert", "workshop", "pub_crawl", "wine_walk", "featured",
   ];
+
+  if (compact) {
+    return (
+      <div className="relative overflow-hidden rounded-[2rem] border border-border bg-card shadow-lift">
+        {key ? <div ref={containerRef} className="h-[420px] w-full md:h-[520px]" /> : (
+          <div className="grid min-h-[420px] place-items-center bg-gradient-warm p-8 text-center md:min-h-[520px]">
+            <div className="max-w-md">
+              <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary"><UnlockKeyhole className="h-7 w-7" /></span>
+              <h3 className="mt-5 font-display text-2xl font-bold">Live map connection ready.</h3>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Add the protected MapTiler browser key to activate the interactive FoodXMobile map.</p>
+            </div>
+          </div>
+        )}
+        {loading && key && <div className="absolute inset-0 grid place-items-center bg-card/70 text-sm text-muted-foreground backdrop-blur-sm">Loading nearby trucks and events…</div>}
+      </div>
+    );
+  }
 
   return (
     <section className="bg-cream-deep py-20 md:py-24">
