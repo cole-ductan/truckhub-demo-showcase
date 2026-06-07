@@ -675,61 +675,106 @@ export type Database = {
       }
       leads: {
         Row: {
-          business_id: string
+          admin_notes: string | null
+          assigned_vendor_ids: string[]
+          budget_range: string | null
+          business_id: string | null
+          consent_at: string | null
           contact_email: string
           contact_name: string
           contact_phone: string | null
           created_at: string
+          cuisine_preference: string | null
+          distribution_status: string | null
           estimated_value: number | null
           event_date: string | null
+          event_end_time: string | null
+          event_frequency: string | null
+          event_location: string | null
+          event_start_time: string | null
           event_type: string | null
+          event_zip: string | null
           guest_count: string | null
           id: string
           internal_notes: string | null
           is_archived: boolean
           is_demo: boolean
           is_spam: boolean
+          lead_type: string
+          matched_vendor_count: number
           message: string | null
+          request_type: string | null
+          service_style: string | null
           source: string | null
           stage: Database["public"]["Enums"]["lead_stage"]
           updated_at: string
         }
         Insert: {
-          business_id: string
+          admin_notes?: string | null
+          assigned_vendor_ids?: string[]
+          budget_range?: string | null
+          business_id?: string | null
+          consent_at?: string | null
           contact_email: string
           contact_name: string
           contact_phone?: string | null
           created_at?: string
+          cuisine_preference?: string | null
+          distribution_status?: string | null
           estimated_value?: number | null
           event_date?: string | null
+          event_end_time?: string | null
+          event_frequency?: string | null
+          event_location?: string | null
+          event_start_time?: string | null
           event_type?: string | null
+          event_zip?: string | null
           guest_count?: string | null
           id?: string
           internal_notes?: string | null
           is_archived?: boolean
           is_demo?: boolean
           is_spam?: boolean
+          lead_type?: string
+          matched_vendor_count?: number
           message?: string | null
+          request_type?: string | null
+          service_style?: string | null
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
           updated_at?: string
         }
         Update: {
-          business_id?: string
+          admin_notes?: string | null
+          assigned_vendor_ids?: string[]
+          budget_range?: string | null
+          business_id?: string | null
+          consent_at?: string | null
           contact_email?: string
           contact_name?: string
           contact_phone?: string | null
           created_at?: string
+          cuisine_preference?: string | null
+          distribution_status?: string | null
           estimated_value?: number | null
           event_date?: string | null
+          event_end_time?: string | null
+          event_frequency?: string | null
+          event_location?: string | null
+          event_start_time?: string | null
           event_type?: string | null
+          event_zip?: string | null
           guest_count?: string | null
           id?: string
           internal_notes?: string | null
           is_archived?: boolean
           is_demo?: boolean
           is_spam?: boolean
+          lead_type?: string
+          matched_vendor_count?: number
           message?: string | null
+          request_type?: string | null
+          service_style?: string | null
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
           updated_at?: string
@@ -992,6 +1037,57 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      vendor_lead_preferences: {
+        Row: {
+          accepts_catering: boolean
+          accepts_festivals: boolean
+          accepts_individual_purchase: boolean
+          accepts_private: boolean
+          business_id: string
+          created_at: string
+          cuisine_categories: string[]
+          max_travel_miles: number | null
+          min_guest_count: number | null
+          paused: boolean
+          preferred_contact_method: string | null
+          receive_inquiries: boolean
+          service_area: string | null
+          updated_at: string
+        }
+        Insert: {
+          accepts_catering?: boolean
+          accepts_festivals?: boolean
+          accepts_individual_purchase?: boolean
+          accepts_private?: boolean
+          business_id: string
+          created_at?: string
+          cuisine_categories?: string[]
+          max_travel_miles?: number | null
+          min_guest_count?: number | null
+          paused?: boolean
+          preferred_contact_method?: string | null
+          receive_inquiries?: boolean
+          service_area?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accepts_catering?: boolean
+          accepts_festivals?: boolean
+          accepts_individual_purchase?: boolean
+          accepts_private?: boolean
+          business_id?: string
+          created_at?: string
+          cuisine_categories?: string[]
+          max_travel_miles?: number | null
+          min_guest_count?: number | null
+          paused?: boolean
+          preferred_contact_method?: string | null
+          receive_inquiries?: boolean
+          service_area?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1309,6 +1405,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      submit_event_inquiry: { Args: { _payload: Json }; Returns: string }
       submit_new_business_request: {
         Args: {
           _category_id: string
