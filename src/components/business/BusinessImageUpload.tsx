@@ -45,26 +45,10 @@ export function BusinessImageUpload({
     }
 
     const { data } = supabase.storage.from("business-assets").getPublicUrl(path);
-    const previous = storagePath(trimmed);
     onChange(data.publicUrl);
     setPreviewFailed(false);
     setUploading(false);
     toast.success(`${kind === "hero" ? "Hero image" : "Logo"} uploaded. Save changes to publish it.`);
-
-    if (previous) await supabase.storage.from("business-assets").remove([previous]);
-  }
-
-  function storagePath(url: string): string | null {
-    const marker = "/storage/v1/object/public/business-assets/";
-    const index = url.indexOf(marker);
-    return index >= 0 ? decodeURIComponent(url.slice(index + marker.length)) : null;
-  }
-
-  function clear() {
-    const previous = storagePath(trimmed);
-    onChange("");
-    setPreviewFailed(false);
-    if (previous) supabase.storage.from("business-assets").remove([previous]);
   }
 
   return (
@@ -105,9 +89,10 @@ export function BusinessImageUpload({
           ) : (
             <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1 text-xs text-destructive">{previewFailed ? "Image failed to load." : "Use a direct HTTPS image URL."}</div>
           )}
-          <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={clear}><Trash2 className="mr-1 h-3.5 w-3.5" />Clear</Button>
+          <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={() => { onChange(""); setPreviewFailed(false); }}><Trash2 className="mr-1 h-3.5 w-3.5" />Clear</Button>
         </div>
       )}
+      <p className="text-[11px] text-muted-foreground">Existing files stay in storage during replacement so a failed save never breaks the current image. Orphan cleanup can run in a later maintenance pass.</p>
     </div>
   );
 }
