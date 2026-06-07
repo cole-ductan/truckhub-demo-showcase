@@ -24,8 +24,10 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: claims } = await userClient.auth.getClaims(authHeader.replace("Bearer ", ""));
-    if (!claims?.claims?.sub) return json({ error: "Unauthorized" }, 401);
+    const jwt = authHeader.replace("Bearer ", "");
+    const { data: claims } = await userClient.auth.getClaims(jwt);
+    const userId = claims?.claims?.sub;
+    if (!userId) return json({ error: "Unauthorized" }, 401);
 
     const body = await req.json().catch(() => ({}));
     const { deposit_id, lead_id, business_id, amount_total, deposit_percentage, deposit_amount, customer_name, customer_email, due_date, notes, origin } = body ?? {};
@@ -34,11 +36,41 @@ Deno.serve(async (req) => {
       return json({ error: "business_id and positive deposit_amount required" }, 400);
     }
 
-    // Verify owner owns the business (RLS-respecting query)
-    const { data: biz } = await userClient.from("businesses").select("id,name").eq("id", business_id).maybeSingle();
-    if (!biz) return json({ error: "Business not found or not yours" }, 403);
-
     const admin = createClient(supabaseUrl, serviceKey);
+
+    // Published businesses are publicly readable, so a successful client-side
+    // SELECT is not proof of ownership. Verify owner_id explicitly with the
+    // service-role client before performing any privileged writes.
+    const { data: biz, error: bizError } = await admin
+      .from("businesses")
+      .select("id,name,owner_id")
+      .eq("id", business_id)
+      .maybeSingle();
+    if (bizError) return json({ error: bizError.message }, 500);
+    if (!biz || biz.owner_id !== userId) {
+      return json({ error: "Business not found or not yours" }, 403);
+    }
+
+    const { data: prefs, error: prefsError } = await admin
+      .from("owner_preferences")
+      .select("stripe_deposits_enabled,payment_mode")
+      .eq("business_id", business_id)
+      .maybeSingle();
+    if (prefsError) return json({ error: prefsError.message }, 500);
+    if (!prefs?.stripe_deposits_enabled || prefs.payment_mode !== "stripe") {
+      return json({ error: "Stripe deposits are not enabled for this business" }, 403);
+    }
+
+    if (lead_id) {
+      const { data: lead, error: leadError } = await admin
+        .from("leads")
+        .select("id")
+        .eq("id", lead_id)
+        .eq("business_id", business_id)
+        .maybeSingle();
+      if (leadError) return json({ error: leadError.message }, 500);
+      if (!lead) return json({ error: "Lead not found for this business" }, 400);
+    }
 
     // Upsert deposit row (insert if no id)
     let depositRow: any;
@@ -60,6 +92,7 @@ Deno.serve(async (req) => {
         .select()
         .maybeSingle();
       if (error) return json({ error: error.message }, 500);
+      if (!data) return json({ error: "Deposit request not found" }, 404);
       depositRow = data;
     } else {
       const { data, error } = await admin
@@ -96,7 +129,9 @@ Deno.serve(async (req) => {
     const Stripe = (await import("https://esm.sh/stripe@17.6.0?target=deno&deno-std=0.224.0")).default;
     const stripe = new Stripe(stripeKey, { apiVersion: "2024-11-20.acacia" });
 
-    const successBase = origin || new URL(req.url).origin;
+    const successBase = resolveSiteOrigin(origin);
+    if (!successBase) return json({ error: "Site URL is not configured or allowed" }, 500);
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
@@ -132,6 +167,23 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 500);
   }
 });
+
+function resolveSiteOrigin(requestedOrigin: unknown): string | null {
+  const configured = Deno.env.get("PUBLIC_SITE_URL")?.trim();
+  if (configured) {
+    try { return new URL(configured).origin; } catch { return null; }
+  }
+
+  if (typeof requestedOrigin !== "string") return null;
+  try {
+    const url = new URL(requestedOrigin);
+    const host = url.hostname.toLowerCase();
+    const allowed = host === "foodxmobile.com" || host === "www.foodxmobile.com" || host === "localhost" || host === "127.0.0.1" || host.endsWith(".lovable.app");
+    return allowed ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
 
 function json(b: unknown, status = 200) {
   return new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
