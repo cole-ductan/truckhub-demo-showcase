@@ -90,32 +90,10 @@ const StatusDot = ({ status }: { status: "open" | "soon" | "closed" }) => {
 };
 
 const Index = () => {
-  const [trucks, setTrucks] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
-
   useSEO({
     title: "FoodXMobile — Find Food Trucks & Book Catering",
     description: "Discover Green Bay's food trucks: today's locations, menus, upcoming events, and one-tap catering inquiries. Owners — manage leads, bookings, and your page in one hub.",
   });
-
-  useEffect(() => {
-    supabase
-      .from("businesses")
-      .select("id,slug,name,tagline,cuisine,emoji,hero_image_url,today_location,today_hours,status,is_featured")
-      .eq("is_published", true)
-      .order("is_featured", { ascending: false })
-      .order("name")
-      .limit(6)
-      .then(({ data }) => setTrucks(data ?? []));
-    supabase
-      .from("business_events")
-      .select("id,title,location,event_date,tag")
-      .eq("kind", "one_off")
-      .eq("is_public", true)
-      .order("event_date")
-      .limit(6)
-      .then(({ data }) => setEvents(data ?? []));
-  }, []);
 
   return (
     <div className="min-h-screen bg-background">
