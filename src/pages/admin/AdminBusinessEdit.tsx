@@ -9,8 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, AlertTriangle, Archive, Trash2 } from "lucide-react";
 import { LISTING_STATUSES, LISTING_STATUS_LABEL, type ListingStatus } from "@/lib/listingStatus";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type Cat = { id: string; name: string; parent_id: string | null };
 
@@ -19,6 +23,7 @@ export default function AdminBusinessEdit() {
   const nav = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [danger, setDanger] = useState<{ deleting: boolean; archiving: boolean }>({ deleting: false, archiving: false });
   const [form, setForm] = useState<any>(null);
   const [cats, setCats] = useState<Cat[]>([]);
   const [specialtyIds, setSpecialtyIds] = useState<string[]>([]);
@@ -192,8 +197,13 @@ export default function AdminBusinessEdit() {
 
       <Card><CardHeader><CardTitle>Media</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
-          <Field label="Hero image URL"><Input value={form.hero_image_url ?? ""} onChange={(e) => set("hero_image_url", e.target.value)} /></Field>
-          <Field label="Logo URL"><Input value={form.logo_url ?? ""} onChange={(e) => set("logo_url", e.target.value)} /></Field>
+          <Field label="Hero image URL">
+            <ImageUrlField value={form.hero_image_url ?? ""} onChange={(v) => set("hero_image_url", v)} placeholder="https://… or asset:hero.jpg" />
+          </Field>
+          <Field label="Logo URL">
+            <ImageUrlField value={form.logo_url ?? ""} onChange={(v) => set("logo_url", v)} placeholder="https://… or asset:logo.png" />
+          </Field>
+          <p className="md:col-span-2 text-xs text-muted-foreground">Direct HTTPS image URLs only. Storage uploads coming in a later media pass.</p>
         </CardContent>
       </Card>
 
@@ -213,6 +223,76 @@ export default function AdminBusinessEdit() {
         <Button variant="outline" onClick={() => nav("/admin/businesses")}>Cancel</Button>
         <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save changes"}</Button>
       </div>
+
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-4 w-4" /> Danger zone
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3">
+            <div>
+              <p className="font-medium">Archive listing</p>
+              <p className="text-xs text-muted-foreground">Hides the listing from the public site and marks it archived. Preserves all history.</p>
+            </div>
+            <Button
+              variant="outline"
+              disabled={danger.archiving || form.listing_status === "archived"}
+              onClick={async () => {
+                if (!confirm("Archive this listing? It will be hidden from the public site.")) return;
+                setDanger((d) => ({ ...d, archiving: true }));
+                const { error } = await (supabase as any).from("businesses")
+                  .update({ listing_status: "archived", is_published: false }).eq("id", id!);
+                setDanger((d) => ({ ...d, archiving: false }));
+                if (error) return toast.error(error.message);
+                toast.success("Listing archived");
+                set("listing_status", "archived");
+                set("is_published", false);
+              }}
+            >
+              <Archive className="mr-1 h-4 w-4" /> {form.listing_status === "archived" ? "Already archived" : "Archive listing"}
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+            <div>
+              <p className="font-medium text-destructive">Delete permanently</p>
+              <p className="text-xs text-muted-foreground">Only allowed for listings with no owner, no claims, no leads, and no deposits. Otherwise archive instead.</p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={danger.deleting}>
+                  <Trash2 className="mr-1 h-4 w-4" /> Delete permanently
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Permanently delete "{form.name}"?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This cannot be undone. If the listing has any linked records, you'll be asked to archive instead.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={async () => {
+                      setDanger((d) => ({ ...d, deleting: true }));
+                      const { error } = await (supabase as any).rpc("delete_unlinked_business", { _business_id: id! });
+                      setDanger((d) => ({ ...d, deleting: false }));
+                      if (error) return toast.error(error.message);
+                      toast.success("Listing deleted");
+                      nav("/admin/businesses", { replace: true });
+                    }}
+                  >
+                    Delete forever
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -222,6 +302,30 @@ function Field({ label, children, className }: { label: string; children: React.
     <div className={className}>
       <Label className="mb-1.5 block text-xs uppercase tracking-wider text-muted-foreground">{label}</Label>
       {children}
+    </div>
+  );
+}
+
+function ImageUrlField({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const [errored, setErrored] = useState(false);
+  const isAsset = value.trim().startsWith("asset:");
+  const isHttps = /^https:\/\//i.test(value.trim());
+  return (
+    <div className="space-y-2">
+      <Input value={value} onChange={(e) => { setErrored(false); onChange(e.target.value); }} placeholder={placeholder} />
+      {value.trim() && (
+        <div className="flex items-start gap-3">
+          {isAsset ? (
+            <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-mono uppercase">bundled asset</span>
+          ) : isHttps && !errored ? (
+            <img src={value} alt="" className="h-16 w-24 rounded-md border border-border object-cover" onError={() => setErrored(true)} />
+          ) : (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1 text-xs text-destructive">
+              {errored ? "Image failed to load." : "Use a direct HTTPS image URL."}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
