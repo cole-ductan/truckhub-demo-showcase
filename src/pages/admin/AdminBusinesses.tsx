@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
-import { ExternalLink, Star, StarOff, Eye, EyeOff, Plus, Search } from "lucide-react";
+import { ExternalLink, Star, StarOff, Eye, EyeOff, Plus, Search, ArrowUp, ArrowDown, ArrowUpDown, UserPlus, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { LISTING_STATUSES, LISTING_STATUS_LABEL, LISTING_STATUS_VARIANT, type ListingStatus } from "@/lib/listingStatus";
 
@@ -31,6 +31,11 @@ type Biz = {
 type ClaimSummary = { pending: number; moreInfo: number; approved: number };
 const emptyClaimSummary: ClaimSummary = { pending: 0, moreInfo: 0, approved: 0 };
 
+type SortKey =
+  | "name" | "owner" | "claims" | "city" | "category"
+  | "listing_status" | "is_published" | "leads" | "updated_at";
+type SortDir = "asc" | "desc";
+
 export default function AdminBusinesses() {
   const [params, setParams] = useSearchParams();
   const [rows, setRows] = useState<Biz[]>([]);
@@ -43,6 +48,11 @@ export default function AdminBusinesses() {
   const [feat, setFeat] = useState<string>("all");
   const [lstatus, setLstatus] = useState<string>("all");
   const [open, setOpen] = useState<Biz | null>(null);
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "updated_at", dir: "desc" });
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignQuery, setAssignQuery] = useState("");
+  const [assignResults, setAssignResults] = useState<{ id: string; display_name: string | null }[]>([]);
+  const [assignBusy, setAssignBusy] = useState(false);
 
   const load = async () => {
     const { data: bs } = await supabase
@@ -85,11 +95,23 @@ export default function AdminBusinesses() {
 
   useEffect(() => { load(); }, []);
 
+  // Searchable user picker for "Assign owner"
+  useEffect(() => {
+    if (!assignOpen) return;
+    const t = setTimeout(async () => {
+      const term = assignQuery.trim();
+      const q = supabase.from("profiles").select("id,display_name").limit(20);
+      const { data } = term ? await q.ilike("display_name", `%${term}%`) : await q.order("display_name");
+      setAssignResults((data ?? []) as any);
+    }, 200);
+    return () => clearTimeout(t);
+  }, [assignQuery, assignOpen]);
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     return rows.filter((r) => {
       if (pub === "published" && !r.is_published) return false;
-      if (pub === "draft" && r.is_published) return false;
+      if (pub === "unpublished" && r.is_published) return false;
       if (feat === "featured" && !r.is_featured) return false;
       if (feat === "not" && r.is_featured) return false;
       if (lstatus !== "all" && r.listing_status !== lstatus) return false;
@@ -99,6 +121,38 @@ export default function AdminBusinesses() {
         .filter(Boolean).join(" ").toLowerCase().includes(term);
     });
   }, [rows, q, pub, feat, lstatus, profiles, cats]);
+
+  const sorted = useMemo(() => {
+    const list = [...filtered];
+    const dir = sort.dir === "asc" ? 1 : -1;
+    const getter = (r: Biz): string | number => {
+      switch (sort.key) {
+        case "name": return (r.name ?? "").toLowerCase();
+        case "owner": return (r.owner_id ? profiles[r.owner_id]?.display_name ?? "zzz" : "zzz").toLowerCase();
+        case "claims": {
+          const s = claimSummaries[r.id] ?? emptyClaimSummary;
+          return s.pending * 100 + s.moreInfo * 10 + s.approved;
+        }
+        case "city": return (r.city ?? "").toLowerCase();
+        case "category": return (r.category_id ? cats[r.category_id] : r.cuisine ?? "").toLowerCase();
+        case "listing_status": return r.listing_status;
+        case "is_published": return r.is_published ? 1 : 0;
+        case "leads": return leadCounts[r.id] ?? 0;
+        case "updated_at": return r.updated_at;
+      }
+    };
+    list.sort((a, b) => {
+      const av = getter(a); const bv = getter(b);
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+    return list;
+  }, [filtered, sort, profiles, claimSummaries, cats, leadCounts]);
+
+  const toggleSort = (key: SortKey) => {
+    setSort((s) => s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" });
+  };
 
   const togglePublish = async (b: Biz) => {
     const { error } = await supabase.from("businesses").update({ is_published: !b.is_published }).eq("id", b.id);
@@ -116,11 +170,23 @@ export default function AdminBusinesses() {
   };
   const unassignOwner = async (b: Biz) => {
     if (!confirm("Remove owner from this business? They will lose access.")) return;
-    const { error } = await supabase.from("businesses").update({ owner_id: null }).eq("id", b.id);
+    const { error } = await supabase.rpc("remove_business_owner", { _business_id: b.id });
     if (error) return toast.error(error.message);
     toast.success("Owner removed");
-    load();
-    setOpen(null);
+    await load();
+    setOpen((o) => (o && o.id === b.id ? { ...o, owner_id: null, listing_status: "unclaimed" as ListingStatus } : o));
+  };
+  const assignOwner = async (userId: string) => {
+    if (!open) return;
+    setAssignBusy(true);
+    const { data, error } = await supabase.rpc("assign_business_owner", { _business_id: open.id, _user_id: userId });
+    setAssignBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Owner assigned");
+    setAssignOpen(false);
+    setAssignQuery("");
+    await load();
+    if (data) setOpen((o) => (o ? { ...o, owner_id: (data as any).owner_id, listing_status: (data as any).listing_status } : o));
   };
 
   return (
@@ -149,15 +215,15 @@ export default function AdminBusinesses() {
           <Select value={pub} onValueChange={setPub}>
             <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All status</SelectItem>
+              <SelectItem value="all">All visibility</SelectItem>
               <SelectItem value="published">Published</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="unpublished">Unpublished</SelectItem>
             </SelectContent>
           </Select>
           <Select value={feat} onValueChange={setFeat}>
             <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All visibility</SelectItem>
+              <SelectItem value="all">All featured</SelectItem>
               <SelectItem value="featured">Featured</SelectItem>
               <SelectItem value="not">Not featured</SelectItem>
             </SelectContent>
@@ -165,7 +231,7 @@ export default function AdminBusinesses() {
           <Select value={lstatus} onValueChange={setLstatus}>
             <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All listing status</SelectItem>
+              <SelectItem value="all">All lifecycle</SelectItem>
               {LISTING_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>{LISTING_STATUS_LABEL[s]}</SelectItem>
               ))}
@@ -178,20 +244,20 @@ export default function AdminBusinesses() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Business</TableHead>
-              <TableHead>Owner</TableHead>
-              <TableHead>Claims</TableHead>
-              <TableHead>City</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Listing</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Leads</TableHead>
-              <TableHead>Updated</TableHead>
+              <SortableTh label="Business" k="name" sort={sort} onClick={toggleSort} />
+              <SortableTh label="Owner" k="owner" sort={sort} onClick={toggleSort} />
+              <SortableTh label="Claims" k="claims" sort={sort} onClick={toggleSort} />
+              <SortableTh label="City" k="city" sort={sort} onClick={toggleSort} />
+              <SortableTh label="Category" k="category" sort={sort} onClick={toggleSort} />
+              <SortableTh label="Lifecycle" k="listing_status" sort={sort} onClick={toggleSort} />
+              <SortableTh label="Public visibility" k="is_published" sort={sort} onClick={toggleSort} />
+              <SortableTh label="Leads" k="leads" sort={sort} onClick={toggleSort} />
+              <SortableTh label="Updated" k="updated_at" sort={sort} onClick={toggleSort} />
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((b) => (
+            {sorted.map((b) => (
               <TableRow key={b.id} className="cursor-pointer" onClick={() => setOpen(b)}>
                 <TableCell className="font-medium">{b.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">
@@ -207,7 +273,7 @@ export default function AdminBusinesses() {
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
-                    <Badge variant={b.is_published ? "default" : "outline"}>{b.is_published ? "Live" : "Draft"}</Badge>
+                    <Badge variant={b.is_published ? "default" : "outline"}>{b.is_published ? "Published" : "Unpublished"}</Badge>
                     {b.is_featured && <Badge variant="secondary" className="gap-1"><Star className="h-3 w-3" /> Featured</Badge>}
                   </div>
                 </TableCell>
@@ -233,7 +299,7 @@ export default function AdminBusinesses() {
                 </TableCell>
               </TableRow>
             ))}
-            {filtered.length === 0 && (
+            {sorted.length === 0 && (
               <TableRow><TableCell colSpan={10} className="text-center text-sm text-muted-foreground">No businesses match.</TableCell></TableRow>
             )}
           </TableBody>
@@ -251,16 +317,16 @@ export default function AdminBusinesses() {
               <div className="mt-6 space-y-4 text-sm">
                 <div className="flex flex-wrap gap-1.5">
                   <Badge variant={LISTING_STATUS_VARIANT[open.listing_status]}>{LISTING_STATUS_LABEL[open.listing_status]}</Badge>
-                  <Badge variant={open.is_published ? "default" : "outline"}>{open.is_published ? "Published" : "Draft"}</Badge>
+                  <Badge variant={open.is_published ? "default" : "outline"}>{open.is_published ? "Published" : "Unpublished"}</Badge>
                   {open.is_featured && <Badge variant="secondary">Featured</Badge>}
                   <Badge variant="outline">{leadCounts[open.id] ?? 0} leads</Badge>
                 </div>
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Listing status</p>
+                  <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Lifecycle</p>
                   <Select value={open.listing_status} onValueChange={async (v) => {
                     const { error } = await supabase.from("businesses").update({ listing_status: v as ListingStatus }).eq("id", open.id);
                     if (error) return toast.error(error.message);
-                    toast.success("Listing status updated");
+                    toast.success("Lifecycle updated");
                     load();
                     setOpen((o) => o && o.id === open.id ? { ...o, listing_status: v as ListingStatus } : o);
                   }}>
@@ -273,6 +339,39 @@ export default function AdminBusinesses() {
                 <div>
                   <p className="text-xs font-semibold uppercase text-muted-foreground">Owner</p>
                   <p>{open.owner_id ? (profiles[open.owner_id]?.display_name ?? open.owner_id) : <span className="italic text-muted-foreground">Unclaimed</span>}</p>
+                  {!assignOpen && (
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => { setAssignOpen(true); setAssignQuery(""); }}>
+                      <UserPlus className="mr-1 h-4 w-4" /> {open.owner_id ? "Reassign owner" : "Assign owner"}
+                    </Button>
+                  )}
+                  {assignOpen && (
+                    <div className="mt-3 space-y-2 rounded-lg border border-border p-3">
+                      <Input
+                        autoFocus
+                        placeholder="Search users by display name…"
+                        value={assignQuery}
+                        onChange={(e) => setAssignQuery(e.target.value)}
+                      />
+                      <div className="max-h-48 space-y-1 overflow-y-auto">
+                        {assignResults.length === 0 && <p className="text-xs text-muted-foreground">No matches.</p>}
+                        {assignResults.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            disabled={assignBusy}
+                            onClick={() => assignOwner(p.id)}
+                            className="flex w-full items-center justify-between gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-left text-xs hover:border-primary hover:bg-primary/5"
+                          >
+                            <span className="truncate">{p.display_name ?? <span className="italic text-muted-foreground">No name</span>}</span>
+                            <span className="font-mono text-[10px] text-muted-foreground">{p.id.slice(0, 8)}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex justify-end">
+                        <Button variant="ghost" size="sm" onClick={() => setAssignOpen(false)}>Cancel</Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Button asChild variant="default">
@@ -290,7 +389,9 @@ export default function AdminBusinesses() {
                     </Button>
                   )}
                   {open.owner_id && (
-                    <Button variant="destructive" onClick={() => unassignOwner(open)}>Remove owner</Button>
+                    <Button variant="destructive" onClick={() => unassignOwner(open)}>
+                      <UserMinus className="mr-1 h-4 w-4" /> Remove owner
+                    </Button>
                   )}
                 </div>
                 <Link to={`/admin/leads?biz=${open.id}`} className="block text-xs text-primary underline">
@@ -305,11 +406,34 @@ export default function AdminBusinesses() {
   );
 }
 
+function SortableTh({ label, k, sort, onClick }: {
+  label: string;
+  k: SortKey;
+  sort: { key: SortKey; dir: SortDir };
+  onClick: (k: SortKey) => void;
+}) {
+  const active = sort.key === k;
+  const Icon = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <TableHead>
+      <button
+        type="button"
+        onClick={() => onClick(k)}
+        className={`inline-flex items-center gap-1 ${active ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        aria-label={`Sort by ${label}`}
+      >
+        {label}
+        <Icon className="h-3 w-3" />
+      </button>
+    </TableHead>
+  );
+}
+
 function ClaimsBadges({ summary, businessId }: { summary: ClaimSummary; businessId: string }) {
   const total = summary.pending + summary.moreInfo;
   if (summary.approved > 0 && total === 0) {
     return (
-      <Link to={`/admin/claim-requests?biz=${businessId}`} className="inline-block">
+      <Link to={`/admin/claim-requests?biz=${businessId}&status=approved`} className="inline-block">
         <Badge variant="default">Approved</Badge>
       </Link>
     );
@@ -317,14 +441,14 @@ function ClaimsBadges({ summary, businessId }: { summary: ClaimSummary; business
   if (total === 0) return <span className="text-muted-foreground">—</span>;
   if (summary.moreInfo > 0) {
     return (
-      <Link to={`/admin/claim-requests?biz=${businessId}`} className="inline-flex gap-1">
+      <Link to={`/admin/claim-requests?biz=${businessId}&status=more_info_requested`} className="inline-flex gap-1">
         <Badge variant="outline">Needs response</Badge>
         {summary.pending > 0 && <Badge variant="secondary">{summary.pending} Pending</Badge>}
       </Link>
     );
   }
   return (
-    <Link to={`/admin/claim-requests?biz=${businessId}`} className="inline-block">
+    <Link to={`/admin/claim-requests?biz=${businessId}&status=pending`} className="inline-block">
       <Badge variant="secondary">{summary.pending} Pending</Badge>
     </Link>
   );
