@@ -7,9 +7,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
 const nav = [
-  { label: "Explore", href: "/food-trucks" },
-  { label: "Markets", href: "/markets" },
-  { label: "Events", href: "/events" },
+  { label: "Home", href: "/" },
+  { label: "Food Trucks", href: "/food-trucks" },
+  { label: "Calendar", href: "/calendar" },
+  { label: "Book a Truck", href: "/book-a-food-truck" },
   { label: "For Vendors", href: "/for-vendors" },
 ];
 
