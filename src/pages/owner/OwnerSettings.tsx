@@ -4,12 +4,13 @@ import { useOwnerBusiness } from "@/hooks/useOwnerBusiness";
 import { useOwnerProfile } from "@/hooks/useOwnerProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { AccountDeletionCard } from "@/components/account/AccountDeletionCard";
+import { OwnerMediaSettings } from "@/components/owner/OwnerMediaSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Bell, CreditCard, LogOut, Mail, Phone, Save, ShieldAlert, User, Link2, FileText } from "lucide-react";
+import { Bell, CreditCard, Image as ImageIcon, LogOut, Mail, Phone, Save, ShieldAlert, User, Link2, FileText } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 type Prefs = {
@@ -71,9 +72,7 @@ export default function OwnerSettings() {
     setSaving(true);
     await updateProfile({ display_name: displayName.trim() || null, owner_title: ownerTitle.trim() || null });
     if (business) {
-      const { error } = await supabase.from("owner_preferences").upsert({
-        business_id: business.id, ...prefs,
-      }, { onConflict: "business_id" });
+      const { error } = await supabase.from("owner_preferences").upsert({ business_id: business.id, ...prefs }, { onConflict: "business_id" });
       if (error) {
         setSaving(false);
         toast({ title: "Save failed", description: error.message, variant: "destructive" });
@@ -90,12 +89,13 @@ export default function OwnerSettings() {
         <div>
           <span className="badge-ember">Account</span>
           <h1 className="mt-3 font-display text-3xl font-bold">Settings</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Profile, notifications, payments & account access.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Profile, media, notifications, payments & account access.</p>
         </div>
         <nav className="sticky top-20 hidden flex-col gap-1 text-sm lg:flex">
           {[
             { href: "#profile", label: business ? "Owner profile" : "Profile", icon: User },
             ...(business ? [
+              { href: "#media", label: "Truck page media", icon: ImageIcon },
               { href: "#notifications", label: "Notifications", icon: Bell },
               { href: "#payments", label: "Payments", icon: CreditCard },
               { href: "#team", label: "Team", icon: User },
@@ -112,23 +112,15 @@ export default function OwnerSettings() {
       <div className="space-y-6">
       <Section id="profile" icon={User} title={business ? "Owner profile" : "Claimant profile"} desc="Your account details.">
         <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <Label>Display name</Label>
-            <Input className="mt-1.5" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Ray Sandoval" />
-          </div>
-          <div>
-            <Label>Title (optional)</Label>
-            <Input className="mt-1.5" value={ownerTitle} onChange={(e) => setOwnerTitle(e.target.value)} placeholder="Owner / Pitmaster" />
-          </div>
-          <div>
-            <Label>Email</Label>
-            <Input className="mt-1.5" value={user?.email ?? ""} disabled />
-          </div>
+          <div><Label>Display name</Label><Input className="mt-1.5" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Ray Sandoval" /></div>
+          <div><Label>Title (optional)</Label><Input className="mt-1.5" value={ownerTitle} onChange={(e) => setOwnerTitle(e.target.value)} placeholder="Owner / Pitmaster" /></div>
+          <div><Label>Email</Label><Input className="mt-1.5" value={user?.email ?? ""} disabled /></div>
         </div>
       </Section>
 
       {business && (
         <>
+          <OwnerMediaSettings business={business as any} />
           <Section id="notifications" icon={Bell} title="Notifications" desc="Email & SMS sending isn't connected yet. These toggles save your preferences for when it ships.">
             <ToggleRow icon={Mail} label="Email me when a new lead comes in" checked={prefs.new_lead_notifications_enabled} onChange={(v) => setPrefs((p) => ({ ...p, new_lead_notifications_enabled: v }))} />
             <ToggleRow icon={Mail} label="Email me on customer replies" checked={prefs.owner_reply_notifications_enabled} onChange={(v) => setPrefs((p) => ({ ...p, owner_reply_notifications_enabled: v }))} />
