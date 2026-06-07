@@ -37,6 +37,10 @@ import OwnerSettings from "./pages/owner/OwnerSettings.tsx";
 import OwnerClaims from "./pages/owner/OwnerClaims.tsx";
 import ClaimListing from "./pages/ClaimListing.tsx";
 import { PaymentSuccess, PaymentCancel } from "./pages/PaymentResult.tsx";
+import PublicCalendar from "./pages/PublicCalendar.tsx";
+import BookFoodTruck from "./pages/BookFoodTruck.tsx";
+import BookRequestReceived from "./pages/BookRequestReceived.tsx";
+import OwnerLeadPreferences from "./pages/owner/OwnerLeadPreferences.tsx";
 import { DemoTourProvider } from "@/components/demo/useDemoTour";
 import { GuidedTour } from "@/components/demo/GuidedTour";
 import { DemoLauncher } from "@/components/demo/DemoLauncher";
@@ -63,6 +67,9 @@ const App = () => (
             <Route path="/category/:categorySlug" element={<FoodTrucks />} />
             <Route path="/specialty/:specialtySlug" element={<FoodTrucks />} />
             <Route path="/book/:truckSlug" element={<Book />} />
+            <Route path="/calendar" element={<PublicCalendar />} />
+            <Route path="/book-a-food-truck" element={<BookFoodTruck />} />
+            <Route path="/book-a-food-truck/request-received" element={<BookRequestReceived />} />
             <Route path="/claim/:businessSlug" element={<ClaimListing />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/owner/login" element={<Navigate to="/auth" replace />} />
@@ -81,6 +88,7 @@ const App = () => (
               <Route path="bookings" element={<OwnerBookings />} />
               <Route path="settings" element={<OwnerSettings />} />
               <Route path="claims" element={<OwnerClaims />} />
+              <Route path="lead-preferences" element={<OwnerLeadPreferences />} />
             </Route>
 
             <Route path="/admin" element={<AdminLayout />}>
