@@ -41,3 +41,14 @@ export function slugify(value: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
 }
+
+/** Normalize a slug on blur/submit. Allows hyphens. Slices to 80 chars. */
+export function normalizeSlug(value: string): string {
+  return slugify(value);
+}
+
+/** Reject empty slugs, slashes, whitespace, and characters that aren't url-safe. */
+export function isValidSlug(value: string): boolean {
+  if (!value) return false;
+  return /^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(value);
+}

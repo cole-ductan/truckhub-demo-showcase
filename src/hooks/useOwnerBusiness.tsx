@@ -25,15 +25,20 @@ export function OwnerBusinessProvider({ children }: { children: ReactNode }) {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!user) {
       setBusinesses([]);
       setSelectedId(null);
       setLoading(false);
+      setHasLoadedOnce(true);
       return;
     }
-    setLoading(true);
+    // Only show the blocking "Loading workspace…" state on the first fetch.
+    // Subsequent refreshes (e.g. after auth token refresh on tab focus)
+    // should not unmount the current page or destroy editor state.
+    if (!hasLoadedOnce) setLoading(true);
     const { data } = await supabase
       .from("businesses")
       .select("*")
@@ -41,7 +46,8 @@ export function OwnerBusinessProvider({ children }: { children: ReactNode }) {
       .order("created_at", { ascending: true });
     setBusinesses(((data ?? []) as Business[]));
     setLoading(false);
-  }, [user]);
+    setHasLoadedOnce(true);
+  }, [user, hasLoadedOnce]);
 
   useEffect(() => { refresh(); }, [refresh]);
 

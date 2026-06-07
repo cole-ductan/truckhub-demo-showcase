@@ -13,6 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { resolveImage } from "@/lib/assets";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ExternalLink, Pencil, MapPin, Clock, Phone, Mail, Globe, Instagram, Facebook,
   ShoppingBag, Eye, EyeOff, Image as ImageIcon, Plus, Save, Trash2, CheckCircle2, X,
 } from "lucide-react";
@@ -330,6 +334,8 @@ function EditorSheet({
   const { toast } = useToast();
   const [form, setForm] = useState<any>(business);
   const [saving, setSaving] = useState(false);
+  const [initialForm, setInitialForm] = useState<any>(business);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
   const [newPhotoCaption, setNewPhotoCaption] = useState("");
   const [specialtySearch, setSpecialtySearch] = useState("");
@@ -352,7 +358,31 @@ function EditorSheet({
     }
   }
 
-  useEffect(() => { if (open) setForm(business); }, [open, business]);
+  // Snapshot the form ONLY when the sheet opens. Re-syncing on every
+  // `business` change would wipe unsaved edits when the auth provider
+  // refetches on tab focus.
+  useEffect(() => {
+    if (open) { setForm(business); setInitialForm(business); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const isDirty = useMemo(() => {
+    if (!initialForm || !form) return false;
+    const keys = [
+      "name","tagline","description","cuisine","category_id","city","region",
+      "phone","email","website","facebook","instagram","logo_url","hero_image_url",
+      "emoji","today_location","today_hours","status","is_published",
+      "online_ordering_url","order_button_label","ordering_enabled",
+    ];
+    return keys.some((k) => (form?.[k] ?? null) !== (initialForm?.[k] ?? null));
+  }, [form, initialForm]);
+
+  useEffect(() => {
+    if (!open || !isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [open, isDirty]);
 
   function set<K extends string>(k: K, v: any) { setForm((f: any) => ({ ...f, [k]: v })); }
 
@@ -386,6 +416,7 @@ function EditorSheet({
     setSaving(false);
     if (error) { toast({ title: "Save failed", description: error.message, variant: "destructive" }); return; }
     onSaved(data as Business);
+    setInitialForm(form);
     toast({ title: "Saved", description: "Your truck page is up to date." });
   }
 
@@ -438,10 +469,24 @@ function EditorSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <>
+    <Sheet
+      open={open}
+      onOpenChange={(v) => {
+        if (!v && isDirty) { setConfirmCloseOpen(true); return; }
+        onOpenChange(v);
+      }}
+    >
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
         <SheetHeader>
-          <SheetTitle className="font-display text-xl">Edit Truck Page</SheetTitle>
+          <SheetTitle className="font-display text-xl flex items-center gap-2">
+            Edit Truck Page
+            {isDirty && (
+              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                Unsaved changes
+              </span>
+            )}
+          </SheetTitle>
           <SheetDescription>Changes save when you press Save below.</SheetDescription>
         </SheetHeader>
 
@@ -547,8 +592,13 @@ function EditorSheet({
             </div>
           </TabsContent>
           <TabsContent value="media" className="space-y-4 pt-4">
-            <Field label="Logo URL"><Input value={form.logo_url ?? ""} onChange={(e) => set("logo_url", e.target.value)} placeholder="https://… or asset:logo.png" /></Field>
-            <Field label="Hero image URL"><Input value={form.hero_image_url ?? ""} onChange={(e) => set("hero_image_url", e.target.value)} placeholder="https://… or asset:hero.jpg" /></Field>
+            <Field label="Logo URL">
+              <OwnerImageUrlField value={form.logo_url ?? ""} onChange={(v) => set("logo_url", v)} placeholder="https://… or asset:logo.png" />
+            </Field>
+            <Field label="Hero image URL">
+              <OwnerImageUrlField value={form.hero_image_url ?? ""} onChange={(v) => set("hero_image_url", v)} placeholder="https://… or asset:hero.jpg" />
+            </Field>
+            <p className="text-xs text-muted-foreground">Use a direct HTTPS image URL. Storage uploads coming soon.</p>
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Photo gallery</Label>
               <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
@@ -685,6 +735,44 @@ function EditorSheet({
         </div>
       </SheetContent>
     </Sheet>
+    <AlertDialog open={confirmCloseOpen} onOpenChange={setConfirmCloseOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+          <AlertDialogDescription>Your edits to this truck page have not been saved yet.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep editing</AlertDialogCancel>
+          <AlertDialogAction onClick={() => { setConfirmCloseOpen(false); onOpenChange(false); }}>Discard</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
+  );
+}
+
+function OwnerImageUrlField({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const [errored, setErrored] = useState(false);
+  const trimmed = value.trim();
+  const isAsset = trimmed.startsWith("asset:");
+  const isHttps = /^https:\/\//i.test(trimmed);
+  return (
+    <div className="space-y-2">
+      <Input value={value} onChange={(e) => { setErrored(false); onChange(e.target.value); }} placeholder={placeholder} />
+      {trimmed && (
+        <div className="flex items-start gap-3">
+          {isAsset ? (
+            <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-mono uppercase">bundled asset</span>
+          ) : isHttps && !errored ? (
+            <img src={trimmed} alt="" className="h-16 w-24 rounded-md border border-border object-cover" onError={() => setErrored(true)} />
+          ) : (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1 text-xs text-destructive">
+              {errored ? "Image failed to load." : "Use a direct HTTPS image URL."}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

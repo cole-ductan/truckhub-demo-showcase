@@ -56,8 +56,9 @@ const FILTERS: Array<{ key: "all" | Status; label: string }> = [
 export default function AdminClaimRequests() {
   const [params, setParams] = useSearchParams();
   const businessId = params.get("biz");
+  const urlStatus = params.get("status") as "all" | Status | null;
   const [rows, setRows] = useState<Row[]>([]);
-  const [filter, setFilter] = useState<"all" | Status>("pending");
+  const [filter, setFilter] = useState<"all" | Status>(urlStatus ?? "pending");
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -76,6 +77,12 @@ export default function AdminClaimRequests() {
   };
   useEffect(() => { load(); }, []);
 
+  // Keep filter in sync with the URL (deep-links from the businesses table).
+  useEffect(() => {
+    if (urlStatus && urlStatus !== filter) setFilter(urlStatus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlStatus]);
+
   const scopedRows = useMemo(
     () => businessId ? rows.filter((r) => r.business?.id === businessId) : rows,
     [rows, businessId],
@@ -91,6 +98,29 @@ export default function AdminClaimRequests() {
     scopedRows.forEach((r) => { c[r.status] = (c[r.status] ?? 0) + 1; });
     return c;
   }, [scopedRows]);
+
+  // When a business filter is active and the selected tab is empty, jump to the
+  // first status that has rows; if none, fall back to "all".
+  useEffect(() => {
+    if (!businessId) return;
+    if (filter === "all") return;
+    if ((counts[filter] ?? 0) > 0) return;
+    const fallback = (FILTERS.map((f) => f.key).find((k) => k !== "all" && (counts[k as string] ?? 0) > 0) ?? "all") as "all" | Status;
+    if (fallback !== filter) {
+      setFilter(fallback);
+      const next = new URLSearchParams(params);
+      if (fallback === "all") next.delete("status"); else next.set("status", fallback);
+      setParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId, counts]);
+
+  const handleFilterChange = (key: "all" | Status) => {
+    setFilter(key);
+    const next = new URLSearchParams(params);
+    if (key === "all") next.delete("status"); else next.set("status", key);
+    setParams(next, { replace: true });
+  };
 
   const visible = useMemo(
     () => filter === "all" ? scopedRows : scopedRows.filter((r) => r.status === filter),
@@ -167,7 +197,7 @@ export default function AdminClaimRequests() {
             variant={filter === f.key ? "default" : "outline"}
             size="sm"
             className="rounded-full"
-            onClick={() => setFilter(f.key)}
+            onClick={() => handleFilterChange(f.key)}
           >
             {f.label} {counts[f.key] != null && <span className="ml-1.5 opacity-70">{counts[f.key]}</span>}
           </Button>

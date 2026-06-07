@@ -28,7 +28,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
-        setLoading(true);
+        // Do NOT flip loading=true on every auth event (e.g. TOKEN_REFRESHED
+        // fired on tab focus). That would unmount route content and lose
+        // unsaved editor state. Just refresh roles in the background.
         // Defer role fetch
         setTimeout(() => {
           supabase
