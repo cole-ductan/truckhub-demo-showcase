@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ShieldCheck, ArrowLeft, CheckCircle2, AlertTriangle } from "lucide-react";
-import { getSuspiciousEmailMessage } from "@/lib/emailTypos";
+import { getSuspiciousEmailMessage, isBlockedClaimEmailDomain } from "@/lib/emailTypos";
 
 type Biz = {
   id: string; slug: string; name: string; city: string | null; cuisine: string | null;
@@ -71,12 +71,14 @@ export default function ClaimListing() {
 
   const eligible = biz.owner_id === null && biz.listing_status === "unclaimed";
   const typoWarning = getSuspiciousEmailMessage(form.requester_email);
+  const blockedEmailDomain = isBlockedClaimEmailDomain(form.requester_email);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!user || !biz || biz === "missing") return;
     const parsed = schema.safeParse(form);
     if (!parsed.success) return toast.error(parsed.error.issues[0]?.message ?? "Please review the form");
+    if (blockedEmailDomain) return toast.error("Correct the email domain before submitting.");
     if (typoWarning && !confirmedSuspiciousEmail) return toast.error("Review the email warning and confirm the address before submitting.");
     setBusy(true);
     const { error } = await supabase.from("claim_requests").insert({
@@ -113,12 +115,13 @@ export default function ClaimListing() {
               <div className="flex items-start gap-2 rounded-lg bg-secondary/10 px-3 py-2 text-xs text-foreground/80"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-secondary" /><span>An admin reviews every claim before access is granted. You'll be notified once a decision is made.</span></div>
               <div><Label htmlFor="rn">Your name *</Label><Input id="rn" required value={form.requester_name} onChange={(e) => setForm({ ...form, requester_name: e.target.value })} /></div>
               <div><Label htmlFor="re">Email *</Label><Input id="re" type="email" required value={form.requester_email} onChange={(e) => { setConfirmedSuspiciousEmail(false); setForm({ ...form, requester_email: e.target.value }); }} /></div>
-              {typoWarning && <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900"><input type="checkbox" checked={confirmedSuspiciousEmail} onChange={(e) => setConfirmedSuspiciousEmail(e.target.checked)} /><AlertTriangle className="h-4 w-4 shrink-0" /><span>{typoWarning} Check this box only if the address is intentional.</span></label>}
+              {typoWarning && blockedEmailDomain && <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"><AlertTriangle className="h-4 w-4 shrink-0" /><span>{typoWarning}</span></div>}
+              {typoWarning && !blockedEmailDomain && <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900"><input type="checkbox" checked={confirmedSuspiciousEmail} onChange={(e) => setConfirmedSuspiciousEmail(e.target.checked)} /><AlertTriangle className="h-4 w-4 shrink-0" /><span>{typoWarning} Check this box only if the address is intentional.</span></label>}
               <div><Label htmlFor="rp">Phone</Label><Input id="rp" value={form.requester_phone} onChange={(e) => setForm({ ...form, requester_phone: e.target.value })} /></div>
               <div><Label htmlFor="rel">Your relationship to this business</Label><Input id="rel" placeholder="Owner, manager, etc." value={form.relationship_to_business} onChange={(e) => setForm({ ...form, relationship_to_business: e.target.value })} /></div>
               <div><Label htmlFor="vn">Verification notes</Label><Textarea id="vn" rows={4} placeholder="Anything that helps us confirm you own this business." value={form.verification_notes} onChange={(e) => setForm({ ...form, verification_notes: e.target.value })} /></div>
               <div><Label htmlFor="vu">Verification URL (optional)</Label><Input id="vu" placeholder="https://your-website.com" value={form.verification_url} onChange={(e) => setForm({ ...form, verification_url: e.target.value })} /></div>
-              <div className="flex gap-2 pt-2"><Button type="submit" disabled={busy} className="h-11 rounded-full bg-primary px-6 text-primary-foreground hover:bg-primary/90">{busy ? "Submitting…" : "Submit claim"}</Button><Button type="button" variant="outline" onClick={() => nav(`/food-trucks/${biz.slug}`)} className="h-11 rounded-full">Cancel</Button></div>
+              <div className="flex gap-2 pt-2"><Button type="submit" disabled={busy || blockedEmailDomain} className="h-11 rounded-full bg-primary px-6 text-primary-foreground hover:bg-primary/90">{busy ? "Submitting…" : "Submit claim"}</Button><Button type="button" variant="outline" onClick={() => nav(`/food-trucks/${biz.slug}`)} className="h-11 rounded-full">Cancel</Button></div>
             </form>
           )}
 
