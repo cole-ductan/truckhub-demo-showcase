@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { BusinessImageUpload } from "@/components/business/BusinessImageUpload";
@@ -11,6 +11,11 @@ export function OwnerMediaSettings({
 }) {
   const [hero, setHero] = useState(business.hero_image_url ?? "");
   const [logo, setLogo] = useState(business.logo_url ?? "");
+
+  useEffect(() => {
+    setHero(business.hero_image_url ?? "");
+    setLogo(business.logo_url ?? "");
+  }, [business.id, business.hero_image_url, business.logo_url]);
 
   async function save(field: "hero_image_url" | "logo_url", value: string) {
     if (field === "hero_image_url") setHero(value);
