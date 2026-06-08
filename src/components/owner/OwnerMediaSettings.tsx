@@ -21,7 +21,7 @@ export function OwnerMediaSettings({
     if (field === "hero_image_url") setHero(value);
     else setLogo(value);
 
-    const { error } = await supabase.from("businesses").update({ [field]: value || null }).eq("id", business.id);
+    const { error } = await (supabase as any).from("businesses").update({ [field]: value || null }).eq("id", business.id);
     if (error) {
       toast.error(error.message);
       return;
