@@ -1,4 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { OwnerBusinessProvider, useOwnerBusiness } from "@/hooks/useOwnerBusiness";
 import { OwnerProfileProvider } from "@/hooks/useOwnerProfile";
@@ -53,22 +55,42 @@ function Topbar() {
   );
 }
 
-const CLAIMANT_ALLOWED = ["/owner", "/owner/claims", "/owner/settings"];
-
-function ClaimantGate({ children }: { children: React.ReactNode }) {
+function AccessGate({ children }: { children: React.ReactNode }) {
   const { businesses, loading } = useOwnerBusiness();
-  const { pathname } = useLocation();
   if (loading) return <div className="grid min-h-[40vh] place-items-center text-muted-foreground">Loading workspace…</div>;
-  if (businesses.length === 0 && !CLAIMANT_ALLOWED.includes(pathname)) {
-    return <Navigate to="/owner/claims" replace />;
+  if (businesses.length === 0) {
+    return (
+      <div className="grid min-h-[40vh] place-items-center px-4 text-center">
+        <div className="max-w-md">
+          <p className="font-display text-xl font-bold">No listings assigned yet</p>
+          <p className="mt-2 text-sm text-muted-foreground">Your account isn't currently linked to a FoodXMobile listing. If you've submitted a claim, our team will email you once it's approved.</p>
+        </div>
+      </div>
+    );
   }
   return <>{children}</>;
 }
 
 export default function OwnerLayout() {
   const { user, loading } = useAuth();
+  const [profileGate, setProfileGate] = useState<{ must: boolean; suspended: boolean } | null>(null);
+  useEffect(() => {
+    if (!user) { setProfileGate(null); return; }
+    (supabase as any).from("profiles").select("must_change_password,account_status").eq("id", user.id).maybeSingle().then(({ data }: any) => {
+      setProfileGate({ must: Boolean(data?.must_change_password), suspended: data?.account_status === "suspended" });
+    });
+  }, [user]);
   if (loading) return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
   if (!user) return <Navigate to="/auth" replace />;
+  if (profileGate?.must) return <Navigate to="/owner/set-password" replace />;
+  if (profileGate?.suspended) return (
+    <div className="grid min-h-screen place-items-center px-4 text-center">
+      <div className="max-w-md">
+        <p className="font-display text-2xl font-bold">Account suspended</p>
+        <p className="mt-2 text-sm text-muted-foreground">Contact support to restore access to your dashboard.</p>
+      </div>
+    </div>
+  );
 
   return (
     <OwnerProfileProvider>
@@ -80,9 +102,9 @@ export default function OwnerLayout() {
               <Topbar />
               <main className="flex-1 px-4 py-6 sm:px-6 md:px-8 md:py-8">
                 <div className="mx-auto w-full max-w-6xl">
-                  <ClaimantGate>
+                  <AccessGate>
                     <Outlet />
-                  </ClaimantGate>
+                  </AccessGate>
                 </div>
               </main>
             </div>

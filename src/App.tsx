@@ -34,7 +34,6 @@ import OwnerLeads from "./pages/owner/OwnerLeads.tsx";
 import OwnerMessages from "./pages/owner/OwnerMessages.tsx";
 import OwnerBookings from "./pages/owner/OwnerBookings.tsx";
 import OwnerSettings from "./pages/owner/OwnerSettings.tsx";
-import OwnerClaims from "./pages/owner/OwnerClaims.tsx";
 import ClaimListing from "./pages/ClaimListing.tsx";
 import { PaymentSuccess, PaymentCancel } from "./pages/PaymentResult.tsx";
 import PublicCalendar from "./pages/PublicCalendar.tsx";
