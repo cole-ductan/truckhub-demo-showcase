@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { Button } from "@/components/ui/button";
@@ -10,122 +9,153 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ShieldCheck, ArrowLeft, CheckCircle2, AlertTriangle } from "lucide-react";
-import { getSuspiciousEmailMessage, isBlockedClaimEmailDomain } from "@/lib/emailTypos";
+import { ShieldCheck, ArrowLeft, CheckCircle2 } from "lucide-react";
 
-type Biz = {
-  id: string; slug: string; name: string; city: string | null; cuisine: string | null;
-  listing_status: string; owner_id: string | null;
-};
+type Biz = { id: string; slug: string; name: string; city: string | null; cuisine: string | null; listing_status: string; owner_id: string | null };
 
 const schema = z.object({
-  requester_name: z.string().trim().min(1, "Name is required").max(120),
-  requester_email: z.string().trim().email("Valid email required").max(255),
-  requester_phone: z.string().trim().max(40).optional().or(z.literal("")),
-  relationship_to_business: z.string().trim().max(200).optional().or(z.literal("")),
-  verification_notes: z.string().trim().max(2000).optional().or(z.literal("")),
-  verification_url: z.string().trim().url("Must be a valid URL").max(500).optional().or(z.literal("")),
+  claimant_name: z.string().trim().min(1, "Full name required").max(120),
+  relationship_to_business: z.string().trim().min(1, "Role required").max(200),
+  claimant_email: z.string().trim().email("Valid email required").max(255),
+  claimant_phone: z.string().trim().min(7, "Phone required").max(40),
+  preferred_contact_method: z.enum(["email", "phone", "text"]),
+  best_contact_time: z.string().trim().max(120).optional().or(z.literal("")),
+  claimant_message: z.string().trim().max(2000).optional().or(z.literal("")),
+  authorized_confirmed: z.literal(true),
 });
 
 export default function ClaimListing() {
-  const { businessSlug } = useParams<{ businessSlug: string }>();
-  const { user, loading: authLoading } = useAuth();
+  const { slug } = useParams<{ slug: string }>();
   const nav = useNavigate();
   const [biz, setBiz] = useState<Biz | null | "missing">(null);
-  const [existing, setExisting] = useState<{ id: string; status: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [confirmedSuspiciousEmail, setConfirmedSuspiciousEmail] = useState(false);
-  const [form, setForm] = useState({ requester_name: "", requester_email: "", requester_phone: "", relationship_to_business: "", verification_notes: "", verification_url: "" });
+  const [form, setForm] = useState({
+    claimant_name: "", relationship_to_business: "", claimant_email: "", claimant_phone: "",
+    preferred_contact_method: "email" as "email" | "phone" | "text",
+    best_contact_time: "", claimant_message: "", authorized_confirmed: false,
+  });
 
   useEffect(() => {
-    if (!businessSlug) return;
+    if (!slug) return;
     (async () => {
       const { data } = await supabase.from("businesses")
         .select("id,slug,name,city,cuisine,listing_status,owner_id")
-        .eq("slug", businessSlug).eq("is_published", true).neq("listing_status", "archived").maybeSingle();
-      setBiz(data ? data as Biz : "missing");
+        .eq("slug", slug).eq("is_published", true).maybeSingle();
+      setBiz(data ? (data as Biz) : "missing");
     })();
-  }, [businessSlug]);
+  }, [slug]);
 
-  useEffect(() => {
-    if (!user || !biz || biz === "missing") return;
-    (async () => {
-      const [{ data: claim }, { data: profile }] = await Promise.all([
-        supabase.from("claim_requests").select("id,status").eq("business_id", biz.id).eq("requester_user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-        supabase.from("profiles").select("display_name,phone").eq("id", user.id).maybeSingle(),
-      ]);
-      if (claim) setExisting(claim as { id: string; status: string });
-      setForm((f) => ({
-        ...f,
-        requester_name: f.requester_name || profile?.display_name || (user.user_metadata as any)?.display_name || user.email?.split("@")[0] || "",
-        requester_email: f.requester_email || user.email || "",
-        requester_phone: f.requester_phone || profile?.phone || "",
-      }));
-    })();
-  }, [user, biz]);
+  if (biz === null) return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
+  if (biz === "missing") return (
+    <div className="min-h-screen bg-background"><SiteHeader />
+      <main className="container-tight px-4 pt-32 pb-20 text-center">
+        <p className="font-display text-2xl">Listing not found</p>
+        <Link to="/food-trucks" className="mt-3 inline-block text-primary hover:underline">← Back to all listings</Link>
+      </main>
+    </div>
+  );
 
-  if (authLoading || biz === null) return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
-  if (biz === "missing") return <div className="min-h-screen bg-background"><SiteHeader /><main className="container-tight px-4 pt-32 pb-20 text-center"><p className="font-display text-2xl">Listing not found</p><Link to="/food-trucks" className="mt-3 inline-block text-primary hover:underline">← Back to all listings</Link></main></div>;
-  if (!user) return <Navigate to={`/auth?next=${encodeURIComponent(`/claim/${businessSlug}`)}`} replace />;
-
-  const eligible = biz.owner_id === null && biz.listing_status === "unclaimed";
-  const typoWarning = getSuspiciousEmailMessage(form.requester_email);
-  const blockedEmailDomain = isBlockedClaimEmailDomain(form.requester_email);
+  const eligible = biz.owner_id === null && (biz.listing_status === "unclaimed" || biz.listing_status === "draft");
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!user || !biz || biz === "missing") return;
+    if (!biz || biz === "missing") return;
     const parsed = schema.safeParse(form);
     if (!parsed.success) return toast.error(parsed.error.issues[0]?.message ?? "Please review the form");
-    if (blockedEmailDomain) return toast.error("Correct the email domain before submitting.");
-    if (typoWarning && !confirmedSuspiciousEmail) return toast.error("Review the email warning and confirm the address before submitting.");
     setBusy(true);
     const { error } = await supabase.from("claim_requests").insert({
       business_id: biz.id,
-      requester_user_id: user.id,
-      requester_name: parsed.data.requester_name,
-      requester_email: parsed.data.requester_email,
-      requester_phone: parsed.data.requester_phone || null,
-      relationship_to_business: parsed.data.relationship_to_business || null,
-      verification_notes: parsed.data.verification_notes || null,
-      verification_url: parsed.data.verification_url || null,
-    });
+      requester_user_id: null,
+      requester_name: parsed.data.claimant_name,
+      requester_email: parsed.data.claimant_email,
+      requester_phone: parsed.data.claimant_phone,
+      relationship_to_business: parsed.data.relationship_to_business,
+      preferred_contact_method: parsed.data.preferred_contact_method,
+      best_contact_time: parsed.data.best_contact_time || null,
+      claimant_message: parsed.data.claimant_message || null,
+      authorized_confirmed: true,
+      status: "submitted" as any,
+    } as any);
     setBusy(false);
     if (error) return toast.error(error.message);
     setSubmitted(true);
-    toast.success("Claim submitted for admin review");
   }
 
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <main className="container-tight px-4 pt-32 pb-20 md:pt-36">
-        <Link to={`/food-trucks/${biz.slug}`} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary"><ArrowLeft className="h-3.5 w-3.5" /> Back to listing</Link>
+        <Link to={`/food-trucks/${biz.slug}`} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to listing
+        </Link>
         <div className="mt-4 max-w-2xl">
           <h1 className="font-display text-3xl font-bold md:text-4xl">Claim this listing</h1>
-          <p className="mt-2 text-muted-foreground">You're requesting ownership of <span className="font-semibold text-foreground">{biz.name}</span>{biz.city ? ` · ${biz.city}` : ""}.</p>
-          <p className="mt-2 text-xs text-muted-foreground">Signed in as {user.email}. Contact details below are stored with this specific claim and can be adjusted before submission.</p>
+          <p className="mt-2 text-muted-foreground">
+            You're requesting ownership of <span className="font-semibold text-foreground">{biz.name}</span>
+            {biz.city ? ` · ${biz.city}` : ""}.
+          </p>
 
-          {!eligible && <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">This listing isn't available to claim right now. It may already be claimed or archived.</div>}
-          {eligible && existing && ["pending", "more_info_requested"].includes(existing.status) && <div className="mt-6 rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">You already have an active claim on this listing{existing.status === "more_info_requested" ? " — the admin requested more information." : "."} <Link to="/owner/claims" className="font-semibold text-primary hover:underline">View your claims →</Link></div>}
+          {!eligible && (
+            <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+              This listing isn't available to claim right now. It may already be claimed or archived.
+            </div>
+          )}
 
-          {eligible && !submitted && (!existing || ["denied", "withdrawn"].includes(existing.status)) && (
+          {eligible && !submitted && (
             <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-2xl border border-border bg-card p-6 shadow-card">
-              <div className="flex items-start gap-2 rounded-lg bg-secondary/10 px-3 py-2 text-xs text-foreground/80"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-secondary" /><span>An admin reviews every claim before access is granted. You'll be notified once a decision is made.</span></div>
-              <div><Label htmlFor="rn">Your name *</Label><Input id="rn" required value={form.requester_name} onChange={(e) => setForm({ ...form, requester_name: e.target.value })} /></div>
-              <div><Label htmlFor="re">Email *</Label><Input id="re" type="email" required value={form.requester_email} onChange={(e) => { setConfirmedSuspiciousEmail(false); setForm({ ...form, requester_email: e.target.value }); }} /></div>
-              {typoWarning && blockedEmailDomain && <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"><AlertTriangle className="h-4 w-4 shrink-0" /><span>{typoWarning}</span></div>}
-              {typoWarning && !blockedEmailDomain && <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900"><input type="checkbox" checked={confirmedSuspiciousEmail} onChange={(e) => setConfirmedSuspiciousEmail(e.target.checked)} /><AlertTriangle className="h-4 w-4 shrink-0" /><span>{typoWarning} Check this box only if the address is intentional.</span></label>}
-              <div><Label htmlFor="rp">Phone</Label><Input id="rp" value={form.requester_phone} onChange={(e) => setForm({ ...form, requester_phone: e.target.value })} /></div>
-              <div><Label htmlFor="rel">Your relationship to this business</Label><Input id="rel" placeholder="Owner, manager, etc." value={form.relationship_to_business} onChange={(e) => setForm({ ...form, relationship_to_business: e.target.value })} /></div>
-              <div><Label htmlFor="vn">Verification notes</Label><Textarea id="vn" rows={4} placeholder="Anything that helps us confirm you own this business." value={form.verification_notes} onChange={(e) => setForm({ ...form, verification_notes: e.target.value })} /></div>
-              <div><Label htmlFor="vu">Verification URL (optional)</Label><Input id="vu" placeholder="https://your-website.com" value={form.verification_url} onChange={(e) => setForm({ ...form, verification_url: e.target.value })} /></div>
-              <div className="flex gap-2 pt-2"><Button type="submit" disabled={busy || blockedEmailDomain} className="h-11 rounded-full bg-primary px-6 text-primary-foreground hover:bg-primary/90">{busy ? "Submitting…" : "Submit claim"}</Button><Button type="button" variant="outline" onClick={() => nav(`/food-trucks/${biz.slug}`)} className="h-11 rounded-full">Cancel</Button></div>
+              <div className="flex items-start gap-2 rounded-lg bg-secondary/10 px-3 py-2 text-xs text-foreground/80">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+                <span>Our team will review every claim and contact you to verify ownership before granting access.</span>
+              </div>
+              <div><Label htmlFor="name">Full name *</Label><Input id="name" required value={form.claimant_name} onChange={(e) => setForm({ ...form, claimant_name: e.target.value })} /></div>
+              <div><Label htmlFor="rel">Your role at the business *</Label><Input id="rel" required placeholder="Owner, manager, etc." value={form.relationship_to_business} onChange={(e) => setForm({ ...form, relationship_to_business: e.target.value })} /></div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div><Label htmlFor="email">Email *</Label><Input id="email" type="email" required value={form.claimant_email} onChange={(e) => setForm({ ...form, claimant_email: e.target.value })} /></div>
+                <div><Label htmlFor="phone">Phone *</Label><Input id="phone" required value={form.claimant_phone} onChange={(e) => setForm({ ...form, claimant_phone: e.target.value })} /></div>
+              </div>
+              <div>
+                <Label>Preferred contact method *</Label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(["email", "phone", "text"] as const).map((m) => (
+                    <button type="button" key={m}
+                      onClick={() => setForm({ ...form, preferred_contact_method: m })}
+                      className={`rounded-full px-4 py-1.5 text-sm capitalize ${form.preferred_contact_method === m ? "bg-primary text-primary-foreground" : "border border-border bg-background"}`}
+                    >{m}</button>
+                  ))}
+                </div>
+              </div>
+              <div><Label htmlFor="bct">Best time to contact</Label><Input id="bct" placeholder="Weekdays 9am–5pm CT" value={form.best_contact_time} onChange={(e) => setForm({ ...form, best_contact_time: e.target.value })} /></div>
+              <div><Label htmlFor="msg">Message or verification details</Label><Textarea id="msg" rows={4} placeholder="Anything that helps us confirm you're authorized." value={form.claimant_message} onChange={(e) => setForm({ ...form, claimant_message: e.target.value })} /></div>
+              <label className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                <input type="checkbox" className="mt-0.5" checked={form.authorized_confirmed} onChange={(e) => setForm({ ...form, authorized_confirmed: e.target.checked })} />
+                <span>I confirm that I am authorized to request access to this listing.</span>
+              </label>
+              <div className="flex gap-2 pt-2">
+                <Button type="submit" disabled={busy || !form.authorized_confirmed} className="h-11 rounded-full bg-primary px-6 text-primary-foreground hover:bg-primary/90">
+                  {busy ? "Submitting…" : "Submit claim"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => nav(`/food-trucks/${biz.slug}`)} className="h-11 rounded-full">Cancel</Button>
+              </div>
             </form>
           )}
 
-          {submitted && <div className="mt-6 rounded-2xl border border-emerald-300 bg-emerald-50 p-6"><div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 className="h-5 w-5" /><p className="font-semibold">Claim submitted</p></div><p className="mt-2 text-sm text-emerald-900">An admin will review your request. You can track its status anytime.</p><div className="mt-4 flex gap-2"><Button asChild className="h-10 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"><Link to="/owner/claims">View my claims</Link></Button><Button asChild variant="outline" className="h-10 rounded-full"><Link to={`/food-trucks/${biz.slug}`}>Back to listing</Link></Button></div></div>}
+          {submitted && (
+            <div className="mt-6 rounded-2xl border border-emerald-300 bg-emerald-50 p-6">
+              <div className="flex items-center gap-2 text-emerald-700">
+                <CheckCircle2 className="h-5 w-5" />
+                <p className="font-semibold">Claim request received</p>
+              </div>
+              <p className="mt-2 text-sm text-emerald-900">
+                Thank you. Our team will review your request and contact you to verify ownership. Once approved, you will receive your FoodXMobile login details by email.
+              </p>
+              <div className="mt-4">
+                <Button asChild variant="outline" className="h-10 rounded-full">
+                  <Link to={`/food-trucks/${biz.slug}`}>Return to listing</Link>
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
       <SiteFooter />
