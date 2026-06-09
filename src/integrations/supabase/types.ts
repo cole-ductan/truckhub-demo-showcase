@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_account_audit: {
+        Row: {
+          action_type: string
+          created_at: string
+          details: Json | null
+          id: string
+          performed_by: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          performed_by?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          performed_by?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       bookings: {
         Row: {
           business_id: string
@@ -504,17 +531,57 @@ export type Database = {
           },
         ]
       }
+      claim_activities: {
+        Row: {
+          action_type: string
+          claim_id: string
+          created_at: string
+          id: string
+          note: string | null
+          performed_by: string | null
+        }
+        Insert: {
+          action_type: string
+          claim_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          performed_by?: string | null
+        }
+        Update: {
+          action_type?: string
+          claim_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          performed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_activities_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "claim_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claim_requests: {
         Row: {
           admin_notes: string | null
+          approved_owner_user_id: string | null
+          authorized_confirmed: boolean
+          best_contact_time: string | null
           business_id: string
+          claimant_message: string | null
           created_at: string
           id: string
+          preferred_contact_method: string | null
           relationship_to_business: string | null
           requester_email: string
           requester_name: string
           requester_phone: string | null
-          requester_user_id: string
+          requester_user_id: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["claim_request_status"]
@@ -524,14 +591,19 @@ export type Database = {
         }
         Insert: {
           admin_notes?: string | null
+          approved_owner_user_id?: string | null
+          authorized_confirmed?: boolean
+          best_contact_time?: string | null
           business_id: string
+          claimant_message?: string | null
           created_at?: string
           id?: string
+          preferred_contact_method?: string | null
           relationship_to_business?: string | null
           requester_email: string
           requester_name: string
           requester_phone?: string | null
-          requester_user_id: string
+          requester_user_id?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["claim_request_status"]
@@ -541,14 +613,19 @@ export type Database = {
         }
         Update: {
           admin_notes?: string | null
+          approved_owner_user_id?: string | null
+          authorized_confirmed?: boolean
+          best_contact_time?: string | null
           business_id?: string
+          claimant_message?: string | null
           created_at?: string
           id?: string
+          preferred_contact_method?: string | null
           relationship_to_business?: string | null
           requester_email?: string
           requester_name?: string
           requester_phone?: string | null
-          requester_user_id?: string
+          requester_user_id?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["claim_request_status"]
@@ -937,30 +1014,42 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_status: string
+          admin_notes: string | null
           avatar_url: string | null
           created_at: string
           display_name: string | null
           id: string
+          must_change_password: boolean
           owner_title: string | null
           phone: string | null
+          preferred_contact_method: string | null
           updated_at: string
         }
         Insert: {
+          account_status?: string
+          admin_notes?: string | null
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
           id: string
+          must_change_password?: boolean
           owner_title?: string | null
           phone?: string | null
+          preferred_contact_method?: string | null
           updated_at?: string
         }
         Update: {
+          account_status?: string
+          admin_notes?: string | null
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
+          must_change_password?: boolean
           owner_title?: string | null
           phone?: string | null
+          preferred_contact_method?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1100,14 +1189,19 @@ export type Database = {
         Args: { _claim_request_id: string }
         Returns: {
           admin_notes: string | null
+          approved_owner_user_id: string | null
+          authorized_confirmed: boolean
+          best_contact_time: string | null
           business_id: string
+          claimant_message: string | null
           created_at: string
           id: string
+          preferred_contact_method: string | null
           relationship_to_business: string | null
           requester_email: string
           requester_name: string
           requester_phone: string | null
-          requester_user_id: string
+          requester_user_id: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["claim_request_status"]
@@ -1234,14 +1328,19 @@ export type Database = {
         Args: { _admin_notes?: string; _claim_request_id: string }
         Returns: {
           admin_notes: string | null
+          approved_owner_user_id: string | null
+          authorized_confirmed: boolean
+          best_contact_time: string | null
           business_id: string
+          claimant_message: string | null
           created_at: string
           id: string
+          preferred_contact_method: string | null
           relationship_to_business: string | null
           requester_email: string
           requester_name: string
           requester_phone: string | null
-          requester_user_id: string
+          requester_user_id: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["claim_request_status"]
@@ -1353,14 +1452,19 @@ export type Database = {
         Args: { _admin_notes: string; _claim_request_id: string }
         Returns: {
           admin_notes: string | null
+          approved_owner_user_id: string | null
+          authorized_confirmed: boolean
+          best_contact_time: string | null
           business_id: string
+          claimant_message: string | null
           created_at: string
           id: string
+          preferred_contact_method: string | null
           relationship_to_business: string | null
           requester_email: string
           requester_name: string
           requester_phone: string | null
-          requester_user_id: string
+          requester_user_id: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["claim_request_status"]
@@ -1383,14 +1487,19 @@ export type Database = {
         }
         Returns: {
           admin_notes: string | null
+          approved_owner_user_id: string | null
+          authorized_confirmed: boolean
+          best_contact_time: string | null
           business_id: string
+          claimant_message: string | null
           created_at: string
           id: string
+          preferred_contact_method: string | null
           relationship_to_business: string | null
           requester_email: string
           requester_name: string
           requester_phone: string | null
-          requester_user_id: string
+          requester_user_id: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["claim_request_status"]
@@ -1449,14 +1558,19 @@ export type Database = {
         Args: { _claim_request_id: string }
         Returns: {
           admin_notes: string | null
+          approved_owner_user_id: string | null
+          authorized_confirmed: boolean
+          best_contact_time: string | null
           business_id: string
+          claimant_message: string | null
           created_at: string
           id: string
+          preferred_contact_method: string | null
           relationship_to_business: string | null
           requester_email: string
           requester_name: string
           requester_phone: string | null
-          requester_user_id: string
+          requester_user_id: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["claim_request_status"]
