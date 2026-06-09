@@ -1481,6 +1481,10 @@ export type Database = {
         | "denied"
         | "more_info_requested"
         | "withdrawn"
+        | "submitted"
+        | "contacted"
+        | "awaiting_verification"
+        | "archived"
       event_kind: "weekly" | "one_off"
       lead_stage:
         | "new"
@@ -1631,6 +1635,10 @@ export const Constants = {
         "denied",
         "more_info_requested",
         "withdrawn",
+        "submitted",
+        "contacted",
+        "awaiting_verification",
+        "archived",
       ],
       event_kind: ["weekly", "one_off"],
       lead_stage: [
