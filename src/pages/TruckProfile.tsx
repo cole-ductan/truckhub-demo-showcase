@@ -170,7 +170,7 @@ export default function TruckProfile() {
           <div className="flex items-center gap-3">
             {biz.listing_status === "unclaimed" && !biz.owner_id && (
               <Link
-                to={`/claim/${biz.slug}`}
+                to={`/food-trucks/${biz.slug}/claim`}
                 className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondary-foreground hover:bg-secondary/90"
               >
                 Own this business? Claim this listing
@@ -274,7 +274,7 @@ export default function TruckProfile() {
               <div className="mt-6 inline-flex flex-wrap items-center gap-3 rounded-2xl border border-cream/25 bg-cream/10 px-5 py-3 text-cream backdrop-blur">
                 <span className="text-sm">Own this business? Claim this listing to manage it on FoodXMobile.</span>
                 <Button asChild size="sm" className="h-9 rounded-full bg-primary px-4 text-primary-foreground shadow-ember hover:bg-primary/90">
-                  <Link to={`/claim/${biz.slug}`}>Claim this listing</Link>
+                  <Link to={`/food-trucks/${biz.slug}/claim`}>Claim this listing</Link>
                 </Button>
               </div>
             )}

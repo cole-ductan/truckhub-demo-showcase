@@ -3,7 +3,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupConte
 import { useAuth } from "@/hooks/useAuth";
 import { useOwnerBusiness } from "@/hooks/useOwnerBusiness";
 import { useOwnerProfile } from "@/hooks/useOwnerProfile";
-import { Calendar, ChevronsUpDown, ExternalLink, Home, Inbox, KeyRound, LayoutDashboard, ListOrdered, LogOut, MapPin, MessageCircle, Settings, ShieldCheck, Store, Target, Truck } from "lucide-react";
+import { Calendar, ChevronsUpDown, ExternalLink, Home, Inbox, LayoutDashboard, ListOrdered, LogOut, MapPin, MessageCircle, Settings, ShieldCheck, Store, Target, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -19,7 +19,6 @@ const allLinks: LinkDef[] = [
   { to: "/owner/profile", label: "Truck Page", icon: Truck, ownerOnly: true },
   { to: "/owner/messages", label: "Messages", icon: MessageCircle, ownerOnly: true },
   { to: "/owner/lead-preferences", label: "Lead Preferences", icon: Target, ownerOnly: true },
-  { to: "/owner/claims", label: "My Claims", icon: KeyRound },
   { to: "/owner/settings", label: "Settings", icon: Settings },
 ];
 
