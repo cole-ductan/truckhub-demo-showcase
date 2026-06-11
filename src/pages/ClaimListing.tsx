@@ -64,9 +64,10 @@ export default function ClaimListing() {
     const parsed = schema.safeParse(form);
     if (!parsed.success) return toast.error(parsed.error.issues[0]?.message ?? "Please review the form");
     setBusy(true);
+    const { data: { user: authedUser } } = await supabase.auth.getUser();
     const { error } = await supabase.from("claim_requests").insert({
       business_id: biz.id,
-      requester_user_id: null,
+      requester_user_id: authedUser?.id ?? null,
       requester_name: parsed.data.claimant_name,
       requester_email: parsed.data.claimant_email,
       requester_phone: parsed.data.claimant_phone,
