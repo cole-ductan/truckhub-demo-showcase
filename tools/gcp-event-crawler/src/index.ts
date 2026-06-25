@@ -1,20 +1,16 @@
 import { createHash } from 'node:crypto';
 import * as cheerio from 'cheerio';
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 const envSchema = z.object({
-  SUPABASE_URL: z.string().url(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(20),
+  LOVABLE_EVENT_IMPORT_URL: z.string().url(),
+  EVENT_INGEST_TOKEN: z.string().min(20),
   MAX_SOURCES: z.coerce.number().int().positive().default(25),
   REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
-  USER_AGENT: z.string().default('FoodXMobileEventCrawler/0.1 (+https://foodxmobile.com)'),
+  USER_AGENT: z.string().default('FoodXMobileEventCrawler/0.2 (+https://foodxmobile.com)'),
 });
 
 const env = envSchema.parse(process.env);
-const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
 
 type EventSourceRow = {
   id: string;
@@ -244,40 +240,51 @@ function extractJsonLdEvents(html: string, source: EventSourceRow): NormalizedEv
   return events;
 }
 
+async function callIntake<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
+  const response = await fetch(env.LOVABLE_EVENT_IMPORT_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-ingest-token': env.EVENT_INGEST_TOKEN,
+    },
+    body: JSON.stringify({ action, ...payload }),
+  });
+
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = typeof body?.error === 'string' ? body.error : `HTTP ${response.status}`;
+    throw new Error(`Intake ${action} failed: ${message}`);
+  }
+
+  return body as T;
+}
+
 async function updateSourceStatus(sourceId: string, crawlStatus: string, lastError: string | null = null) {
-  const patch: Record<string, unknown> = {
-    crawl_status: crawlStatus,
-    last_crawled_at: new Date().toISOString(),
-    last_error: lastError,
-  };
-  if (crawlStatus === 'success' || crawlStatus === 'no_events') patch.last_success_at = new Date().toISOString();
-
-  const { error } = await supabase
-    .from('event_sources')
-    .update(patch)
-    .eq('id', sourceId);
-
-  if (error) console.error(`Failed to update source ${sourceId}:`, error.message);
+  try {
+    await callIntake('update_source_status', {
+      source_id: sourceId,
+      crawl_status: crawlStatus,
+      last_error: lastError,
+    });
+  } catch (error) {
+    console.error(`Failed to update source ${sourceId}:`, error);
+  }
 }
 
 async function run() {
-  const { data: sources, error } = await supabase
-    .from('event_sources')
-    .select('id, source_name, source_url, source_type, city, region, category')
-    .eq('active', true)
-    .in('source_type', ['webpage', 'json_ld'])
-    .limit(env.MAX_SOURCES);
+  const sourceResponse = await callIntake<{ sources: EventSourceRow[] }>('list_sources', {
+    max_sources: env.MAX_SOURCES,
+  });
 
-  if (error) throw new Error(`Failed to load event sources: ${error.message}`);
+  const sources = sourceResponse.sources ?? [];
+  let totalProcessed = 0;
+  console.log(`Loaded ${sources.length} active event source(s).`);
 
-  let totalInserted = 0;
-  console.log(`Loaded ${sources?.length ?? 0} active event source(s).`);
-
-  for (const source of (sources ?? []) as EventSourceRow[]) {
+  for (const source of sources) {
     console.log(`Crawling ${source.source_name}: ${source.source_url}`);
 
     try {
-      await supabase.from('event_sources').update({ crawl_status: 'running', last_error: null }).eq('id', source.id);
+      await updateSourceStatus(source.id, 'running');
       const html = await fetchWithTimeout(source.source_url);
       const events = extractJsonLdEvents(html, source);
 
@@ -287,13 +294,8 @@ async function run() {
         continue;
       }
 
-      const { error: insertError } = await supabase
-        .from('event_import_queue')
-        .upsert(events, { onConflict: 'source_id,event_fingerprint', ignoreDuplicates: true });
-
-      if (insertError) throw insertError;
-
-      totalInserted += events.length;
+      await callIntake('upsert_events', { events });
+      totalProcessed += events.length;
       await updateSourceStatus(source.id, 'success');
       console.log(`Queued ${events.length} event candidate(s) from ${source.source_name}.`);
     } catch (error) {
@@ -303,7 +305,7 @@ async function run() {
     }
   }
 
-  console.log(`Crawler finished. Candidate events processed: ${totalInserted}.`);
+  console.log(`Crawler finished. Candidate events processed: ${totalProcessed}.`);
 }
 
 run().catch((error) => {
