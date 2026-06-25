@@ -2,16 +2,20 @@
 
 ## Goal
 
-Use expiring GCP credits to create a temporary crawler/testing layer for local event discovery while keeping FoodXMobile's source of truth in Supabase.
+Use expiring GCP credits to create a temporary crawler/testing layer for local event discovery while keeping FoodXMobile's source of truth inside Lovable/Supabase.
+
+GCP should not receive the Supabase service role key. GCP calls a Lovable Edge Function, and the Edge Function performs privileged database operations inside Lovable Cloud.
 
 Architecture:
 
 ```text
 Cloud Scheduler
   -> Cloud Run Job
-    -> event_sources
+    -> Lovable Edge Function: gcp-event-import
+      -> event_sources
     -> source websites with JSON-LD Event metadata
-    -> event_import_queue
+    -> Lovable Edge Function: gcp-event-import
+      -> event_import_queue
     -> admin review
     -> public events later
 ```
@@ -21,6 +25,7 @@ Cloud Scheduler
 - `event_sources` table for admin-managed event URLs.
 - `event_import_queue` table for imported event candidates.
 - `review_event_import()` RPC for admin review status updates.
+- `gcp-event-import` Edge Function for secure GCP-to-Lovable intake.
 - A separate Cloud Run compatible worker in `tools/gcp-event-crawler`.
 - A deployment README for the GCP side.
 
@@ -39,12 +44,14 @@ Those should be separate PRs after the foundation is verified.
 ### Day 1: Merge foundation
 
 - Review and merge this PR.
-- Confirm Supabase migration applies cleanly.
+- Confirm Supabase/Lovable migration applies cleanly.
 - Confirm `event_sources` and `event_import_queue` exist.
+- Deploy or confirm the `gcp-event-import` Edge Function is available.
+- Add `GCP_EVENT_INGEST_TOKEN` to Lovable secrets.
 
 ### Day 2: Add first event sources
 
-Add 10 to 20 sources manually in Supabase or through the next admin UI update.
+Add 10 to 20 sources manually in Supabase/Lovable or through the next admin UI update.
 
 Recommended fields:
 
@@ -62,7 +69,9 @@ Recommended fields:
 ### Day 3: Deploy worker to GCP
 
 - Enable required APIs.
-- Store Supabase secrets in Secret Manager.
+- Store GCP worker secrets in Secret Manager:
+  - `LOVABLE_EVENT_IMPORT_URL`
+  - `EVENT_INGEST_TOKEN`
 - Deploy the worker as a Cloud Run Job.
 - Run it manually with `MAX_SOURCES=10`.
 
