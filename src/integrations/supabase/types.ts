@@ -712,6 +712,182 @@ export type Database = {
         }
         Relationships: []
       }
+      event_import_queue: {
+        Row: {
+          address: string | null
+          admin_notes: string | null
+          category: string | null
+          city: string | null
+          confidence_score: number
+          created_at: string
+          description: string | null
+          duplicate_status: string
+          end_at: string | null
+          end_date: string | null
+          end_time: string | null
+          event_fingerprint: string
+          external_id: string | null
+          id: string
+          image_url: string | null
+          organizer: string | null
+          published_at: string | null
+          raw_payload: Json
+          region: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source_event_url: string | null
+          source_id: string | null
+          source_name: string
+          source_url: string
+          start_at: string | null
+          start_date: string | null
+          start_time: string | null
+          ticket_url: string | null
+          title: string
+          updated_at: string
+          venue: string | null
+        }
+        Insert: {
+          address?: string | null
+          admin_notes?: string | null
+          category?: string | null
+          city?: string | null
+          confidence_score?: number
+          created_at?: string
+          description?: string | null
+          duplicate_status?: string
+          end_at?: string | null
+          end_date?: string | null
+          end_time?: string | null
+          event_fingerprint: string
+          external_id?: string | null
+          id?: string
+          image_url?: string | null
+          organizer?: string | null
+          published_at?: string | null
+          raw_payload?: Json
+          region?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_event_url?: string | null
+          source_id?: string | null
+          source_name: string
+          source_url: string
+          start_at?: string | null
+          start_date?: string | null
+          start_time?: string | null
+          ticket_url?: string | null
+          title: string
+          updated_at?: string
+          venue?: string | null
+        }
+        Update: {
+          address?: string | null
+          admin_notes?: string | null
+          category?: string | null
+          city?: string | null
+          confidence_score?: number
+          created_at?: string
+          description?: string | null
+          duplicate_status?: string
+          end_at?: string | null
+          end_date?: string | null
+          end_time?: string | null
+          event_fingerprint?: string
+          external_id?: string | null
+          id?: string
+          image_url?: string | null
+          organizer?: string | null
+          published_at?: string | null
+          raw_payload?: Json
+          region?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_event_url?: string | null
+          source_id?: string | null
+          source_name?: string
+          source_url?: string
+          start_at?: string | null
+          start_date?: string | null
+          start_time?: string | null
+          ticket_url?: string | null
+          title?: string
+          updated_at?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_import_queue_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "event_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_sources: {
+        Row: {
+          active: boolean
+          category: string | null
+          city: string | null
+          crawl_frequency: string
+          crawl_status: string
+          created_at: string
+          created_by: string | null
+          id: string
+          last_crawled_at: string | null
+          last_error: string | null
+          last_success_at: string | null
+          notes: string | null
+          region: string | null
+          source_name: string
+          source_type: string
+          source_url: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category?: string | null
+          city?: string | null
+          crawl_frequency?: string
+          crawl_status?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_crawled_at?: string | null
+          last_error?: string | null
+          last_success_at?: string | null
+          notes?: string | null
+          region?: string | null
+          source_name: string
+          source_type?: string
+          source_url: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category?: string | null
+          city?: string | null
+          crawl_frequency?: string
+          crawl_status?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_crawled_at?: string | null
+          last_error?: string | null
+          last_success_at?: string | null
+          notes?: string | null
+          region?: string | null
+          source_name?: string
+          source_type?: string
+          source_url?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       lead_messages: {
         Row: {
           body: string

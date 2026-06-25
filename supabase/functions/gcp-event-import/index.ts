@@ -35,6 +35,16 @@ function extractToken(req: Request): string | null {
   return null;
 }
 
+const VALID_CRAWL_STATUSES = new Set([
+  "never_run","queued","running","success","no_events","failed","paused",
+]);
+const VALID_REVIEW_STATUSES = new Set([
+  "pending_review","needs_edit","approved","published","rejected",
+]);
+const VALID_DUPLICATE_STATUSES = new Set([
+  "new","possible_duplicate","exact_duplicate","ignored",
+]);
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -72,34 +82,36 @@ Deno.serve(async (req) => {
   try {
     switch (action) {
       case "list_sources": {
-        // Optional filters: { status?: string, limit?: number }
-        const status = typeof body.status === "string" ? body.status : null;
-        const limit = Math.min(Number(body.limit) || 200, 1000);
-        let q = admin
+        const maxSources = Math.min(Math.max(Number(body.max_sources) || 100, 1), 1000);
+        const { data, error } = await admin
           .from("event_sources")
           .select("*")
-          .order("updated_at", { ascending: false })
-          .limit(limit);
-        if (status) q = q.eq("status", status);
-        const { data, error } = await q;
+          .eq("active", true)
+          .order("last_crawled_at", { ascending: true, nullsFirst: true })
+          .limit(maxSources);
         if (error) return json({ error: error.message }, 500);
         return json({ ok: true, sources: data ?? [] });
       }
 
       case "update_source_status": {
-        // { source_id: uuid|string, status: string, last_run_at?: ISO, last_error?: string|null, stats?: jsonb }
         const sourceId = body.source_id;
-        const status = body.status;
-        if (!sourceId || typeof status !== "string") {
-          return json({ error: "source_id and status required" }, 400);
+        const crawlStatus = body.crawl_status;
+        if (!sourceId || typeof crawlStatus !== "string") {
+          return json({ error: "source_id and crawl_status required" }, 400);
         }
+        if (!VALID_CRAWL_STATUSES.has(crawlStatus)) {
+          return json({ error: `invalid crawl_status: ${crawlStatus}` }, 400);
+        }
+        const now = new Date().toISOString();
         const patch: Record<string, unknown> = {
-          status,
-          updated_at: new Date().toISOString(),
+          crawl_status: crawlStatus,
+          last_crawled_at: now,
+          updated_at: now,
         };
-        if (body.last_run_at) patch.last_run_at = body.last_run_at;
         if ("last_error" in body) patch.last_error = body.last_error ?? null;
-        if (body.stats !== undefined) patch.stats = body.stats;
+        if (crawlStatus === "success" || crawlStatus === "no_events") {
+          patch.last_success_at = now;
+        }
         const { data, error } = await admin
           .from("event_sources")
           .update(patch)
@@ -112,7 +124,6 @@ Deno.serve(async (req) => {
       }
 
       case "upsert_events": {
-        // { source_id?: string, events: Array<{ external_id, title, ... }> }
         const events = Array.isArray(body.events) ? body.events : null;
         if (!events || events.length === 0) {
           return json({ error: "events array required" }, 400);
@@ -120,18 +131,67 @@ Deno.serve(async (req) => {
         if (events.length > 1000) {
           return json({ error: "max 1000 events per request" }, 413);
         }
-        const sourceId = body.source_id ?? null;
         const now = new Date().toISOString();
-        const rows = events.map((e: Record<string, unknown>) => ({
-          ...e,
-          source_id: e.source_id ?? sourceId,
-          updated_at: now,
-        }));
-        // Requires a unique index on (source_id, external_id) for proper dedupe.
+        const rows: Record<string, unknown>[] = [];
+        for (let i = 0; i < events.length; i++) {
+          const e = events[i] as Record<string, unknown>;
+          if (!e || typeof e !== "object") {
+            return json({ error: `events[${i}] not an object` }, 400);
+          }
+          if (typeof e.title !== "string" || !e.title.trim()) {
+            return json({ error: `events[${i}].title required` }, 400);
+          }
+          if (typeof e.event_fingerprint !== "string" || !e.event_fingerprint.trim()) {
+            return json({ error: `events[${i}].event_fingerprint required` }, 400);
+          }
+          if (typeof e.source_name !== "string" || typeof e.source_url !== "string") {
+            return json({ error: `events[${i}].source_name and source_url required` }, 400);
+          }
+          const reviewStatus = (e.review_status as string) ?? "pending_review";
+          if (!VALID_REVIEW_STATUSES.has(reviewStatus)) {
+            return json({ error: `events[${i}].review_status invalid` }, 400);
+          }
+          const duplicateStatus = (e.duplicate_status as string) ?? "new";
+          if (!VALID_DUPLICATE_STATUSES.has(duplicateStatus)) {
+            return json({ error: `events[${i}].duplicate_status invalid` }, 400);
+          }
+          rows.push({
+            source_id: e.source_id ?? null,
+            source_name: e.source_name,
+            source_url: e.source_url,
+            source_event_url: e.source_event_url ?? null,
+            external_id: e.external_id ?? null,
+            title: e.title,
+            start_date: e.start_date ?? null,
+            start_time: e.start_time ?? null,
+            end_date: e.end_date ?? null,
+            end_time: e.end_time ?? null,
+            start_at: e.start_at ?? null,
+            end_at: e.end_at ?? null,
+            venue: e.venue ?? null,
+            address: e.address ?? null,
+            city: e.city ?? "Green Bay",
+            region: e.region ?? "Brown County",
+            description: e.description ?? null,
+            image_url: e.image_url ?? null,
+            ticket_url: e.ticket_url ?? null,
+            organizer: e.organizer ?? null,
+            category: e.category ?? null,
+            confidence_score: typeof e.confidence_score === "number" ? e.confidence_score : 0,
+            duplicate_status: duplicateStatus,
+            review_status: reviewStatus,
+            event_fingerprint: e.event_fingerprint,
+            raw_payload: e.raw_payload ?? {},
+            updated_at: now,
+          });
+        }
+        // Dedup against (source_id, event_fingerprint). Rows already reviewed
+        // (approved/published/rejected/needs_edit) won't be overwritten — we
+        // only refresh queued items still in pending_review.
         const { data, error } = await admin
-          .from("events")
-          .upsert(rows, { onConflict: "source_id,external_id" })
-          .select("id");
+          .from("event_import_queue")
+          .upsert(rows, { onConflict: "source_id,event_fingerprint", ignoreDuplicates: false })
+          .select("id, review_status");
         if (error) return json({ error: error.message }, 500);
         return json({ ok: true, upserted: data?.length ?? 0 });
       }
