@@ -197,6 +197,130 @@ function normalizeEvent(node: Record<string, unknown>, source: EventSourceRow): 
   };
 }
 
+function sourceHost(source: EventSourceRow): string {
+  try {
+    return new URL(source.source_url).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function absoluteUrl(href: string | null | undefined, baseUrl: string): string | null {
+  if (!href) return null;
+  try {
+    return new URL(href, baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+function parseMonthDayFromTitle(title: string): string | null {
+  const match = title.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})\b/i);
+  if (!match) return null;
+
+  const monthMap: Record<string, string> = {
+    january: '01',
+    february: '02',
+    march: '03',
+    april: '04',
+    may: '05',
+    june: '06',
+    july: '07',
+    august: '08',
+    september: '09',
+    october: '10',
+    november: '11',
+    december: '12',
+  };
+
+  const month = monthMap[match[1].toLowerCase()];
+  const day = match[2].padStart(2, '0');
+  const year = String(new Date().getFullYear());
+  return month ? `${year}-${month}-${day}` : null;
+}
+
+function parseTimeRange(text: string): { start_time: string | null; end_time: string | null } {
+  const match = text.match(/(\d{1,2}:\d{2})\s*(am|pm)\s*-\s*(\d{1,2}:\d{2})\s*(am|pm)/i);
+  if (!match) return { start_time: null, end_time: null };
+
+  return {
+    start_time: toTwentyFourHour(match[1], match[2]),
+    end_time: toTwentyFourHour(match[3], match[4]),
+  };
+}
+
+function toTwentyFourHour(time: string, meridiem: string): string {
+  const [hourPart, minute] = time.split(':');
+  let hour = Number(hourPart);
+  const lower = meridiem.toLowerCase();
+  if (lower === 'pm' && hour !== 12) hour += 12;
+  if (lower === 'am' && hour === 12) hour = 0;
+  return `${String(hour).padStart(2, '0')}:${minute}`;
+}
+
+function parseGreenBayFoodTruckEvents($: cheerio.CheerioAPI, source: EventSourceRow): NormalizedEvent[] {
+  const seen = new Set<string>();
+  const events: NormalizedEvent[] = [];
+
+  $('h1 a, h2 a, h3 a, h4 a, h5 a').each((_, element) => {
+    const title = cleanText($(element).text());
+    if (!title || title.toLowerCase() === 'view event') return;
+
+    const eventUrl = absoluteUrl($(element).attr('href'), source.source_url);
+    const fingerprintKey = `${title}|${eventUrl ?? ''}`.toLowerCase();
+    if (seen.has(fingerprintKey)) return;
+    seen.add(fingerprintKey);
+
+    const nearbyText = cleanText($(element).closest('h1,h2,h3,h4,h5').nextUntil('h1,h2,h3,h4,h5').text()) ?? '';
+    const { start_time, end_time } = parseTimeRange(nearbyText);
+    const start_date = parseMonthDayFromTitle(title);
+    const eventFingerprint = fingerprint([source.id, title, start_date, eventUrl]);
+    const start_at = start_date && start_time ? `${start_date}T${start_time}:00` : null;
+    const end_at = start_date && end_time ? `${start_date}T${end_time}:00` : null;
+
+    let confidence = 45;
+    if (eventUrl) confidence += 15;
+    if (start_date) confidence += 10;
+    if (start_time && start_time !== '00:00') confidence += 10;
+
+    events.push({
+      source_id: source.id,
+      source_name: source.source_name,
+      source_url: source.source_url,
+      source_event_url: eventUrl,
+      external_id: eventUrl ?? eventFingerprint,
+      title,
+      start_at,
+      end_at,
+      start_date,
+      start_time,
+      end_date: start_date,
+      end_time,
+      venue: null,
+      address: null,
+      city: source.city,
+      region: source.region,
+      description: null,
+      image_url: null,
+      ticket_url: eventUrl,
+      organizer: 'Green Bay Food Truck Coalition',
+      category: source.category ?? 'Food Trucks',
+      confidence_score: Math.min(confidence, 100),
+      duplicate_status: 'new',
+      review_status: 'pending_review',
+      event_fingerprint: eventFingerprint,
+      raw_payload: {
+        parser: 'greenbayfoodtrucks_html_fallback',
+        title,
+        nearby_text: nearbyText,
+        parsed_from: source.source_url,
+      },
+    });
+  });
+
+  return events;
+}
+
 async function fetchWithTimeout(url: string): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), env.REQUEST_TIMEOUT_MS);
@@ -236,6 +360,16 @@ function extractJsonLdEvents(html: string, source: EventSourceRow): NormalizedEv
       console.warn(`[${source.source_name}] skipped invalid JSON-LD block`, error);
     }
   });
+
+  if (events.length) return events;
+
+  if (sourceHost(source).includes('greenbayfoodtrucks.com')) {
+    const fallbackEvents = parseGreenBayFoodTruckEvents($, source);
+    if (fallbackEvents.length) {
+      console.log(`Used Green Bay Food Truck Coalition HTML fallback parser for ${source.source_name}.`);
+      return fallbackEvents;
+    }
+  }
 
   return events;
 }
@@ -290,7 +424,7 @@ async function run() {
 
       if (!events.length) {
         await updateSourceStatus(source.id, 'no_events');
-        console.log(`No JSON-LD events found for ${source.source_name}.`);
+        console.log(`No JSON-LD or supported HTML events found for ${source.source_name}.`);
         continue;
       }
 
