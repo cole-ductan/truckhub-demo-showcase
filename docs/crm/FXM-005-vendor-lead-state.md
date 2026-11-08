@@ -21,9 +21,9 @@ Owner Leads and Messages read `LeadDirectory`, not `leads.business_id OR assigne
 | Admin | Shared row and direct CRM | All of the above, labeled per vendor | Same | Same, including the closed thread | Shared row, no invented state |
 | Anonymous | No | No | No | No | No |
 
-Request summary: event or request type, date and time window, guest count, city or public venue, cuisine, budget range, service style, frequency, and `estimated_value` as shared customer budget. It is not a vendor quote and vendors cannot write it.
+Request summary: event or request type, date and time window, guest count, cuisine, budget range, service style, frequency, and `estimated_value` as shared customer budget. It is not a vendor quote and vendors cannot write it. A city or public venue is included only when it was stored separately from the street. Live `event_location` is never parsed into that field.
 
-Customer fields, only after that vendor's `accept`: name, email, phone, message, street, postal code.
+Customer fields, only after that vendor's `accept`: name, email, phone, message, `event_location` as the precise address, and `event_zip` as the postal code.
 
 `assigned_vendor_ids` is not a read permission. Legacy slots stay invisible until an admin runs `mapLegacyAssignmentSlots`, which inserts `offered` rows with stage `new` and null notes, quote, and thread. Existing rows are not changed, so an accepted vendor is not rewritten and a slot is never silently marked accepted.
 
@@ -37,11 +37,13 @@ Owners cannot patch `assignmentStatus`. Commands are `accept`, `decline` (offere
 
 Historical rows with `business_id` stay the source for stage, internal notes, and estimated value. A vendor-state row is not created for them and cannot replace their stage. Direct owners can still edit those three fields. Marketplace quotes live only on `VendorLeadState.quote`.
 
-## Column the Director should confirm before migration
+## Location columns (Director confirmation, 2026-11-08 about 2:20 PM CST)
 
-Live `leads.event_location` is one free-text field. The offered allowlist needs a city or public venue, and the accepted view needs the street the customer typed. The proposal adds nullable `event_city` and `event_street`. Until those exist, offered projections do **not** treat `event_location` as a public location, because it may be a street address. `event_zip` stays private until accept.
+Read-only catalog: `public.leads` has nullable text columns `event_location` and `event_zip`. It does not have `event_city` or `event_street`. `event_location` is one free-text field and may contain a private street.
 
-No other contract change is requested. `VendorLeadState` and the status unions are the Director's. The assignment-event list is the audit required to revoke a row instead of overwriting it.
+Offered summaries do not use `event_location` as a city or public venue, and the app does not split that text to invent one. Until nullable `event_city` (or a public-venue column) and `event_street` exist and are populated separately, offered `publicLocation` stays null. `event_zip` stays hidden until that vendor accepts. After accept, that vendor may see `event_location` as the precise-address stand-in and `event_zip` as the postal code. Direct leads follow the same address mapping because the owner already sees customer fields.
+
+Adding `event_city` and `event_street` stays proposal-only. It is not an authorized migration. `VendorLeadState` and the status unions are unchanged. The assignment-event list is the audit required to revoke a row instead of overwriting it. The proposal file is fully commented, so executing it is a no-op.
 
 ## Rollback, once a future migration exists
 
