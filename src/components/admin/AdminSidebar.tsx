@@ -15,7 +15,7 @@ const links = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/admin/businesses", label: "Businesses", icon: Store },
   { to: "/admin/import-businesses", label: "Import Listings", icon: Upload },
-  { to: "/admin/listing-review", label: "Review Queue", icon: ClipboardCheck },
+  { to: "/admin/listing-review", label: "Listing review", icon: ClipboardCheck },
   { to: "/admin/claim-requests", label: "Claim Requests", icon: KeyRound },
   { to: "/admin/outreach", label: "Outreach CRM", icon: Megaphone },
   { to: "/admin/leads", label: "Leads", icon: Inbox },

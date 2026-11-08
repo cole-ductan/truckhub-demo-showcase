@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useOwnerBusiness } from "@/hooks/useOwnerBusiness";
 import { Onboarding } from "@/components/owner/Onboarding";
+import { QueryStateNotice } from "@/components/qa/QueryStateNotice";
+import { describeBookingsSurface } from "@/lib/qa/bookingsView";
 import { Button } from "@/components/ui/button";
 import { Calendar, CheckCircle2, Clock, Download, FileText, MapPin, Users } from "lucide-react";
 
@@ -29,6 +31,7 @@ function fmtDate(iso: string | null) {
 export default function OwnerBookings() {
   const { business, loading } = useOwnerBusiness();
   const [rows, setRows] = useState<Lead[]>([]);
+  const [leadError, setLeadError] = useState<string | null>(null);
   const [tab, setTab] = useState<"all" | "booked" | "pending" | "quote_sent" | "completed">("all");
   const [depositsByLead, setDepositsByLead] = useState<Record<string, { status: string; deposit_amount: number }>>({});
   const [depositsEnabled, setDepositsEnabled] = useState(false);
@@ -40,7 +43,15 @@ export default function OwnerBookings() {
       .eq("business_id", business.id)
       .in("stage", OPS_STAGES as unknown as ("booked" | "pending" | "quote_sent" | "completed")[])
       .order("event_date", { ascending: true, nullsFirst: false })
-      .then(({ data }) => setRows((data ?? []) as Lead[]));
+      .then(({ data, error }) => {
+        if (error) {
+          setLeadError(error.message);
+          setRows([]);
+          return;
+        }
+        setLeadError(null);
+        setRows((data ?? []) as Lead[]);
+      });
     supabase.from("owner_preferences").select("stripe_deposits_enabled").eq("business_id", business.id).maybeSingle()
       .then(({ data }) => setDepositsEnabled(!!(data as any)?.stripe_deposits_enabled));
     supabase.from("deposit_requests").select("lead_id,status,deposit_amount,created_at").eq("business_id", business.id)
@@ -88,7 +99,7 @@ export default function OwnerBookings() {
         <div>
           <span className="badge-ember">Operations</span>
           <h1 className="mt-3 font-display text-3xl font-bold">Bookings</h1>
-          <p className="mt-1 text-sm text-muted-foreground">All confirmed events and active quotes.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Lead-stage bookings for this business. This view does not read the bookings table.</p>
         </div>
         <Button variant="outline" className="rounded-full" onClick={exportCsv} disabled={!filtered.length}>
           <Download className="mr-1.5 h-3.5 w-3.5" /> Export CSV
@@ -112,9 +123,18 @@ export default function OwnerBookings() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {leadError ? (
+        <QueryStateNotice kind="error" title="Lead-stage bookings" message={leadError} />
+      ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
-          No bookings here yet. Move leads to Booked, Pending, or Quote Sent in your <Link to="/owner/leads" className="font-semibold text-primary hover:underline">pipeline</Link>.
+          {rows.length === 0 ? (
+            <>
+              <p className="font-semibold text-foreground">{describeBookingsSurface({ bookingsTableCount: "not-loaded", leadDerivedCount: 0 }).headline}</p>
+              <p className="mt-2">{describeBookingsSurface({ bookingsTableCount: "not-loaded", leadDerivedCount: 0 }).detail} Move a lead to Booked, Pending, or Quote Sent in the <Link to="/owner/leads" className="font-semibold text-primary hover:underline">pipeline</Link>.</p>
+            </>
+          ) : (
+            <p>No lead-stage bookings in this tab.</p>
+          )}
         </div>
       ) : (
         <ul className="space-y-2.5">

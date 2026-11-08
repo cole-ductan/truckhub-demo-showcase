@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { LISTING_STATUS_LABEL, LISTING_STATUS_VARIANT, normalize, type ListingStatus } from "@/lib/listingStatus";
+import { QueryStateNotice } from "@/components/qa/QueryStateNotice";
+import { classifyQuery, firstQueryError } from "@/lib/qa/queryResult";
+import { isBusinessListingReviewEligible } from "@/lib/qa/inventoryScopes";
 import { AlertTriangle, Edit, Eye, Archive, FileText, Send } from "lucide-react";
 
 type Row = {
@@ -29,9 +32,10 @@ export default function AdminListingReview() {
   const [rows, setRows] = useState<Row[]>([]);
   const [allListings, setAllListings] = useState<DupeRow[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
-    const [{ data: queue }, { data: all }, { data: outreachRows }] = await Promise.all([
+    const [queueResult, allResult, outreachResult] = await Promise.all([
       (supabase as any)
         .from("businesses")
         .select("id,name,slug,city,cuisine,phone,email,website,hero_image_url,logo_url,current_address,today_latitude,today_longitude,is_published,listing_status,updated_at")
@@ -40,19 +44,35 @@ export default function AdminListingReview() {
       supabase.from("businesses").select("name,slug,email,phone,website"),
       (supabase as any).from("business_outreach").select("business_id,outreach_status"),
     ]);
+    const queueClass = classifyQuery(queueResult);
+    const allClass = classifyQuery(allResult);
+    const outreachClass = classifyQuery(outreachResult);
+    const error = firstQueryError([queueClass, allClass, outreachClass]);
+    if (error) {
+      setLoadError(error);
+      setRows([]);
+      setAllListings([]);
+      return;
+    }
     // Joined outreach-status filter: hide listings already handed off to the CRM.
-    // We keep the active Review Queue limited to inventory whose outreach is
-    // still "not_contacted" or "researching" (or has no outreach row at all).
-    // Anything at "ready_to_contact" or later belongs to /admin/outreach.
-    const REVIEW_ELIGIBLE_OUTREACH = new Set(["not_contacted", "researching"]);
+    // Draft and unclaimed listings stay in business listing review while outreach
+    // is missing, "not_contacted", or "researching". ready_to_contact and later
+    // belong to /admin/outreach. This queue is not event_import_queue.
     const outreachByBiz = new Map<string, string>();
-    (outreachRows ?? []).forEach((o: any) => outreachByBiz.set(o.business_id, o.outreach_status));
-    const filteredQueue = (queue ?? []).filter((b: any) => {
-      const status = outreachByBiz.get(b.id);
-      return !status || REVIEW_ELIGIBLE_OUTREACH.has(status);
+    const outreachRows = (outreachClass.kind === "rows" ? outreachClass.rows : []) as { business_id: string; outreach_status: string | null }[];
+    outreachRows.forEach((o) => {
+      if (o.outreach_status) outreachByBiz.set(o.business_id, o.outreach_status);
     });
+    const queueRows = (queueClass.kind === "rows" ? queueClass.rows : []) as Row[];
+    const filteredQueue = queueRows.filter((b) =>
+      isBusinessListingReviewEligible({
+        listingStatus: b.listing_status,
+        outreachStatus: outreachByBiz.get(b.id) ?? null,
+      }),
+    );
+    setLoadError(null);
     setRows(filteredQueue as Row[]);
-    setAllListings((all ?? []) as DupeRow[]);
+    setAllListings((allClass.kind === "rows" ? allClass.rows : []) as DupeRow[]);
   };
   useEffect(() => { load(); }, []);
 
@@ -90,11 +110,13 @@ export default function AdminListingReview() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-bold">Review Queue</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{rows.length} listings need review (draft + unclaimed)</p>
+        <h1 className="font-display text-3xl font-bold">Business listing review</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {loadError ? "Counts unavailable" : `${rows.length} draft or unclaimed listings still in business listing review. This is not the event import queue.`}
+        </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      {loadError ? <QueryStateNotice kind="error" title="Business listing review" message={loadError} /> : <div className="grid gap-4 md:grid-cols-2">
         {rows.map((r) => {
           const c = completeness(r);
           const dupe = isDupe(r);
@@ -129,9 +151,9 @@ export default function AdminListingReview() {
           );
         })}
         {rows.length === 0 && (
-          <Card className="md:col-span-2"><CardContent className="p-10 text-center text-sm text-muted-foreground">Nothing waiting for review.</CardContent></Card>
+          <Card className="md:col-span-2"><CardContent className="p-10 text-center text-sm text-muted-foreground">No business listings waiting for review.</CardContent></Card>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

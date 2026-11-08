@@ -1,0 +1,103 @@
+-- FXM-004 proposal only. Do not execute.
+-- GitHub #17. Related CRM lifecycle request: GitHub #11.
+-- Depends on the staging plan for GitHub #15. Production writes still need a named G3 approval.
+--
+-- This file is documentation. It is not a Supabase migration.
+-- Do not copy it into supabase/migrations, and do not run it against
+-- https://foodxmobile.com or host akhmgnjmhvvmprvnwusp.
+-- Do not target https://truckhub.lovable.app.
+--
+-- Why this is the smallest fix:
+-- AdminOutreach selects business_outreach.crm_state and calls
+-- set_business_outreach_crm_state. Phase 0 (2026-11-08) found both absent live.
+-- Generated Database types also omit them.
+-- supabase/migrations/20260607020000_workflow_polish_pass_3_backend.sql already
+-- contains this column and RPC, but it also rewrites claim_requests, archive
+-- behavior, and assign_business_owner. Do not replay that file.
+-- review_event_import is also absent live and is intentionally not restored here
+-- (FXM-011 / GitHub #24).
+--
+-- The CRM change must not delete or rewrite the business listing.
+-- Rollback is the commented rollback section at the bottom.
+
+-- Forward proposal, for a later approved migration only.
+--
+-- ALTER TABLE public.business_outreach
+--   ADD COLUMN IF NOT EXISTS crm_state text NOT NULL DEFAULT 'active';
+--
+-- ALTER TABLE public.business_outreach
+--   DROP CONSTRAINT IF EXISTS business_outreach_crm_state_check;
+--
+-- ALTER TABLE public.business_outreach
+--   ADD CONSTRAINT business_outreach_crm_state_check
+--   CHECK (crm_state IN ('active', 'completed', 'archived', 'deleted'));
+--
+-- ALTER TABLE public.business_outreach
+--   ADD COLUMN IF NOT EXISTS completed_at timestamptz,
+--   ADD COLUMN IF NOT EXISTS archived_at timestamptz,
+--   ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+--
+-- CREATE INDEX IF NOT EXISTS business_outreach_crm_state_idx
+--   ON public.business_outreach (crm_state);
+--
+-- CREATE OR REPLACE FUNCTION public.set_business_outreach_crm_state(
+--   _business_id uuid,
+--   _crm_state text
+-- ) RETURNS public.business_outreach
+-- LANGUAGE plpgsql
+-- SECURITY DEFINER
+-- SET search_path = public
+-- AS $$
+-- DECLARE
+--   row_out public.business_outreach;
+--   label text;
+-- BEGIN
+--   IF auth.uid() IS NULL OR NOT public.is_admin(auth.uid()) THEN
+--     RAISE EXCEPTION 'admin only';
+--   END IF;
+--   IF _crm_state NOT IN ('active', 'completed', 'archived', 'deleted') THEN
+--     RAISE EXCEPTION 'invalid CRM state';
+--   END IF;
+--
+--   UPDATE public.business_outreach
+--      SET crm_state = _crm_state,
+--          completed_at = CASE WHEN _crm_state = 'completed' THEN now() ELSE NULL END,
+--          archived_at = CASE WHEN _crm_state = 'archived' THEN now() ELSE NULL END,
+--          deleted_at = CASE WHEN _crm_state = 'deleted' THEN now() ELSE NULL END,
+--          updated_at = now()
+--    WHERE business_id = _business_id
+--    RETURNING * INTO row_out;
+--
+--   IF row_out.business_id IS NULL THEN
+--     RAISE EXCEPTION 'CRM record not found';
+--   END IF;
+--
+--   label := CASE _crm_state
+--     WHEN 'active' THEN 'CRM record restored to active queue'
+--     WHEN 'completed' THEN 'CRM record marked complete'
+--     WHEN 'archived' THEN 'CRM record archived'
+--     WHEN 'deleted' THEN 'CRM record removed from live CRM'
+--   END;
+--
+--   INSERT INTO public.business_outreach_activities (business_id, created_by, activity_type, summary)
+--   VALUES (_business_id, auth.uid(), 'status_changed', label);
+--
+--   RETURN row_out;
+-- END;
+-- $$;
+--
+-- REVOKE ALL ON FUNCTION public.set_business_outreach_crm_state(uuid, text) FROM PUBLIC, anon;
+-- GRANT EXECUTE ON FUNCTION public.set_business_outreach_crm_state(uuid, text) TO authenticated;
+
+-- Rollback proposal. Apply only if the forward change was applied, and only
+-- with the same named approval. Dropping the column discards CRM lifecycle
+-- values stored after the forward change. It does not delete business listings.
+--
+-- DROP FUNCTION IF EXISTS public.set_business_outreach_crm_state(uuid, text);
+-- ALTER TABLE public.business_outreach DROP CONSTRAINT IF EXISTS business_outreach_crm_state_check;
+-- DROP INDEX IF EXISTS public.business_outreach_crm_state_idx;
+-- ALTER TABLE public.business_outreach
+--   DROP COLUMN IF EXISTS crm_state,
+--   DROP COLUMN IF EXISTS completed_at,
+--   DROP COLUMN IF EXISTS archived_at,
+--   DROP COLUMN IF EXISTS deleted_at;
