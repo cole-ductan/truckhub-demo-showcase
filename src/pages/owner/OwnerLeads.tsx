@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOwnerBusiness } from "@/hooks/useOwnerBusiness";
@@ -41,6 +41,10 @@ export default function OwnerLeads() {
 
   const workspaceKey = `${board.business?.id ?? ""}:${board.actor.kind === "owner" ? board.actor.userId : ""}`;
   const marketplaceReady = board.directory.marketplaceStatus === "available";
+  const workspaceRef = useRef(workspaceKey);
+  const openIdRef = useRef<string | null>(open?.id ?? null);
+  workspaceRef.current = workspaceKey;
+  openIdRef.current = open?.id ?? null;
   useEffect(() => { setLeads(board.views); }, [board.views]);
   useEffect(() => { setOpen(null); setLeads([]); }, [workspaceKey]);
 
@@ -69,15 +73,18 @@ export default function OwnerLeads() {
       toast({ title: "This inquiry can't be moved yet", description: "Accept a marketplace request before changing its stage." });
       return;
     }
+    const startedWorkspace = workspaceKey;
     const prev = leads;
     setLeads((p) => p.map((l) => l.id === leadId ? { ...l, stage: newStage } : l));
     try {
       const updated = projectionToOwnerLeadView(
         await board.directory.updateOwnerCrm(board.actor, board.business.id, leadId, { stage: newStage }),
       );
-      setLeads((p) => p.map((l) => l.id === leadId ? updated : l));
-      setOpen((currentOpen) => currentOpen?.id === leadId ? updated : currentOpen);
+      if (workspaceRef.current !== startedWorkspace) return;
+      setLeads((p) => p.map((l) => l.id === leadId && l.business_id === updated.business_id ? updated : l));
+      setOpen((currentOpen) => currentOpen?.id === leadId && currentOpen.business_id === updated.business_id ? updated : currentOpen);
     } catch (error) {
+      if (workspaceRef.current !== startedWorkspace) return;
       setLeads(prev);
       toast({ title: "Failed to move", description: error instanceof Error ? error.message : "Failed to move", variant: "destructive" });
     }
@@ -173,9 +180,14 @@ export default function OwnerLeads() {
       )}
 
       <LeadSheet key={`${workspaceKey}:${open?.id ?? "closed"}`} lead={open} onClose={() => setOpen(null)} onChange={(updated) => {
-        setLeads((p) => p.map((x) => x.id === updated.id ? updated : x));
-        setOpen(updated);
-      }} onDelete={(id) => { setLeads((p) => p.filter((x) => x.id !== id)); setOpen(null); }} />
+        if (workspaceRef.current !== workspaceKey) return;
+        setLeads((current) => current.map((row) => row.id === updated.id && row.business_id === updated.business_id ? updated : row));
+        setOpen((current) => current?.id === updated.id && current.business_id === updated.business_id ? updated : current);
+      }} onDelete={(id) => {
+        if (workspaceRef.current !== workspaceKey) return;
+        setLeads((current) => current.filter((row) => row.id !== id));
+        setOpen((current) => current?.id === id ? null : current);
+      }} />
     </div>
   );
 }
@@ -197,6 +209,19 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: OwnerLe
   const businessKey = businesses.map((business) => business.id).join("|");
   const marketplaceReady = directory.marketplaceStatus === "available";
   const leadId = lead?.id ?? null;
+  const aliveRef = useRef(true);
+  const scopeRef = useRef({ userId, businessKey, leadId });
+  scopeRef.current = { userId, businessKey, leadId };
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => { aliveRef.current = false; };
+  }, []);
+
+  function stillCurrent(started: { userId: string | null; businessKey: string; leadId: string }) {
+    if (!aliveRef.current) return false;
+    const current = scopeRef.current;
+    return current.userId === started.userId && current.businessKey === started.businessKey && current.leadId === started.leadId;
+  }
 
   useEffect(() => {
     setDraft(lead);
@@ -233,14 +258,17 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: OwnerLe
     if (!draft?.can_edit_crm) return;
     const who = actor();
     if (!who) return;
+    const started = { userId, businessKey, leadId: draft.id };
     const patch = draft.kind === "marketplace"
       ? { stage: draft.stage, notes: draft.internal_notes, quote: draft.quote }
       : { stage: draft.stage, notes: draft.internal_notes, estimatedValue: draft.estimated_value };
     try {
       const updated = projectionToOwnerLeadView(await directory.updateOwnerCrm(who, draft.business_id, draft.id, patch));
+      if (!stillCurrent(started)) return;
       onChange(updated);
       toast({ title: "Lead updated" });
     } catch (error) {
+      if (!stillCurrent(started)) return;
       toast({ title: "Save failed", description: error instanceof Error ? error.message : "Save failed", variant: "destructive" });
     }
   }
@@ -248,15 +276,18 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: OwnerLe
   async function runAssignment(command: "accept" | "decline") {
     const who = actor();
     if (!who || !draft) return;
+    const started = { userId, businessKey, leadId: draft.id };
     try {
       const updated = projectionToOwnerLeadView(
         command === "accept"
           ? await directory.acceptAssignment(who, draft.business_id, draft.id)
           : await directory.declineAssignment(who, draft.business_id, draft.id),
       );
+      if (!stillCurrent(started)) return;
       onChange(updated);
       toast({ title: command === "accept" ? "Inquiry accepted" : "Inquiry declined" });
     } catch (error) {
+      if (!stillCurrent(started)) return;
       toast({ title: "Could not update the assignment", description: error instanceof Error ? error.message : "Could not update the assignment", variant: "destructive" });
     }
   }
@@ -265,8 +296,10 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: OwnerLe
     if (!reply.trim() || !lead?.thread_open || !user) return;
     const who = actor();
     if (!who) return;
+    const started = { userId, businessKey, leadId: lead.id };
     try {
       const message = await directory.appendOwnerMessage(who, lead.business_id, lead.id, reply.trim());
+      if (!stillCurrent(started)) return;
       setMessages((p) => [...p, { id: message.id, body: message.body, sender_role: message.senderRole, created_at: message.createdAt }]);
       setReply("");
       if (lead.kind === "direct") {
@@ -274,9 +307,11 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: OwnerLe
       }
       if (lead.stage === "new") {
         const updated = projectionToOwnerLeadView(await directory.updateOwnerCrm(who, lead.business_id, lead.id, { stage: "contacted" }));
+        if (!stillCurrent(started)) return;
         onChange(updated);
       }
     } catch (error) {
+      if (!stillCurrent(started)) return;
       toast({ title: "Failed", description: error instanceof Error ? error.message : "Failed", variant: "destructive" });
     }
   }
@@ -286,11 +321,14 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: OwnerLe
     if (!confirm("Delete this lead and all its messages?")) return;
     const who = actor();
     if (!who) return;
+    const started = { userId, businessKey, leadId: lead.id };
     try {
       await directory.deleteDirectLead(who, lead.business_id, lead.id);
+      if (!stillCurrent(started)) return;
       onDelete(lead.id);
       toast({ title: "Deleted" });
     } catch (error) {
+      if (!stillCurrent(started)) return;
       toast({ title: "Failed", description: error instanceof Error ? error.message : "Failed", variant: "destructive" });
     }
   }
@@ -439,7 +477,7 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: OwnerLe
 }
 
 function KanbanBoard({ leads, onOpen, onMove }: { leads: OwnerLeadView[]; onOpen: (l: OwnerLeadView) => void; onMove: (id: string, stage: VendorLeadStage) => void }) {
-  const [dragId, setDragId] = useState<string | null>(null);
+  const dragIdRef = useRef<string | null>(null);
   const cols = STAGES.filter((s) => s.v !== "completed" && s.v !== "lost");
   const extras = STAGES.filter((s) => s.v === "completed" || s.v === "lost");
   const allCols = [...cols, ...extras];
@@ -452,8 +490,9 @@ function KanbanBoard({ leads, onOpen, onMove }: { leads: OwnerLeadView[]; onOpen
         return (
           <div
             key={col.v}
+            data-testid={`stage-column-${col.v}`}
             onDragOver={(e) => e.preventDefault()}
-            onDrop={() => { if (dragId) { onMove(dragId, col.v); setDragId(null); } }}
+            onDrop={() => { const id = dragIdRef.current; if (id) { onMove(id, col.v); dragIdRef.current = null; } }}
             className="flex w-72 shrink-0 flex-col rounded-2xl border border-border bg-muted/30 p-3"
           >
             <div className="mb-2 flex items-center justify-between">
@@ -471,8 +510,8 @@ function KanbanBoard({ leads, onOpen, onMove }: { leads: OwnerLeadView[]; onOpen
                   <div
                     key={l.id}
                     draggable={l.can_edit_crm}
-                    onDragStart={() => setDragId(l.id)}
-                    onDragEnd={() => setDragId(null)}
+                    onDragStart={() => { dragIdRef.current = l.id; }}
+                    onDragEnd={() => { dragIdRef.current = null; }}
                     onClick={() => onOpen(l)}
                     data-testid="owner-lead-card"
                     data-lead-id={l.id}

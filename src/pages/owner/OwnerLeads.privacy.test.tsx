@@ -245,4 +245,124 @@ describe("owner lead privacy UI", () => {
     expect(screen.queryByDisplayValue("B-UPDATED-NOTE")).not.toBeInTheDocument();
     expect(screen.queryByText(SECRET.vendorBNotes)).not.toBeInTheDocument();
   });
+
+  it("ignores owner A's deferred save after the workspace switches to owner B", async () => {
+    const real = createMockLeadDirectory();
+    let finishSave: (() => Promise<void>) | null = null;
+    const directory = {
+      ...real,
+      updateOwnerCrm: (actor: Parameters<MockLeadDirectory["updateOwnerCrm"]>[0], businessId: string, leadId: string, patch: unknown) => new Promise<OwnerLeadProjection>((resolve, reject) => {
+        finishSave = () => real.updateOwnerCrm(actor, businessId, leadId, patch).then(resolve, reject);
+      }),
+    };
+    const leads = renderLeads(directory);
+    fireEvent.click(await screen.findByText("Riley Sample"));
+    fireEvent.change(await screen.findByDisplayValue(SECRET.vendorANotes), { target: { value: "A-LATE-SHARED-NOTE" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(finishSave).not.toBeNull());
+    useOwner("B");
+    leads.rerender(<LeadDirectoryProvider directory={directory}><OwnerLeads /></LeadDirectoryProvider>);
+    expect(await screen.findByText("Quinn Example")).toBeInTheDocument();
+    await finishSave?.();
+    await waitFor(() => expect(screen.queryByText("A-LATE-SHARED-NOTE")).not.toBeInTheDocument());
+    expect(screen.queryByText(SECRET.emailPat)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Riley Sample"));
+    expect(await screen.findByDisplayValue(SECRET.vendorBNotes)).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("A-LATE-SHARED-NOTE")).not.toBeInTheDocument();
+    leads.unmount();
+
+    finishSave = null;
+    useOwner("A");
+    const messages = render(
+      <LeadDirectoryProvider directory={directory}>
+        <OwnerMessages />
+      </LeadDirectoryProvider>,
+    );
+    fireEvent.click(await screen.findByText("Pat Example"));
+    fireEvent.click(await screen.findByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(finishSave).not.toBeNull());
+    useOwner("B");
+    messages.rerender(<LeadDirectoryProvider directory={directory}><OwnerMessages /></LeadDirectoryProvider>);
+    expect(await screen.findByText("Quinn Example")).toBeInTheDocument();
+    await finishSave?.();
+    await waitFor(() => expect(screen.queryByText(SECRET.emailPat)).not.toBeInTheDocument());
+    expect(screen.queryByDisplayValue(SECRET.directANotes)).not.toBeInTheDocument();
+  });
+
+  it("does not restore owner A's cards when a stage move fails after the switch", async () => {
+    const real = createMockLeadDirectory();
+    let rejectStage: ((error: Error) => void) | null = null;
+    const directory = {
+      ...real,
+      updateOwnerCrm: () => new Promise<OwnerLeadProjection>((_resolve, reject) => {
+        rejectStage = reject;
+      }),
+    };
+    const view = renderLeads(directory);
+    const pat = (await screen.findAllByTestId("owner-lead-card")).find((node) => node.getAttribute("data-lead-id") === FX.directA);
+    expect(pat).toBeTruthy();
+    fireEvent.dragStart(pat as Element);
+    fireEvent.drop(screen.getByTestId("stage-column-lost"));
+    await waitFor(() => expect(rejectStage).not.toBeNull());
+    useOwner("B");
+    view.rerender(<LeadDirectoryProvider directory={directory}><OwnerLeads /></LeadDirectoryProvider>);
+    expect(await screen.findByText("Quinn Example")).toBeInTheDocument();
+    rejectStage?.(new Error("stage failed"));
+    await waitFor(() => expect(screen.queryByText("Pat Example")).not.toBeInTheDocument());
+    expect(screen.getByText("Quinn Example")).toBeInTheDocument();
+    expect(screen.queryByText(SECRET.emailPat)).not.toBeInTheDocument();
+  });
+
+  it("does not reopen the previous detail when a save or accept finishes after the lead changes", async () => {
+    const real = createMockLeadDirectory();
+    let finishSave: (() => Promise<void>) | null = null;
+    let finishAccept: (() => Promise<void>) | null = null;
+    const directory = {
+      ...real,
+      updateOwnerCrm: (actor: Parameters<MockLeadDirectory["updateOwnerCrm"]>[0], businessId: string, leadId: string, patch: unknown) => new Promise<OwnerLeadProjection>((resolve, reject) => {
+        finishSave = () => real.updateOwnerCrm(actor, businessId, leadId, patch).then(resolve, reject);
+      }),
+      acceptAssignment: (actor: Parameters<MockLeadDirectory["acceptAssignment"]>[0], businessId: string, leadId: string) => new Promise<OwnerLeadProjection>((resolve, reject) => {
+        finishAccept = () => real.acceptAssignment(actor, businessId, leadId).then(resolve, reject);
+      }),
+    };
+    renderLeads(directory);
+    fireEvent.click(await screen.findByText("Pat Example"));
+    fireEvent.click(await screen.findByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(finishSave).not.toBeNull());
+    fireEvent.click(screen.getByText("Riley Sample"));
+    expect(await screen.findByRole("heading", { name: "Riley Sample" })).toBeInTheDocument();
+    await finishSave?.();
+    await waitFor(() => expect(screen.queryByText(SECRET.emailPat)).not.toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: "Riley Sample" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Graduation"));
+    fireEvent.click(await screen.findByRole("button", { name: "Accept inquiry" }));
+    await waitFor(() => expect(finishAccept).not.toBeNull());
+    fireEvent.click(screen.getByText("Pat Example"));
+    expect(await screen.findByRole("heading", { name: "Pat Example" })).toBeInTheDocument();
+    await finishAccept?.();
+    await waitFor(() => expect(screen.queryByText(SECRET.emailCasey)).not.toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: "Pat Example" })).toBeInTheDocument();
+  });
+
+  it("shows a loading state instead of an empty inbox while threads are still loading", async () => {
+    const real = createMockLeadDirectory();
+    let releaseThreads: (() => void) | null = null;
+    const directory = {
+      ...real,
+      listOwnerThreads: (actor: Parameters<MockLeadDirectory["listOwnerThreads"]>[0], businessId: string) => new Promise<Awaited<ReturnType<MockLeadDirectory["listOwnerThreads"]>>>((resolve, reject) => {
+        releaseThreads = () => { real.listOwnerThreads(actor, businessId).then(resolve, reject); };
+      }),
+    };
+    render(
+      <LeadDirectoryProvider directory={directory}>
+        <OwnerMessages />
+      </LeadDirectoryProvider>,
+    );
+    expect(await screen.findByText("Loading messages…")).toBeInTheDocument();
+    expect(screen.queryByText("No messages yet. Inquiries and replies will appear here.")).not.toBeInTheDocument();
+    releaseThreads?.();
+    expect(await screen.findByText("Pat Example")).toBeInTheDocument();
+  });
 });

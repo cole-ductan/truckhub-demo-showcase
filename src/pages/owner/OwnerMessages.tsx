@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useOwnerLeadBoard } from "@/hooks/useOwnerLeadBoard";
 import { Onboarding } from "@/components/owner/Onboarding";
 import { LeadSheet } from "./OwnerLeads";
@@ -19,18 +19,28 @@ export default function OwnerMessages() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [open, setOpen] = useState<OwnerLeadView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [threadsLoading, setThreadsLoading] = useState(true);
 
   const businessId = board.business?.id ?? null;
   const workspaceKey = `${businessId ?? ""}:${board.actor.kind === "owner" ? board.actor.userId : ""}`;
   const marketplaceReady = board.directory.marketplaceStatus === "available";
+  const workspaceRef = useRef(workspaceKey);
+  const openIdRef = useRef<string | null>(open?.id ?? null);
+  workspaceRef.current = workspaceKey;
+  openIdRef.current = open?.id ?? null;
   useEffect(() => {
     setOpen(null);
     setThreads([]);
     setError(null);
+    setThreadsLoading(true);
   }, [workspaceKey]);
   useEffect(() => {
-    if (board.loading || !businessId || board.actor.kind !== "owner") return;
+    if (board.loading || !businessId || board.actor.kind !== "owner") {
+      if (!board.loading) setThreadsLoading(false);
+      return;
+    }
     let cancelled = false;
+    setThreadsLoading(true);
     setThreads([]);
     board.directory.listOwnerThreads(board.actor, businessId)
       .then((rows) => {
@@ -46,7 +56,8 @@ export default function OwnerMessages() {
         if (cancelled) return;
         setThreads([]);
         setError(caught instanceof Error ? caught.message : "Could not load messages.");
-      });
+      })
+      .finally(() => { if (!cancelled) setThreadsLoading(false); });
     return () => { cancelled = true; };
   }, [board.loading, businessId, board.actor, board.directory, board.version]);
 
@@ -66,7 +77,9 @@ export default function OwnerMessages() {
 
       {error && <div role="alert" className="rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
 
-      {threads.length === 0 && !error ? (
+      {threadsLoading && !error ? (
+        <p className="text-sm text-muted-foreground">Loading messages…</p>
+      ) : threads.length === 0 && !error ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-muted-foreground">
           <MessageSquare className="mx-auto h-8 w-8 opacity-50" />
           <p className="mt-3">No messages yet. Inquiries and replies will appear here.</p>
@@ -102,8 +115,15 @@ export default function OwnerMessages() {
       <LeadSheet key={`${workspaceKey}:${open?.id ?? "closed"}`}
         lead={open}
         onClose={() => { setOpen(null); board.reload(); }}
-        onChange={(updated) => setOpen(updated)}
-        onDelete={() => { setOpen(null); board.reload(); }}
+        onChange={(updated) => {
+          if (workspaceRef.current !== workspaceKey) return;
+          setOpen((current) => current?.id === updated.id && current.business_id === updated.business_id ? updated : current);
+        }}
+        onDelete={() => {
+          if (workspaceRef.current !== workspaceKey) return;
+          setOpen((current) => current == null ? current : null);
+          board.reload();
+        }}
       />
     </div>
   );
