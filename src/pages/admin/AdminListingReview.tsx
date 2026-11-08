@@ -110,13 +110,13 @@ export default function AdminListingReview() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-bold">Business listing review</h1>
+        <h1 className="font-display text-3xl font-bold">Review Queue</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {loadError ? "Counts unavailable" : `${rows.length} draft or unclaimed listings still in business listing review. This is not the event import queue.`}
+          {loadError ? "Counts unavailable" : `${rows.length} listings need review (draft + unclaimed)`}
         </p>
       </div>
 
-      {loadError ? <QueryStateNotice kind="error" title="Business listing review" message={loadError} /> : <div className="grid gap-4 md:grid-cols-2">
+      {loadError ? <QueryStateNotice kind="error" title="Review Queue" message={loadError} /> : <div className="grid gap-4 md:grid-cols-2">
         {rows.map((r) => {
           const c = completeness(r);
           const dupe = isDupe(r);
@@ -151,7 +151,7 @@ export default function AdminListingReview() {
           );
         })}
         {rows.length === 0 && (
-          <Card className="md:col-span-2"><CardContent className="p-10 text-center text-sm text-muted-foreground">No business listings waiting for review.</CardContent></Card>
+          <Card className="md:col-span-2"><CardContent className="p-10 text-center text-sm text-muted-foreground">Nothing waiting for review.</CardContent></Card>
         )}
       </div>}
     </div>

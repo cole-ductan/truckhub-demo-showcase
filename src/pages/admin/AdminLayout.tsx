@@ -8,7 +8,7 @@ const crumbs: Record<string, string> = {
   "/admin": "Dashboard",
   "/admin/businesses": "Businesses",
   "/admin/import-businesses": "Import Listings",
-  "/admin/listing-review": "Listing review",
+  "/admin/listing-review": "Review Queue",
   "/admin/claim-requests": "Claim Requests",
   "/admin/outreach": "Outreach CRM",
   "/admin/leads": "Leads",

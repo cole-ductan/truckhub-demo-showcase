@@ -31,16 +31,18 @@ The fixture world is labeled `source: "synthetic"` and `importable: true`. It is
 |---|---|---|
 | Anonymous customer | no user id | Public discovery is allowed. Lead contact fields and vendor notes are hidden. `/admin` and `/owner` redirect to auth. |
 | Admin | `synth-admin` | Can read every lead, can edit assignment, and is the only role allowed to call the outreach CRM RPC. |
-| Owner A, North Pier Kitchen | `synth-owner-a` / `synth-biz-north-pier` | Owns one direct booked lead. Accepted on the marketplace inquiry. Cannot read Owner B's notes. |
-| Owner B, Fox Lantern Bakery | `synth-owner-b` / `synth-biz-fox-lantern` | Owns a different direct lead. Unmatched on the marketplace inquiry, so customer fields stay hidden. |
+| Owner A, North Pier Kitchen | `synth-owner-a` / `synth-biz-north-pier` | Owns one direct booked lead. Accepted on the marketplace inquiry, with a note Owner B cannot see. |
+| Owner B, Fox Lantern Bakery | `synth-owner-b` / `synth-biz-fox-lantern` | Owns a different direct lead. Also accepted on the same marketplace inquiry, with a separate note. |
+| Declined vendor | `synth-owner-declined` / `synth-biz-declined-cart` | Assignment status `declined`. No customer fields and no assignment notes. |
+| Revoked vendor | `synth-owner-revoked` / `synth-biz-revoked-cart` | Assignment status `revoked`. No customer fields and no assignment notes. |
 | Suspended owner | `synth-owner-suspended` | Owner route resolves to suspended. Customer fields stay hidden. |
 
-Matched vendor: North Pier Kitchen is `accepted` on `synth-lead-marketplace`.  
-Unmatched vendor: Fox Lantern Bakery has no assignment on that lead. `synth-biz-unmatched-cart` is a published demo listing with no owner and no marketplace slot.
+Matched vendors: North Pier Kitchen and Fox Lantern Bakery are both `accepted` on `synth-lead-marketplace`.  
+Unmatched vendor: `synth-biz-unmatched-cart` is a published demo listing with no owner and no marketplace slot.
 
-Contacts use `@fxm-synthetic.test` only. Names are Ada Fixture, Ben Fixture, and Casey Fixture. The fixture set is smaller than the Phase 0 census on purpose (6 businesses, 3 leads, 3 event-import rows, 0 bookings-table rows). A helper, `datasetMayBeSeeded`, rejects the audit object.
+Contacts use `@fxm-synthetic.test` only. Names are Ada Fixture, Ben Fixture, and Casey Fixture. The fixture set is not the Phase 0 census (8 businesses, 3 leads, 3 event-import rows, 0 bookings-table rows). A helper, `datasetMayBeSeeded`, rejects the audit object.
 
-The current owner screens still filter `leads.business_id`. Tests lock that behavior: both owners miss the null-business marketplace lead. A separate privacy helper records the rule those screens do not implement yet: an accepted vendor may see that inquiry, and an unmatched vendor may not.
+The current owner screens still filter `leads.business_id`. Tests lock that behavior: both accepted owners miss the null-business marketplace lead. A separate privacy helper records the rule those screens do not implement yet: an accepted vendor may see that inquiry and only that vendor's note. Declined, revoked, and unmatched vendors may not. These helpers do not execute RLS.
 
 ## Phase 0 counts are observations
 
@@ -63,7 +65,7 @@ Observed 2026-11-08 against the production database. Do not import these numbers
 
 Business listing review was not given a single Phase 0 count. Do not invent one from the outreach total or from the 219 event-import rows. Those are different queues. See `docs/SCHEMA_DRIFT_LEDGER.md`.
 
-Zero bookings-table rows do not mean the owner Bookings screen is empty. That screen lists leads in Quote Sent, Pending, Booked, or Completed. The synthetic world keeps the table empty and still has one booked lead, and the screen copy says so.
+Zero bookings-table rows do not mean the owner Bookings screen is empty. That screen lists leads in Quote Sent, Pending, Booked, or Completed. The synthetic world keeps the table empty and still has one booked lead. `describeBookingsSurface` records that split. The owner screen still says "No bookings here yet." Visible copy that distinguishes the two counts is outside this pull request.
 
 ## Count scopes the harness reconciles
 

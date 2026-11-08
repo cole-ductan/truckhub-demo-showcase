@@ -84,10 +84,10 @@ export default function AdminDashboard() {
 
   const cards = [
     { label: "Total businesses", value: stats?.totalBusinesses, hint: stats ? `${stats.published} published` : countError ? "Counts unavailable" : "Loading…" },
-    { label: "Unpublished", value: stats?.unpublished, hint: "Not published" },
+    { label: "Unpublished", value: stats?.unpublished, hint: "Awaiting review" },
     { label: "Featured", value: stats?.featured, hint: "Highlighted on home" },
     { label: "Total leads", value: stats?.totalLeads, hint: stats ? `${stats.newLeads} new` : countError ? "Counts unavailable" : "Loading…" },
-    { label: "Booked leads", value: stats?.bookedLeads, hint: "Lead stage, not the bookings table" },
+    { label: "Booked leads", value: stats?.bookedLeads, hint: "Converted" },
     { label: "Total signups", value: stats?.totalUsers, hint: "Profiles" },
   ];
 

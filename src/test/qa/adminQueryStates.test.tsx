@@ -74,9 +74,9 @@ describe("admin query states", () => {
         <AdminListingReview />
       </MemoryRouter>,
     );
-    expect(await screen.findByText("No business listings waiting for review.")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Business listing review" })).toBeInTheDocument();
-    expect(screen.getByText(/not the event import queue/i)).toBeInTheDocument();
+    expect(await screen.findByText("Nothing waiting for review.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Review Queue" })).toBeInTheDocument();
+    expect(screen.queryByText(/event import queue/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -88,8 +88,7 @@ describe("admin query states", () => {
       </MemoryRouter>,
     );
     expect(await screen.findByRole("alert")).toHaveTextContent("listing review unavailable");
-    expect(screen.queryByText("No business listings waiting for review.")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Nothing waiting for review/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Nothing waiting for review.")).not.toBeInTheDocument();
   });
 
   it("shows an outreach alert instead of an empty CRM list when crm_state cannot be selected", async () => {

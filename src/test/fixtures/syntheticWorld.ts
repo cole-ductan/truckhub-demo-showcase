@@ -6,6 +6,8 @@ export const SYNTHETIC_ACTORS = {
   admin: { role: "admin", userId: "synth-admin" } satisfies Actor,
   ownerA: { role: "owner", userId: "synth-owner-a", businessId: "synth-biz-north-pier" } satisfies Actor,
   ownerB: { role: "owner", userId: "synth-owner-b", businessId: "synth-biz-fox-lantern" } satisfies Actor,
+  ownerDeclined: { role: "owner", userId: "synth-owner-declined", businessId: "synth-biz-declined-cart" } satisfies Actor,
+  ownerRevoked: { role: "owner", userId: "synth-owner-revoked", businessId: "synth-biz-revoked-cart" } satisfies Actor,
   suspendedOwner: {
     role: "owner",
     userId: "synth-owner-suspended",
@@ -57,6 +59,20 @@ export const syntheticBusinesses: ScopeBusiness[] = [
     listingStatus: "archived",
     outreachStatus: "not_contacted",
   },
+  {
+    id: "synth-biz-declined-cart",
+    isDemo: false,
+    isPublished: true,
+    listingStatus: "claimed_free",
+    outreachStatus: "claimed",
+  },
+  {
+    id: "synth-biz-revoked-cart",
+    isDemo: false,
+    isPublished: true,
+    listingStatus: "claimed_free",
+    outreachStatus: "claimed",
+  },
 ];
 
 export const syntheticLeads: FixtureLead[] = [
@@ -91,6 +107,21 @@ export const syntheticLeads: FixtureLead[] = [
         status: "accepted",
         notes: "North Pier quote note",
       },
+      {
+        businessId: "synth-biz-fox-lantern",
+        status: "accepted",
+        notes: "Fox Lantern quote note",
+      },
+      {
+        businessId: "synth-biz-declined-cart",
+        status: "declined",
+        notes: "Declined vendor private note",
+      },
+      {
+        businessId: "synth-biz-revoked-cart",
+        status: "revoked",
+        notes: "Revoked vendor private note",
+      },
     ],
   },
 ];
@@ -98,7 +129,7 @@ export const syntheticLeads: FixtureLead[] = [
 export const syntheticWorld = {
   source: "synthetic" as const,
   importable: true as const,
-  label: "Two owners, one admin, one anonymous customer, one matched vendor, one unmatched vendor.",
+  label: "Two accepted owners on one marketplace lead, plus declined, revoked, and unmatched vendors.",
   businesses: syntheticBusinesses,
   leads: syntheticLeads.map((lead) => ({
     id: lead.id,
@@ -120,4 +151,6 @@ export const syntheticContacts = [
   "owner.a@fxm-synthetic.test",
   "owner.b@fxm-synthetic.test",
   "admin@fxm-synthetic.test",
+  "declined.owner@fxm-synthetic.test",
+  "revoked.owner@fxm-synthetic.test",
 ];

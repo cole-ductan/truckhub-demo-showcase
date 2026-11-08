@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOwnerBusiness } from "@/hooks/useOwnerBusiness";
 import { Onboarding } from "@/components/owner/Onboarding";
 import { QueryStateNotice } from "@/components/qa/QueryStateNotice";
-import { describeBookingsSurface } from "@/lib/qa/bookingsView";
 import { Button } from "@/components/ui/button";
 import { Calendar, CheckCircle2, Clock, Download, FileText, MapPin, Users } from "lucide-react";
 
@@ -99,7 +98,7 @@ export default function OwnerBookings() {
         <div>
           <span className="badge-ember">Operations</span>
           <h1 className="mt-3 font-display text-3xl font-bold">Bookings</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Lead-stage bookings for this business. This view does not read the bookings table.</p>
+          <p className="mt-1 text-sm text-muted-foreground">All confirmed events and active quotes.</p>
         </div>
         <Button variant="outline" className="rounded-full" onClick={exportCsv} disabled={!filtered.length}>
           <Download className="mr-1.5 h-3.5 w-3.5" /> Export CSV
@@ -124,17 +123,10 @@ export default function OwnerBookings() {
       </div>
 
       {leadError ? (
-        <QueryStateNotice kind="error" title="Lead-stage bookings" message={leadError} />
+        <QueryStateNotice kind="error" title="Bookings" message={leadError} />
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
-          {rows.length === 0 ? (
-            <>
-              <p className="font-semibold text-foreground">{describeBookingsSurface({ bookingsTableCount: "not-loaded", leadDerivedCount: 0 }).headline}</p>
-              <p className="mt-2">{describeBookingsSurface({ bookingsTableCount: "not-loaded", leadDerivedCount: 0 }).detail} Move a lead to Booked, Pending, or Quote Sent in the <Link to="/owner/leads" className="font-semibold text-primary hover:underline">pipeline</Link>.</p>
-            </>
-          ) : (
-            <p>No lead-stage bookings in this tab.</p>
-          )}
+          No bookings here yet. Move leads to Booked, Pending, or Quote Sent in your <Link to="/owner/leads" className="font-semibold text-primary hover:underline">pipeline</Link>.
         </div>
       ) : (
         <ul className="space-y-2.5">

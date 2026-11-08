@@ -37,6 +37,16 @@ export function canReadCustomer(actor: Actor, lead: FixtureLead): boolean {
   return assignment?.status === "accepted";
 }
 
+/** Notes on one marketplace assignment. Declined and revoked vendors do not keep access. */
+export function assignmentNotesVisibleTo(actor: Actor, lead: FixtureLead): string[] {
+  if (actor.role === "admin") {
+    return lead.assignments.flatMap((item) => (item.notes ? [item.notes] : []));
+  }
+  if (actor.role !== "owner" || actor.suspended) return [];
+  const own = lead.assignments.find((item) => item.businessId === actor.businessId && item.status === "accepted");
+  return own?.notes ? [own.notes] : [];
+}
+
 export function canReadVendorNote(actor: Actor, noteBusinessId: string): boolean {
   if (actor.role === "admin") return true;
   if (actor.role !== "owner" || actor.suspended) return false;

@@ -1,6 +1,12 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { applyProposedCrmState, FRONTEND_OUTREACH_CONTRACT, LIVE_SCHEMA_ABSENT } from "@/lib/qa/schemaContract";
+import {
+  applyProposedCrmState,
+  CATALOG_VERIFIED_LIVE_TABLES,
+  EXPECTED_BY_GENERATED_TYPES,
+  FRONTEND_OUTREACH_CONTRACT,
+  LIVE_SCHEMA_ABSENT,
+} from "@/lib/qa/schemaContract";
 
 const root = process.cwd();
 
@@ -18,11 +24,21 @@ describe("schema drift contract", () => {
     expect(types).not.toContain("set_business_outreach_crm_state");
     expect(types).not.toContain("review_event_import");
     expect(types).toContain("update_business_outreach_pipeline");
-    expect(LIVE_SCHEMA_ABSENT).toEqual([
-      "business_outreach.crm_state",
-      "set_business_outreach_crm_state",
-      "review_event_import",
+    expect(types).toContain("mark_business_ready_for_outreach");
+    expect(LIVE_SCHEMA_ABSENT).toContain("set_business_outreach_crm_state");
+    expect(LIVE_SCHEMA_ABSENT).toContain("review_event_import");
+    expect(CATALOG_VERIFIED_LIVE_TABLES).toEqual(["business_outreach", "event_import_queue"]);
+    expect(EXPECTED_BY_GENERATED_TYPES).toEqual([
+      "update_business_outreach_pipeline",
+      "mark_business_ready_for_outreach",
     ]);
+    expect(read("src/lib/qa/schemaContract.ts")).not.toContain("LIVE_SCHEMA_PRESENT");
+    const verifiedTables: readonly string[] = CATALOG_VERIFIED_LIVE_TABLES;
+    const absent: readonly string[] = LIVE_SCHEMA_ABSENT;
+    for (const name of EXPECTED_BY_GENERATED_TYPES) {
+      expect(verifiedTables).not.toContain(name);
+      expect(absent).not.toContain(name);
+    }
   });
 
   it("keeps the proposed fix in docs and out of supabase/migrations", () => {
@@ -63,13 +79,27 @@ describe("schema drift contract", () => {
     expect(plan).not.toContain("truckhub.lovable.app is the");
   });
 
-  it("names the business listing review route separately from event import", () => {
+  it("keeps queue names in helpers and leaves the Review Queue title unchanged", () => {
     const app = read("src/App.tsx");
     const review = read("src/pages/admin/AdminListingReview.tsx");
+    const sidebar = read("src/components/admin/AdminSidebar.tsx");
+    const layout = read("src/pages/admin/AdminLayout.tsx");
+    const dashboard = read("src/pages/admin/AdminDashboard.tsx");
+    const bookings = read("src/pages/owner/OwnerBookings.tsx");
     expect(app).toContain('path="listing-review"');
     expect(app).not.toContain("event-import");
-    expect(review).toContain("Business listing review");
-    expect(review).toContain("event import queue");
+    expect(review).toContain("Review Queue");
+    expect(review).not.toContain("Business listing review");
+    expect(review).not.toContain("event import queue");
+    expect(sidebar).toContain('label: "Review Queue"');
+    expect(layout).toContain('"/admin/listing-review": "Review Queue"');
+    expect(dashboard).toContain('hint: "Awaiting review"');
+    expect(dashboard).toContain('hint: "Converted"');
+    expect(dashboard).not.toContain("Lead stage, not the bookings table");
+    expect(bookings).toContain("All confirmed events and active quotes.");
+    expect(bookings).toContain("No bookings here yet.");
+    expect(bookings).not.toContain("does not read the bookings table");
+    expect(bookings).toContain("leadError");
   });
 
   it("models the proposed lifecycle as a CRM-only change", () => {
@@ -92,10 +122,9 @@ describe("schema drift contract", () => {
     };
     const crm = await liveLike.rpc("set_business_outreach_crm_state");
     const review = await liveLike.rpc("review_event_import");
-    const pipeline = await liveLike.rpc("update_business_outreach_pipeline");
     expect(crm.error?.message).toMatch(/does not exist/);
     expect(review.error?.message).toMatch(/does not exist/);
-    expect(pipeline.error).toBeNull();
+    expect(invoked).toEqual(["set_business_outreach_crm_state", "review_event_import"]);
     expect(invoked.every((name) => !name.startsWith("http"))).toBe(true);
   });
 });

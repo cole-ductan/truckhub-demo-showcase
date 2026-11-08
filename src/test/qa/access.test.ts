@@ -3,6 +3,7 @@ import {
   adminRouteDecision,
   canEditAssignment,
   canInvokeOutreachCrmState,
+  assignmentNotesVisibleTo,
   canReadCustomer,
   canReadVendorNote,
   currentOwnerLeadIds,
@@ -38,8 +39,10 @@ describe("synthetic role fixtures", () => {
     expect(canReadCustomer(SYNTHETIC_ACTORS.ownerA, directA!)).toBe(true);
     expect(canReadCustomer(SYNTHETIC_ACTORS.ownerA, directB!)).toBe(false);
     expect(canReadCustomer(SYNTHETIC_ACTORS.ownerA, marketplace!)).toBe(true);
-    expect(canReadCustomer(SYNTHETIC_ACTORS.ownerB, marketplace!)).toBe(false);
+    expect(canReadCustomer(SYNTHETIC_ACTORS.ownerB, marketplace!)).toBe(true);
     expect(canReadCustomer(SYNTHETIC_ACTORS.ownerB, directA!)).toBe(false);
+    expect(canReadCustomer(SYNTHETIC_ACTORS.ownerDeclined, marketplace!)).toBe(false);
+    expect(canReadCustomer(SYNTHETIC_ACTORS.ownerRevoked, marketplace!)).toBe(false);
     expect(canReadCustomer(SYNTHETIC_ACTORS.admin, marketplace!)).toBe(true);
     expect(canReadCustomer(SYNTHETIC_ACTORS.suspendedOwner, directA!)).toBe(false);
   });
@@ -53,6 +56,26 @@ describe("synthetic role fixtures", () => {
     expect(canEditAssignment(SYNTHETIC_ACTORS.ownerA)).toBe(false);
     expect(canEditAssignment(SYNTHETIC_ACTORS.anonymous)).toBe(false);
     expect(canEditAssignment(SYNTHETIC_ACTORS.admin)).toBe(true);
+  });
+
+  it("isolates per-vendor notes when two owners are accepted on the same marketplace lead", () => {
+    const notesFor = (actor: (typeof SYNTHETIC_ACTORS)[keyof typeof SYNTHETIC_ACTORS]) =>
+      assignmentNotesVisibleTo(actor, marketplace!);
+    expect(notesFor(SYNTHETIC_ACTORS.ownerA)).toEqual(["North Pier quote note"]);
+    expect(notesFor(SYNTHETIC_ACTORS.ownerB)).toEqual(["Fox Lantern quote note"]);
+    expect(notesFor(SYNTHETIC_ACTORS.ownerA)).not.toContain("Fox Lantern quote note");
+    expect(notesFor(SYNTHETIC_ACTORS.ownerB)).not.toContain("North Pier quote note");
+    expect(notesFor(SYNTHETIC_ACTORS.ownerDeclined)).toEqual([]);
+    expect(notesFor(SYNTHETIC_ACTORS.ownerRevoked)).toEqual([]);
+    expect(notesFor(SYNTHETIC_ACTORS.anonymous)).toEqual([]);
+    expect(notesFor(SYNTHETIC_ACTORS.admin)).toEqual([
+      "North Pier quote note",
+      "Fox Lantern quote note",
+      "Declined vendor private note",
+      "Revoked vendor private note",
+    ]);
+    expect(canReadVendorNote(SYNTHETIC_ACTORS.ownerDeclined, "synth-biz-north-pier")).toBe(false);
+    expect(canReadVendorNote(SYNTHETIC_ACTORS.ownerRevoked, "synth-biz-fox-lantern")).toBe(false);
   });
 
   it("follows the admin, owner, and public route assumptions", () => {

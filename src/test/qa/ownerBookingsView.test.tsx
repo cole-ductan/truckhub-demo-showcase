@@ -41,19 +41,19 @@ describe("owner bookings view", () => {
     responses.deposit_requests = { data: [], error: null };
   });
 
-  it("describes an empty lead-stage view without calling the bookings table empty", async () => {
+  it("shows the existing empty sentence after a successful read with no lead-stage rows", async () => {
     render(
       <MemoryRouter>
         <OwnerBookings />
       </MemoryRouter>,
     );
-    expect(await screen.findByText("No lead-stage bookings in this view")).toBeInTheDocument();
-    expect(screen.getByText(/does not query the bookings table/i)).toBeInTheDocument();
+    expect(await screen.findByText(/No bookings here yet/i)).toBeInTheDocument();
+    expect(screen.getByText("All confirmed events and active quotes.")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.queryByText(/No bookings here yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/does not read the bookings table/i)).not.toBeInTheDocument();
   });
 
-  it("shows a load failure instead of the empty lead-stage message", async () => {
+  it("shows a load failure instead of the empty bookings sentence", async () => {
     responses.leads = { data: null, error: { message: "leads unavailable" } };
     render(
       <MemoryRouter>
@@ -61,10 +61,10 @@ describe("owner bookings view", () => {
       </MemoryRouter>,
     );
     expect(await screen.findByRole("alert")).toHaveTextContent("leads unavailable");
-    expect(screen.queryByText("No lead-stage bookings in this view")).not.toBeInTheDocument();
+    expect(screen.queryByText(/No bookings here yet/i)).not.toBeInTheDocument();
   });
 
-  it("lists a booked lead even though this screen never reads the bookings table", async () => {
+  it("lists a booked lead when the lead query succeeds", async () => {
     responses.leads = {
       data: [
         {
@@ -88,7 +88,7 @@ describe("owner bookings view", () => {
       </MemoryRouter>,
     );
     expect(await screen.findByText("Ada Fixture")).toBeInTheDocument();
-    expect(screen.queryByText("No lead-stage bookings in this view")).not.toBeInTheDocument();
-    expect(screen.getByText(/does not read the bookings table/i)).toBeInTheDocument();
+    expect(screen.queryByText(/No bookings here yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
