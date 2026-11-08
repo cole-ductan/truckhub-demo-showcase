@@ -2,15 +2,38 @@
 
 Proposal only. This is not a migration, not a production write, and not authorization to apply SQL. Production stays `https://foodxmobile.com` (`7314f8bd…`, Supabase `akhmgnjmhvvmprvnwusp`). Do not target `truckhub.lovable.app`.
 
-The application types follow the Director's Lane A contract as amended 2026-11-08 about 2:05 PM CST. No status union was renamed. Matching (FXM-006) and manual lead capture (FXM-015) are extension points only.
+The application types follow the Director's Lane A contract, including the 2026-11-08 about 2:20 PM CST location lock and the about 2:23 PM CST `estimated_value` amendment. No status union was renamed. Matching (FXM-006 / #19) and manual lead capture (FXM-015) stay type-only pointers. Preference defaults for a vendor with no saved row belong to FXM-006, not this change.
+
+Mock security tests in this repo are not proof of deployed row-level security.
+
+## Integration scope
+
+This is not a mock-only change. `OwnerLeads`, `OwnerMessages`, `Book.tsx`, and `BookFoodTruck.tsx` call `LeadDirectory`. `createSupabaseLeadDirectory` wraps the existing direct-lead insert, update, delete, and `submit_event_inquiry` RPC.
+
+These constraints stay in force:
+
+- The live Supabase adapter returns direct `business_id` leads only.
+- It does not treat `assigned_vendor_ids` as permission to read a marketplace row.
+- Marketplace commands (`offer`, `accept`, `decline`, `revoke`, `expire`, `reassign`, `mapLegacy`, and admin marketplace reads or mutations) throw `migration_required` until a named migration is authorized.
+- New live writes do not add columns or statements beyond what production already does: the direct booking insert, owner updates of stage, internal notes, and estimated value, owner delete of a direct lead, and the existing marketplace RPC.
+- `BookFoodTruck` still sends the previous `submit_event_inquiry` body: the form spread, `category_id` normalized, `consent: true`, and the honeypot removed.
 
 ## What the app does now
 
 Owner Leads and Messages read `LeadDirectory`, not `leads.business_id OR assigned_vendor_ids`.
 
-- The mock directory used by tests projects marketplace leads through `VendorLeadState`.
-- The Supabase directory, which the live owner pages use until a migration is approved, returns **direct** `business_id` rows only. It does not select marketplace rows, does not read `assigned_vendor_ids` as permission, and refuses offer, accept, revoke, expire, and reassign with `migration_required`.
-- Anonymous submit returns `{ saved: true, id }` and nothing else. A later read by an anonymous actor is rejected. The marketplace path calls existing `submit_event_inquiry`, which already returns a uuid. The direct path still uses `insert().select("id")` so the current form can notify; the helper discards every column except `id`. That returning clause is a compatibility hazard and should be replaced by the proposed `submit_direct_inquiry` function so anonymous role never needs `SELECT` on `leads`.
+- The mock directory used by tests projects marketplace leads through `VendorLeadState`. Those tests do not prove hosted RLS.
+- The Supabase directory, which the live owner pages use until a migration is approved, returns **direct** `business_id` rows only. It does not select marketplace rows and does not read `assigned_vendor_ids` as permission.
+
+## Anonymous receipts
+
+The helper returns `{ saved: true, id }` and nothing else. That shape is not proof of the locked receipt or read-denial boundary.
+
+- `insert().select("id")` on the direct booking form is an existing compatibility hazard. Trimming the client response does not prove an anonymous caller cannot read the row.
+- A later `submit_direct_inquiry` RPC is proposal-only and is not authorized.
+- Mock and client-side tests are not proof of deployed row-level security.
+
+The marketplace path still calls existing `submit_event_inquiry`, which already returns a uuid. The helper keeps only that id.
 
 ## Visibility
 
@@ -33,9 +56,11 @@ Vendor delete of a marketplace lead is forbidden. Decline does not delete the sh
 
 Owners cannot patch `assignmentStatus`. Commands are `accept`, `decline` (offered vendor, own row), `revoke` (admin), `expire` (admin or a later `expire-offers` job), and `offer` / `reassign` (admin).
 
-## Direct leads
+## estimated_value (Director lock, 2026-11-08 about 2:23 PM CST)
 
-Historical rows with `business_id` stay the source for stage, internal notes, and estimated value. A vendor-state row is not created for them and cannot replace their stage. Direct owners can still edit those three fields. Marketplace quotes live only on `VendorLeadState.quote`.
+On a marketplace inquiry (`business_id` null), `estimated_value` is shared customer budget. A vendor must not overwrite it. That vendor's price lives only on `VendorLeadState.quote` and may differ from the shared budget and from another vendor's quote.
+
+On a direct lead (`business_id` set to one owner), that owner may update `estimated_value` as the deal estimate on a privately owned inquiry. This is the locked exception, not an extra permission. Direct leads do not get a `VendorLeadState` row. Their stage and internal notes stay on the historical lead row.
 
 ## Location columns (Director confirmation, 2026-11-08 about 2:20 PM CST)
 

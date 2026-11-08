@@ -13,17 +13,9 @@ export type FutureMatcherOffer = {
 /**
  * FXM-015 manual capture (phone, SMS, social, email, in person).
  * Not implemented here. Direct leads already preserve business_id.
+ * Preference defaults for vendors with no saved row belong to FXM-006 / #19.
  */
 export type FutureManualDirectLead = {
   businessId: BusinessId;
   source: "phone" | "sms" | "instagram" | "facebook" | "email" | "in_person";
 };
-
-/**
- * Live `submit_event_inquiry` treats a missing vendor_lead_preferences row as
- * receiving inquiries and not paused. FXM-006 owns enforcement of the other columns.
- */
-export const ZERO_PREFERENCE_ROW_DEFAULTS = {
-  receiveInquiries: true,
-  paused: false,
-} as const;

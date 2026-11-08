@@ -1,4 +1,11 @@
+/**
+ * Client-adapter checks only. They are not proof of deployed row-level security.
+ * insert().select("id") is an existing compatibility hazard. Trimming that
+ * response to { saved: true, id } does not prove anonymous read denial.
+ * A later submit_direct_inquiry RPC is proposal-only and is not authorized.
+ */
 import { describe, expect, it } from "vitest";
+import { eventInquiryPayloadFromForm } from "./eventInquiryPayload";
 import { createSupabaseLeadDirectory, type SupabaseLeadClient, type SupabaseQuery } from "./createSupabaseLeadDirectory";
 import { actorAnonymous, actorOwnerA, actorOwnerB, FX } from "./fixtures";
 import { LeadAccessError } from "./errors";
@@ -130,6 +137,7 @@ describe("supabase lead directory", () => {
   });
 
   it("returns a narrow receipt even if the insert response contains a full row", async () => {
+    // This trims the client result. It does not prove hosted RLS.
     const fake = fakeClient({
       from: () => ({
         data: { id: "receipt-1", contact_email: "anon.direct@example.test", admin_notes: "ADMIN-NOTES-MUST-NOT-LEAK" },
@@ -166,6 +174,46 @@ describe("supabase lead directory", () => {
     expect(receipt).toEqual({ saved: true, id: "rpc-lead-id" });
     expect(fake.rpcs[0].fn).toBe("submit_event_inquiry");
     expect(fake.calls).toEqual([]);
+  });
+
+  it("sends the previous event-inquiry form fields except the honeypot", async () => {
+    const form = {
+      contact_name: "Anon Example",
+      contact_email: "anon.submitter@example.test",
+      contact_phone: "PHONE-ANON",
+      event_date: "2026-12-20",
+      event_start_time: "11:00",
+      event_end_time: "14:00",
+      event_location: "410 Synthetic Street",
+      event_zip: "00000",
+      guest_count: "40",
+      event_type: "Graduation",
+      cuisine_preference: "pretzels",
+      budget_range: "Under $500",
+      message: "PII-MESSAGE-ANON",
+      request_type: "multiple",
+      event_frequency: "one_time",
+      service_style: "either",
+      consent: false,
+      hp: "bot-filled-honeypot",
+      category_id: "",
+    };
+    const { hp, ...rest } = form;
+    const payload = eventInquiryPayloadFromForm(form);
+    expect(payload).toEqual({ ...rest, category_id: null, consent: true });
+    expect(payload).not.toHaveProperty("hp");
+    expect(Object.keys(payload).sort()).toEqual(Object.keys(rest).sort());
+
+    const fake = fakeClient({ rpc: () => ({ data: "rpc-lead-id", error: null }) });
+    const crm = createSupabaseLeadDirectory(fake.client);
+    const receipt = await crm.submitMarketplace(actorAnonymous, {
+      contactName: form.contact_name,
+      contactEmail: form.contact_email,
+      eventInquiryPayload: payload,
+    });
+    expect(receipt).toEqual({ saved: true, id: "rpc-lead-id" });
+    expect(fake.rpcs[0].args._payload).toEqual(payload);
+    expect(JSON.stringify(fake.rpcs[0].args)).not.toContain("bot-filled-honeypot");
   });
 });
 

@@ -1,3 +1,4 @@
+import { eventInquiryPayloadFromForm } from "./eventInquiryPayload";
 import { LeadAccessError } from "./errors";
 import { parseOwnerPatch } from "./access";
 import { isVendorLeadStage, type Actor, type BusinessId, type CustomerFields, type DirectSubmitInput, type LeadId, type MarketplaceRequestSummary, type MarketplaceSubmitInput, type OwnerLeadProjection, type SubmissionReceipt, type ThreadMessage, type VendorLeadStage } from "./types";
@@ -227,15 +228,16 @@ export function createSupabaseLeadDirectory(client: SupabaseLeadClient): LeadDir
     },
 
     async submitMarketplace(_actor, input: MarketplaceSubmitInput): Promise<SubmissionReceipt> {
-      const { data, error } = await client.rpc("submit_event_inquiry", {
-        _payload: {
+      const payload = input.eventInquiryPayload
+        ? eventInquiryPayloadFromForm(input.eventInquiryPayload)
+        : {
           contact_name: input.contactName,
           contact_email: input.contactEmail,
           contact_phone: input.contactPhone ?? "",
           event_date: input.eventDate ?? "",
           event_start_time: input.eventStartTime ?? "",
           event_end_time: input.eventEndTime ?? "",
-          event_location: input.streetAddress || input.cityOrVenue || "",
+          event_location: input.streetAddress ?? "",
           event_zip: input.postalCode ?? "",
           guest_count: input.guestCount ?? "",
           event_type: input.eventType ?? "",
@@ -247,8 +249,8 @@ export function createSupabaseLeadDirectory(client: SupabaseLeadClient): LeadDir
           service_style: input.serviceStyle ?? "",
           category_id: input.categoryId || null,
           consent: true,
-        },
-      });
+        };
+      const { data, error } = await client.rpc("submit_event_inquiry", { _payload: payload });
       if (error) fail(error);
       if (typeof data !== "string" || !data) {
         throw new LeadAccessError("forbidden", "Submission did not return a lead id.");

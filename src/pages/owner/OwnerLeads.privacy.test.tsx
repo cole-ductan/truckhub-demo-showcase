@@ -1,3 +1,8 @@
+/**
+ * Render checks against the mock directory. They are not proof of deployed
+ * row-level security, and they do not show that a hosted anonymous insert
+ * cannot be read back.
+ */
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LeadDirectoryProvider } from "@/lib/crm/LeadDirectoryContext";

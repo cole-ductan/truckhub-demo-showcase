@@ -249,6 +249,11 @@ export type MarketplaceSubmitInput = {
   eventFrequency?: string | null;
   /** Forwarded to the existing inquiry RPC. Matching itself is FXM-006. */
   categoryId?: string | null;
+  /**
+   * Exact submit_event_inquiry body from the public form, minus the honeypot.
+   * When present, the live adapter sends this object instead of rebuilding fields.
+   */
+  eventInquiryPayload?: Record<string, unknown>;
 };
 
 export function isActiveAssignment(status: MarketplaceAssignmentStatus): boolean {

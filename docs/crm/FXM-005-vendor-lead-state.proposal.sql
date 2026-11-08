@@ -32,6 +32,9 @@
 --   ADD COLUMN IF NOT EXISTS event_city text,
 --   ADD COLUMN IF NOT EXISTS event_street text;
 --
+-- Do not backfill event_city from event_location. That text may be a street.
+-- There is no UPDATE public.leads SET event_city = event_location in this proposal.
+--
 -- COMMENT ON COLUMN public.leads.event_city IS
 --   'City or public venue safe for an offered marketplace summary. Never a private street. Do not backfill by parsing event_location.';
 --
@@ -83,8 +86,9 @@
 -- ALTER TABLE public.vendor_lead_assignment_events ENABLE ROW LEVEL SECURITY;
 --
 -- Vendors read only their own state row. They do not select the shared leads
--- row for a marketplace inquiry. Drop the wide matched-inquiry policy in the
--- same migration so assigned_vendor_ids cannot leak contact fields or shared notes.
+-- row for a marketplace inquiry. The old broad marketplace SELECT must be
+-- dropped in the same migration. Do not forget it: assigned_vendor_ids must
+-- not remain a way to read the raw lead.
 --
 -- DROP POLICY IF EXISTS "owners read matched event inquiries" ON public.leads;
 --
@@ -96,7 +100,41 @@
 --   ON public.vendor_lead_state FOR SELECT
 --   USING (public.is_admin(auth.uid()));
 --
--- No vendor update of assignment_status. Stage, notes, and quote only while accepted.
+-- Accepted vendors may update only stage, notes, and quote.
+-- A USING / WITH CHECK policy is not enough: it does not limit columns.
+-- Column grants plus a trigger are both required. Assignment commands stay
+-- in security-definer functions, which may change assignment_status.
+--
+-- REVOKE UPDATE ON public.vendor_lead_state FROM authenticated;
+-- GRANT UPDATE (stage, notes, quote) ON public.vendor_lead_state TO authenticated;
+--
+-- CREATE OR REPLACE FUNCTION public.vendor_lead_state_limit_owner_columns()
+-- RETURNS trigger
+-- LANGUAGE plpgsql
+-- AS $$
+-- BEGIN
+--   IF public.is_admin(auth.uid()) THEN
+--     RETURN NEW;
+--   END IF;
+--   IF NEW.id IS DISTINCT FROM OLD.id
+--      OR NEW.lead_id IS DISTINCT FROM OLD.lead_id
+--      OR NEW.business_id IS DISTINCT FROM OLD.business_id
+--      OR NEW.assignment_status IS DISTINCT FROM OLD.assignment_status
+--      OR NEW.thread_id IS DISTINCT FROM OLD.thread_id
+--      OR NEW.assigned_at IS DISTINCT FROM OLD.assigned_at
+--   THEN
+--     RAISE EXCEPTION 'owners cannot edit assignment or admin fields';
+--   END IF;
+--   IF OLD.assignment_status IS DISTINCT FROM 'accepted' THEN
+--     RAISE EXCEPTION 'only an accepted vendor can edit stage, notes, and quote';
+--   END IF;
+--   RETURN NEW;
+-- END;
+-- $$;
+--
+-- CREATE TRIGGER vendor_lead_state_limit_owner_columns
+--   BEFORE UPDATE ON public.vendor_lead_state
+--   FOR EACH ROW EXECUTE FUNCTION public.vendor_lead_state_limit_owner_columns();
 --
 -- CREATE POLICY "accepted vendors update own crm"
 --   ON public.vendor_lead_state FOR UPDATE
@@ -168,6 +206,8 @@
 -- with the same named approval. Dropping these tables discards per-vendor CRM
 -- written after the forward change. It does not rewrite historical leads.business_id.
 --
+-- DROP TRIGGER IF EXISTS vendor_lead_state_limit_owner_columns ON public.vendor_lead_state;
+-- DROP FUNCTION IF EXISTS public.vendor_lead_state_limit_owner_columns();
 -- DROP TABLE IF EXISTS public.vendor_lead_assignment_events;
 -- DROP TABLE IF EXISTS public.vendor_lead_messages;
 -- DROP TABLE IF EXISTS public.vendor_lead_state;

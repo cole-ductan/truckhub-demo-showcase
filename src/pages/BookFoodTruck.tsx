@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
+import { eventInquiryPayloadFromForm } from "@/lib/crm/eventInquiryPayload";
 import { supabaseLeadDirectory } from "@/lib/crm/liveLeadDirectory";
 import { useSEO } from "@/hooks/useSEO";
 import { resolveImage } from "@/lib/assets";
@@ -127,7 +128,7 @@ export default function BookFoodTruck() {
     service_style: "either", consent: false, hp: "",
     category_id: "" as string,
   });
-  const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -146,6 +147,7 @@ export default function BookFoodTruck() {
     if (form.hp) return; // honeypot
     setSubmitting(true);
     try {
+      const eventInquiryPayload = eventInquiryPayloadFromForm(form);
       await supabaseLeadDirectory.submitMarketplace({ kind: "anonymous" }, {
         contactName: form.contact_name,
         contactEmail: form.contact_email,
@@ -164,6 +166,7 @@ export default function BookFoodTruck() {
         eventFrequency: form.event_frequency,
         serviceStyle: form.service_style,
         categoryId: form.category_id || null,
+        eventInquiryPayload,
       });
     } catch (error) {
       setSubmitting(false);

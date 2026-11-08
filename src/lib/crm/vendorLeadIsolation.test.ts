@@ -1,3 +1,8 @@
+/**
+ * Mock directory checks only. They are not proof of deployed row-level security.
+ * A client helper that returns { saved: true, id } does not prove anonymous
+ * read denial on the hosted database. submit_direct_inquiry is proposal-only.
+ */
 import { describe, expect, it } from "vitest";
 import { LeadAccessError } from "./errors";
 import {
@@ -187,6 +192,7 @@ describe("per-vendor marketplace lead isolation", () => {
       internalNotes: SECRET.sharedNotes,
       estimatedValue: 1800,
     });
+    // Marketplace estimated_value is shared budget (Director lock, 2026-11-08 about 2:23 PM CST).
     await expect(crm.updateOwnerCrm(actorOwnerA, FX.bizA, FX.marketShared, { estimatedValue: 1, notes: "nope" })).rejects.toMatchObject({ code: "forbidden" });
     expect(crm.readSnapshot().leads.find((row) => row.id === FX.marketShared)?.estimatedValue).toBe(1800);
     expect(asMarketplace(await crm.getOwnerProjection(actorOwnerA, FX.bizA, FX.marketShared)).notes).toBe("A-UPDATED");
@@ -267,6 +273,7 @@ describe("per-vendor marketplace lead isolation", () => {
     expect(result.revoked.businessId).toBe(FX.bizA);
     expect(result.revoked.assignmentStatus).toBe("revoked");
     expect(result.revoked.notes).toBe(SECRET.vendorAReassignNote);
+    expect(result.revoked.quote).toBe("VENDOR-A-REASSIGN-QUOTE");
     expect(result.offered.businessId).toBe(FX.bizB);
     expect(result.offered.assignmentStatus).toBe("offered");
     expect(result.offered.notes).toBeNull();
@@ -284,6 +291,9 @@ describe("per-vendor marketplace lead isolation", () => {
       `${FX.bizB}:none->offered`,
     ]);
 
+    const closed = crm.readSnapshot().vendorStates.find((row) => row.id === FX.stateOpenA);
+    expect(closed?.notes).toBe(SECRET.vendorAReassignNote);
+    expect(closed?.quote).toBe("VENDOR-A-REASSIGN-QUOTE");
     const previous = asMarketplace(await crm.getOwnerProjection(actorOwnerA, FX.bizA, FX.marketOpen));
     const next = asMarketplace(await crm.getOwnerProjection(actorOwnerB, FX.bizB, FX.marketOpen));
     expect(previous.customer).toBeNull();
@@ -293,6 +303,61 @@ describe("per-vendor marketplace lead isolation", () => {
     expect(dump(next)).not.toContain(SECRET.vendorAReassignNote);
     expect(dump(next)).not.toContain(SECRET.streetDrew);
     await expect(crm.listThread(actorOwnerA, FX.bizA, FX.marketOpen)).rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("refuses a second active assignment for the same lead and business", async () => {
+    const crm = directory();
+    await expect(crm.offerAssignment(actorAdmin, FX.marketOffered, FX.bizA)).rejects.toMatchObject({ code: "invalid_transition" });
+    await expect(crm.offerAssignment(actorAdmin, FX.marketShared, FX.bizA)).rejects.toMatchObject({ code: "invalid_transition" });
+    expect(crm.readSnapshot().vendorStates.filter((row) => row.leadId === FX.marketOffered && row.businessId === FX.bizA)).toHaveLength(1);
+    expect(crm.readSnapshot().vendorStates.filter((row) => row.leadId === FX.marketShared && row.businessId === FX.bizA)).toHaveLength(1);
+    expect(crm.readSnapshot().vendorStates.find((row) => row.id === FX.stateSharedA)?.assignmentStatus).toBe("accepted");
+  });
+
+  it("stops revoked and expired vendors from writing customer fields or the customer thread", async () => {
+    const crm = directory();
+    const beforeMessages = crm.readSnapshot().messages.length;
+    await crm.revokeAssignment(actorAdmin, FX.marketShared, FX.bizA);
+    await expect(crm.updateOwnerCrm(actorOwnerA, FX.bizA, FX.marketShared, {
+      stage: "lost",
+      notes: "VENDOR-A-WROTE-AFTER-REVOKE",
+      quote: "QUOTE-AFTER-REVOKE",
+    })).rejects.toMatchObject({ code: "forbidden" });
+    await expect(crm.appendOwnerMessage(actorOwnerA, FX.bizA, FX.marketShared, "THREAD-AFTER-REVOKE")).rejects.toMatchObject({ code: "forbidden" });
+    await expect(crm.updateOwnerCrm(actorOwnerA, FX.bizA, FX.marketShared, { contactName: "Renamed Example" })).rejects.toMatchObject({ code: "forbidden" });
+    const revoked = crm.readSnapshot().vendorStates.find((row) => row.id === FX.stateSharedA);
+    expect(revoked?.assignmentStatus).toBe("revoked");
+    expect(revoked?.notes).toBe(SECRET.vendorANotes);
+    expect(revoked?.quote).toBe(SECRET.vendorAQuote);
+    expect(crm.readSnapshot().messages.some((message) => message.body === "THREAD-AFTER-REVOKE")).toBe(false);
+
+    await crm.expireAssignment(actorSystem, FX.marketOpen, FX.bizA);
+    await expect(crm.updateOwnerCrm(actorOwnerA, FX.bizA, FX.marketOpen, {
+      notes: "VENDOR-A-WROTE-AFTER-EXPIRE",
+      quote: "QUOTE-AFTER-EXPIRE",
+    })).rejects.toMatchObject({ code: "forbidden" });
+    await expect(crm.appendOwnerMessage(actorOwnerA, FX.bizA, FX.marketOpen, "THREAD-AFTER-EXPIRE")).rejects.toMatchObject({ code: "forbidden" });
+    const expired = crm.readSnapshot().vendorStates.find((row) => row.id === FX.stateOpenA);
+    expect(expired?.notes).toBe(SECRET.vendorAReassignNote);
+    expect(expired?.quote).toBe("VENDOR-A-REASSIGN-QUOTE");
+    expect(crm.readSnapshot().messages).toHaveLength(beforeMessages);
+    expect(crm.readSnapshot().leads.find((row) => row.id === FX.marketShared)?.customer.contactEmail).toBe(SECRET.emailRiley);
+  });
+
+  it("does not put a street-like event_location on an offered public location", async () => {
+    const snap = syntheticCrmSnapshot();
+    const lead = snap.leads.find((row) => row.id === FX.marketOffered);
+    lead!.cityOrVenue = null;
+    lead!.customer.streetAddress = "410 Synthetic Street";
+    lead!.customer.postalCode = "ZIP-HIDDEN-OFFER";
+    const crm = createMockLeadDirectory(snap);
+    const offered = asMarketplace(await crm.getOwnerProjection(actorOwnerA, FX.bizA, FX.marketOffered));
+    expect(offered.request.publicLocation).toBeNull();
+    expect(offered.customer).toBeNull();
+    const text = dump(offered);
+    expect(text).not.toContain("410 Synthetic Street");
+    expect(text).not.toContain("ZIP-HIDDEN-OFFER");
+    expect(text).not.toContain(SECRET.emailCasey);
   });
 
   it("reopens a terminal row instead of creating a second active assignment", async () => {
@@ -350,6 +415,7 @@ describe("per-vendor marketplace lead isolation", () => {
       updatedAt: "2026-10-01T00:00:00.000Z",
     });
     const crm = createMockLeadDirectory(snap);
+    // Direct owners may set estimated_value on their own inquiry (same 2:23 PM CST lock).
     const updated = await crm.updateOwnerCrm(actorOwnerA, FX.bizA, FX.directA, { stage: "pending", notes: "DIRECT-UPDATED", estimatedValue: 275 });
     expect(updated.kind).toBe("direct");
     if (updated.kind !== "direct") return;
