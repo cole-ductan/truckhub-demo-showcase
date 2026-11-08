@@ -75,6 +75,8 @@ describe("synthetic role fixtures", () => {
       "Revoked vendor private note",
     ]);
     expect(canReadVendorNote(SYNTHETIC_ACTORS.ownerDeclined, "synth-biz-north-pier")).toBe(false);
+    expect(canReadVendorNote(SYNTHETIC_ACTORS.ownerDeclined, "synth-biz-fox-lantern")).toBe(false);
+    expect(canReadVendorNote(SYNTHETIC_ACTORS.ownerRevoked, "synth-biz-north-pier")).toBe(false);
     expect(canReadVendorNote(SYNTHETIC_ACTORS.ownerRevoked, "synth-biz-fox-lantern")).toBe(false);
   });
 

@@ -1,5 +1,10 @@
 name: Baseline regression
 
+# npm test is the offline harness only.
+# Migration replay and per-role JWT RLS are a separate local ephemeral Supabase run:
+# npm run test:local-supabase. This workflow does not start Docker, does not use secrets,
+# and does not call a hosted database. VM evidence lives in docs/qa/.
+
 on:
   pull_request:
   push:

@@ -61,7 +61,21 @@ Proposal only: `docs/proposals/fxm-004-business-outreach-crm-state.sql`. This is
 
 The forward text adds `crm_state` plus the three timestamps, a check constraint, an index, and `set_business_outreach_crm_state`. The function updates `business_outreach` and inserts one `business_outreach_activities` row. It does not `UPDATE` or `DELETE` `businesses`. Admin check stays inside the function. Execute is revoked from `PUBLIC` and `anon`.
 
-Applying it, or replaying `20260607020000`, needs a G3 approval that names the database and the rollback. A separate paid staging database is **NOT approved**. This branch does not apply the proposal anywhere. Local Docker Supabase, migration replay, and real RLS/JWT tests are the next increment, not this pass.
+Applying it, or replaying `20260607020000`, needs a G3 approval that names the database and the rollback. A separate paid staging database is **NOT approved**. This branch does not apply the proposal anywhere.
+
+## Local replay increment
+
+S5 and S6 ran on local ephemeral Supabase only. Evidence: `docs/qa/S5-S6-LOCAL-EPHEMERAL-SUPABASE.md`. Label: local ephemeral Supabase: migration replay + per-role JWT RLS.
+
+All 42 migration files applied on an empty local database. The live-shaped baseline then dropped the confirmed-absent outreach columns, CRM function, archive helpers, archive-guard triggers, and `reject_obvious_claim_email_typos`. `review_event_import` was absent on both baselines. The public `business-assets` bucket stayed. Local `schema_migrations` contains the 15 descriptive GitHub filenames; that is a replay record, not proof production applied them. Zero of the 27 recorded production version strings match those local versions exactly.
+
+The live-shaped matched-lead policy lets OWN-A and OWN-B read the same `leads.stage` and `internal_notes` on one marketplace inquiry. That is the known FXM-005 / #18 gap. This branch does not add per-vendor lead state.
+
+Two residuals stay on the live-shaped baseline because the shaper only removes confirmed-absent objects: `claim_requests.requester_user_id` is still `ON DELETE SET NULL` (the catalog recorded `CASCADE`), and `assign_business_owner` still mentions `crm_state` and `claim_requests` (the catalog says the live function does not update `claim_requests`).
+
+Anonymous SELECT and direct lead INSERT abort with `permission denied for function is_admin` after the replay of `20260604033000_lock_down_public_security_definer_execute.sql`. That filename is one of the 15 that are not production `schema_migrations` versions. The file was not edited. `submit_event_inquiry` still returns an id because it is `SECURITY DEFINER`.
+
+This does not prove production RLS. #15 and #17 cannot close. F-1 stays a proposal. PR #13 stays open.
 
 `review_event_import` is omitted on purpose.
 

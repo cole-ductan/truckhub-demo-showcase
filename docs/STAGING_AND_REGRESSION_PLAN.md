@@ -107,6 +107,18 @@ Local command: `npm test`. It does not need production credentials.
 - Provisioning a separate paid staging database is **NOT approved**.
 - Do not send email or SMS. Do not contact businesses. Do not deploy. Do not merge this branch to `main` as part of the QA setup.
 
+## Local ephemeral Supabase (S5 and S6)
+
+Label: local ephemeral Supabase: migration replay + per-role JWT RLS.
+
+`npm run test:local-supabase` replays `supabase/migrations` with `supabase db reset --local` on the Supabase CLI stack, then builds a live-shaped baseline by dropping objects the 2026-11-08 catalog confirmed absent. The shaper is `scripts/local-supabase/live-shape.sql`. It is not a file under `supabase/migrations`, and it is not `docs/proposals/fxm-004-business-outreach-crm-state.sql`.
+
+The runner reads `supabase status` and refuses any API or database host other than localhost. It does not load the repo root `.env`. Role checks sign in as synthetic `@fxm-synthetic.test` users and call PostgREST with those JWTs. The anon key is used only for the anonymous role.
+
+GitHub Actions runs `npm test` only. That job does not start Docker and does not prove RLS. The VM evidence is `docs/qa/S5-S6-LOCAL-EPHEMERAL-SUPABASE.md`.
+
+This does not prove production RLS. #15 and #17 cannot close from this increment. F-1 stays a proposal. Per-vendor lead state (#18) is not implemented. If the live-shaped policy lets both accepted owners read the same `leads.stage` and `internal_notes`, that result is a known gap, not an isolation pass.
+
 ## What is still not proven
 
 Authenticated production clicks, GCP Cloud Run ownership, email delivery, and a real staging project are out of scope. The privacy helper is an assumption the current owner queries do not satisfy; FXM-005 / GitHub #18 owns that behavior change. `review_event_import` stays absent until FXM-011 / GitHub #24.
