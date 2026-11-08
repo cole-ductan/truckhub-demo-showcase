@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSEO } from "@/hooks/useSEO";
 import { resolveImage } from "@/lib/assets";
 import { AVAILABILITY_LABEL, AVAILABILITY_TONE, getAvailabilityState } from "@/lib/availability";
+import { InventoryKindBadge } from "@/components/site/InventoryKindBadge";
 
 const EVENT_TYPES = ["Private party","Corporate event","Wedding","School event","Community event","Festival","Brewery or bar event","Fundraiser","Other"];
 const SERVICE_STYLES = [
@@ -64,7 +65,7 @@ const inquirySchema = z.object({
 type Biz = {
   id: string; slug: string; name: string; cuisine: string | null;
   emoji: string | null; hero_image_url: string | null; logo_url: string | null;
-  service_area: string | null; category_id: string | null;
+  service_area: string | null; category_id: string | null; is_demo: boolean;
 };
 type Cat = { id: string; name: string };
 type Schedule = { business_id: string; event_date: string | null };
@@ -74,7 +75,7 @@ const SUBMIT_LOCK_KEY = "fxm.last_event_inquiry";
 export default function BookFoodTruck() {
   useSEO({
     title: "Book a Food Truck for Your Event | FoodXMobile",
-    description: "Search local food trucks or send one request to matching vendors. Get options for weddings, parties, festivals, corporate events, and more.",
+    description: "Search published listings or save one event request for matching. Saving a request is not an email or text delivery receipt.",
   });
   const navigate = useNavigate();
   const [tab, setTab] = useState("browse");
@@ -93,7 +94,7 @@ export default function BookFoodTruck() {
 
   useEffect(() => {
     supabase.from("businesses")
-      .select("id,slug,name,cuisine,emoji,hero_image_url,logo_url,service_area,category_id")
+      .select("id,slug,name,cuisine,emoji,hero_image_url,logo_url,service_area,category_id,is_demo")
       .eq("is_published", true)
       .order("is_featured", { ascending: false })
       .order("name")
@@ -166,7 +167,7 @@ export default function BookFoodTruck() {
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Book a truck</p>
           <h1 className="mt-3 font-display text-4xl font-bold md:text-5xl">Book a Food Truck for Your Event</h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">
-            Search local vendors and reach out directly, or send one request and let matching food trucks contact you.
+            Search published listings, or save one request for matching. Saving a request does not confirm that a vendor received an email or text. Demo listings are labeled and are not confirmed operating businesses.
           </p>
 
           <Tabs value={tab} onValueChange={setTab} className="mt-8">
@@ -223,7 +224,7 @@ export default function BookFoodTruck() {
                 </div>
                 <div className="flex items-end">
                   <Button onClick={() => setTab("request")} variant="secondary" className="w-full rounded-full">
-                    Send One Request to Matching Trucks
+                    Save one request for matching listings
                   </Button>
                 </div>
               </div>
@@ -248,6 +249,9 @@ export default function BookFoodTruck() {
                         </div>
                       </Link>
                       <div className="p-5">
+                        <div className="mb-2">
+                          <InventoryKindBadge isDemo={b.is_demo} />
+                        </div>
                         <div className="flex items-start justify-between gap-3">
                           <h3 className="font-display text-lg font-semibold leading-tight">
                             {b.emoji && <span className="mr-1.5">{b.emoji}</span>}{b.name}
@@ -358,7 +362,7 @@ export default function BookFoodTruck() {
 
                 <div className="flex items-center justify-end gap-3">
                   <Button type="submit" size="lg" className="rounded-full" disabled={submitting || !form.consent}>
-                    {submitting ? "Sending…" : "Send My Event Request"}
+                    {submitting ? "Saving…" : "Save my event request"}
                   </Button>
                 </div>
               </form>

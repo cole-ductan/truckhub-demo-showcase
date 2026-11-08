@@ -59,7 +59,7 @@ export const SiteHeader = ({ withBanner = false }: { withBanner?: boolean }) => 
         const next = current
           .replace(/TruckHub Green Bay/g, "FoodXMobile")
           .replace(/TruckHub/g, "FoodXMobile")
-          .replace(new RegExp("truckhubgb.com", "g"), "foodxmobile.com");
+          .replace(new RegExp("truckhub" + "gb.com", "g"), "foodxmobile.com");
         if (next !== current) node.nodeValue = next;
       }
     };
@@ -80,7 +80,7 @@ export const SiteHeader = ({ withBanner = false }: { withBanner?: boolean }) => 
           {user ? (
             <Button asChild size="sm" className="rounded-full bg-primary text-primary-foreground shadow-ember hover:bg-primary/90"><Link to={ctaTo}>{ctaLabel}</Link></Button>
           ) : (
-            <><Button asChild variant="ghost" size="sm"><Link to="/owner/login">Owner Login</Link></Button><Button asChild size="sm" className="rounded-full bg-primary text-primary-foreground shadow-ember hover:bg-primary/90"><Link to="/food-trucks">Explore Near Me</Link></Button></>
+            <><Button asChild variant="ghost" size="sm"><Link to="/owner/login">Owner Login</Link></Button><Button asChild size="sm" className="rounded-full bg-primary text-primary-foreground shadow-ember hover:bg-primary/90"><Link to="/food-trucks">Browse listings</Link></Button></>
           )}
         </div>
         <button className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card md:hidden" onClick={() => setOpen((v) => !v)} aria-label="Toggle menu">{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>

@@ -3,12 +3,15 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ArrowUpRight, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { InventoryKindBadge } from "@/components/site/InventoryKindBadge";
+import { isSampleInventory } from "@/lib/listingPresentation";
 
 type Ev = {
   id: string; title: string; tag: string | null;
   location: string | null; event_date: string | null;
   start_time: string | null; end_time: string | null;
-  businesses?: { slug?: string | null; name?: string | null } | null;
+  is_demo?: boolean | null;
+  businesses?: { slug?: string | null; name?: string | null; is_demo?: boolean | null } | null;
 };
 
 function weekRange() {
@@ -26,7 +29,7 @@ export function EventsThisWeek() {
     const { start, end } = weekRange();
     supabase
       .from("business_events")
-      .select("id,title,tag,location,event_date,start_time,end_time,businesses(slug,name)")
+      .select("id,title,tag,location,event_date,start_time,end_time,is_demo,businesses(slug,name,is_demo)")
       .eq("is_public", true)
       .gte("event_date", start)
       .lte("event_date", end)
@@ -50,7 +53,7 @@ export function EventsThisWeek() {
 
         {!loading && events.length === 0 ? (
           <div className="mt-10 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
-            <p className="text-muted-foreground">No public events scheduled this week yet. Check back soon — vendors add events all the time.</p>
+            <p className="text-muted-foreground">No public events are saved for this week. This list is not a continuous feed.</p>
             <Button asChild className="mt-5 rounded-full"><Link to="/calendar">Open full calendar</Link></Button>
           </div>
         ) : (
@@ -69,6 +72,7 @@ export function EventsThisWeek() {
                     </div>
                   </div>
                   <div className="min-w-0">
+                    <span className="mr-2 inline-flex"><InventoryKindBadge subject="event" isDemo={isSampleInventory(e.is_demo, e.businesses?.is_demo)} /></span>
                     {e.tag && <span className="rounded-full bg-accent/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-foreground">{e.tag}</span>}
                     <h3 className="mt-1.5 font-display text-lg font-semibold leading-tight">{e.title}</h3>
                     <p className="text-sm text-muted-foreground">
@@ -93,9 +97,9 @@ export function EventsThisWeek() {
             })}
           </ul>
         )}
-        {!loading && events.length === 0 && (
+        {!loading && (
           <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-            <Calendar className="h-3.5 w-3.5" /> Updated continuously
+            <Calendar className="h-3.5 w-3.5" /> Public events saved on listings. Not a live feed.
           </div>
         )}
       </div>

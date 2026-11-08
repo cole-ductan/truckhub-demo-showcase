@@ -5,7 +5,7 @@ type SEOOptions = {
   description?: string;
   canonical?: string;
   image?: string;
-  jsonLd?: Record<string, any> | Record<string, any>[];
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[] | null;
 };
 
 const SITE_NAME = "FoodXMobile";

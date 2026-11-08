@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { applyCartoonStyle } from "@/lib/cartoonMapStyle";
 import {
   renderPinElement, categorizeEvent, categorizeBusiness,
-  CATEGORY_LABEL, LegendDot, type PinCategory,
+  CATEGORY_LABEL, LegendDot, PinKindLegend, type PinCategory,
 } from "@/lib/mapPinIcons";
+import { EVENT_KIND, INVENTORY_KIND } from "@/lib/publicInventoryCopy";
+import { isSampleInventory } from "@/lib/listingPresentation";
 
 declare global {
   interface Window { maplibregl?: any; }
@@ -15,13 +17,14 @@ type TruckPin = {
   id: string; name: string; slug: string; emoji: string | null; cuisine: string | null;
   status: "open" | "soon" | "closed"; today_location: string | null; today_hours: string | null;
   today_latitude: number; today_longitude: number;
-  hero_image_url: string | null; logo_url: string | null;
+  hero_image_url: string | null; logo_url: string | null; is_demo: boolean;
 };
 
 type EventPin = {
   id: string; title: string; tag: string | null; location: string | null; start_time: string | null;
   end_time: string | null; event_date: string | null; latitude: number; longitude: number;
-  businesses?: { name?: string; slug?: string; emoji?: string | null; hero_image_url?: string | null; logo_url?: string | null } | null;
+  is_demo?: boolean | null;
+  businesses?: { name?: string; slug?: string; emoji?: string | null; hero_image_url?: string | null; logo_url?: string | null; is_demo?: boolean | null } | null;
 };
 
 type Filter = "all" | "open" | "trucks" | "events";
@@ -44,10 +47,10 @@ export function LiveDiscoveryMap({ compact = false }: { compact?: boolean } = {}
     (async () => {
       const [{ data: businessRows }, { data: eventRows }] = await Promise.all([
         (supabase as any).from("businesses")
-          .select("id,name,slug,emoji,cuisine,status,today_location,today_hours,today_latitude,today_longitude,hero_image_url,logo_url")
+          .select("id,name,slug,emoji,cuisine,status,today_location,today_hours,today_latitude,today_longitude,hero_image_url,logo_url,is_demo")
           .eq("is_published", true).not("today_latitude", "is", null).not("today_longitude", "is", null),
         (supabase as any).from("business_events")
-          .select("id,title,tag,location,start_time,end_time,event_date,latitude,longitude,businesses(name,slug,emoji,hero_image_url,logo_url)")
+          .select("id,title,tag,location,start_time,end_time,event_date,latitude,longitude,is_demo,businesses(name,slug,emoji,hero_image_url,logo_url,is_demo)")
           .eq("is_public", true).not("latitude", "is", null).not("longitude", "is", null),
       ]);
       setTrucks((businessRows ?? []) as TruckPin[]);
@@ -87,8 +90,9 @@ export function LiveDiscoveryMap({ compact = false }: { compact?: boolean } = {}
       const category = categorizeBusiness({ cuisine: t.cuisine });
       const photo = t.hero_image_url || t.logo_url;
       const photoHtml = photo ? `<img src="${clean(photo)}" alt="${clean(t.name)}" style="display:block;width:100%;height:110px;object-fit:cover;border-radius:10px;margin-bottom:8px"/>` : "";
-      const popup = new window.maplibregl.Popup({ offset: 22, closeButton: false }).setHTML(`<div style="min-width:220px;max-width:240px">${photoHtml}<strong>${clean(t.emoji)} ${clean(t.name)}</strong><div style="margin-top:5px;font-size:12px">${clean(t.cuisine)}</div><div style="margin-top:5px;font-size:12px">${clean(t.today_location)}${t.today_hours ? ` · ${clean(t.today_hours)}` : ""}</div><a href="/food-trucks/${clean(t.slug)}" style="display:inline-block;margin-top:9px;color:#ea580c;font-weight:700;font-size:12px">View listing →</a></div>`);
-      const el = renderPinElement(category, { status: t.status });
+      const kind = t.is_demo ? INVENTORY_KIND.demo.detail : INVENTORY_KIND.verified.detail;
+      const popup = new window.maplibregl.Popup({ offset: 22, closeButton: false }).setHTML(`<div style="min-width:220px;max-width:240px">${photoHtml}<strong>${clean(t.emoji)} ${clean(t.name)}</strong><div style="margin-top:5px;font-size:12px">${clean(kind)}</div><div style="margin-top:5px;font-size:12px">${clean(t.cuisine)}</div><div style="margin-top:5px;font-size:12px">${clean(t.today_location)}${t.today_hours ? ` · ${clean(t.today_hours)}` : ""}</div><a href="/food-trucks/${clean(t.slug)}" style="display:inline-block;margin-top:9px;color:#ea580c;font-weight:700;font-size:12px">View listing →</a></div>`);
+      const el = renderPinElement(category, { status: t.status, isDemo: t.is_demo, accessibleName: t.name });
       const marker = new window.maplibregl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([t.today_longitude, t.today_latitude]).setPopup(popup).addTo(map);
       el.addEventListener("mouseenter", () => { if (!popup.isOpen()) marker.togglePopup(); });
@@ -98,12 +102,14 @@ export function LiveDiscoveryMap({ compact = false }: { compact?: boolean } = {}
 
     filteredEvents.forEach((e) => {
       const category = categorizeEvent(e.tag);
+      const sampleEvent = isSampleInventory(e.is_demo, e.businesses?.is_demo);
+      const eventKind = sampleEvent ? EVENT_KIND.demo.detail : EVENT_KIND.verified.detail;
       const vendor = e.businesses?.name ? `<div style="margin-top:5px;font-size:12px">Hosted by ${clean(e.businesses.name)}</div>` : "";
       const link = e.businesses?.slug ? `<a href="/food-trucks/${clean(e.businesses.slug)}" style="display:inline-block;margin-top:9px;color:#ea580c;font-weight:700;font-size:12px">View listing →</a>` : "";
       const photo = e.businesses?.hero_image_url || e.businesses?.logo_url || null;
       const photoHtml = photo ? `<img src="${clean(photo)}" alt="${clean(e.title)}" style="display:block;width:100%;height:110px;object-fit:cover;border-radius:10px;margin-bottom:8px"/>` : "";
-      const popup = new window.maplibregl.Popup({ offset: 22, closeButton: false }).setHTML(`<div style="min-width:220px;max-width:240px">${photoHtml}<strong>${clean(CATEGORY_LABEL[category])} · ${clean(e.title)}</strong><div style="margin-top:5px;font-size:12px">${clean(e.location)}${e.start_time ? ` · ${clean(e.start_time)}${e.end_time ? `–${clean(e.end_time)}` : ""}` : ""}</div>${vendor}${link}</div>`);
-      const el = renderPinElement(category);
+      const popup = new window.maplibregl.Popup({ offset: 22, closeButton: false }).setHTML(`<div style="min-width:220px;max-width:240px">${photoHtml}<strong>${clean(CATEGORY_LABEL[category])} · ${clean(e.title)}</strong><div style="margin-top:5px;font-size:12px">${clean(eventKind)}</div><div style="margin-top:5px;font-size:12px">${clean(e.location)}${e.start_time ? ` · ${clean(e.start_time)}${e.end_time ? `–${clean(e.end_time)}` : ""}` : ""}</div>${vendor}${link}</div>`);
+      const el = renderPinElement(category, { isDemo: sampleEvent, accessibleName: e.title });
       const marker = new window.maplibregl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([e.longitude, e.latitude]).setPopup(popup).addTo(map);
       el.addEventListener("mouseenter", () => { if (!popup.isOpen()) marker.togglePopup(); });
@@ -115,7 +121,7 @@ export function LiveDiscoveryMap({ compact = false }: { compact?: boolean } = {}
   }, [filteredTrucks, filteredEvents, mapReady]);
 
   const filters: Array<{ id: Filter; label: string }> = [
-    { id: "all", label: "All nearby" }, { id: "open", label: "Open now" },
+    { id: "all", label: "All saved pins" }, { id: "open", label: "Listed open" },
     { id: "trucks", label: "Food trucks" }, { id: "events", label: "Events" },
   ];
 
@@ -130,12 +136,15 @@ export function LiveDiscoveryMap({ compact = false }: { compact?: boolean } = {}
           <div className="grid min-h-[420px] place-items-center bg-gradient-warm p-8 text-center md:min-h-[520px]">
             <div className="max-w-md">
               <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary"><UnlockKeyhole className="h-7 w-7" /></span>
-              <h3 className="mt-5 font-display text-2xl font-bold">Live map connection ready.</h3>
-              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Add the protected MapTiler browser key to activate the interactive FoodXMobile map.</p>
+              <h3 className="mt-5 font-display text-2xl font-bold">Map preview is not connected.</h3>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">A MapTiler browser key turns on the interactive map. Pins would still be saved coordinates, not a live check-in.</p>
             </div>
           </div>
         )}
         {loading && key && <div className="absolute inset-0 grid place-items-center bg-card/70 text-sm text-muted-foreground backdrop-blur-sm">Loading nearby trucks and events…</div>}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border px-4 py-2 text-xs">
+          <PinKindLegend />
+        </div>
       </div>
     );
   }
@@ -145,9 +154,9 @@ export function LiveDiscoveryMap({ compact = false }: { compact?: boolean } = {}
       <div className="container-tight">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Live local map</p>
-            <h2 className="mt-3 font-display text-4xl font-bold md:text-5xl">What is happening near you today?</h2>
-            <p className="mt-3 max-w-2xl text-muted-foreground">Tap a truck or event pin to see the location, hours, and listing details.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Directory map</p>
+            <h2 className="mt-3 font-display text-4xl font-bold md:text-5xl">Saved listing and event pins</h2>
+            <p className="mt-3 max-w-2xl text-muted-foreground">Pins use coordinates saved on published listings and public events. They are not a live location. Sample demo and verified are printed on each pin before it is opened.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {filters.map((f) => <button key={f.id} onClick={() => setFilter(f.id)} className={`rounded-full border px-3.5 py-2 text-xs font-semibold transition ${filter === f.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground/75 hover:border-primary/40"}`}>{f.label}</button>)}
@@ -159,13 +168,14 @@ export function LiveDiscoveryMap({ compact = false }: { compact?: boolean } = {}
             <div className="grid min-h-[420px] place-items-center bg-gradient-warm p-8 text-center md:min-h-[560px]">
               <div className="max-w-md">
                 <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary"><UnlockKeyhole className="h-7 w-7" /></span>
-                <h3 className="mt-5 font-display text-2xl font-bold">Live map connection ready.</h3>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Add the protected MapTiler browser key to activate the interactive FoodXMobile map.</p>
+                <h3 className="mt-5 font-display text-2xl font-bold">Map preview is not connected.</h3>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">A MapTiler browser key turns on the interactive map. Pins would still be saved coordinates, not a live check-in.</p>
               </div>
             </div>
           )}
           {loading && key && <div className="absolute inset-0 grid place-items-center bg-card/70 text-sm text-muted-foreground backdrop-blur-sm">Loading nearby trucks and events…</div>}
           <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-background/92 px-3 py-2 text-xs shadow-soft backdrop-blur md:right-auto">
+            <PinKindLegend />
             {legendCategories.map((c) => (
               <span key={c} className="inline-flex items-center gap-1.5">
                 <LegendDot category={c} />

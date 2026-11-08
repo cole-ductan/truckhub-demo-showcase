@@ -5,11 +5,12 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { DemoBanner } from "@/components/site/DemoBanner";
 import { useSEO } from "@/hooks/useSEO";
+import { MARKETPLACE_INQUIRY_RECEIPT } from "@/lib/publicInventoryCopy";
 
 export default function BookRequestReceived() {
   useSEO({
-    title: "Event Request Received | FoodXMobile",
-    description: "Your event request was received. Matching vendors may contact you directly.",
+    title: "Event Request Saved | FoodXMobile",
+    description: MARKETPLACE_INQUIRY_RECEIPT.description,
   });
 
   return (
@@ -20,10 +21,9 @@ export default function BookRequestReceived() {
         <div className="container-tight max-w-2xl">
           <div className="rounded-[2rem] border border-border bg-card p-10 text-center shadow-soft">
             <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" />
-            <h1 className="mt-5 font-display text-3xl font-bold md:text-4xl">Your Event Request Has Been Received</h1>
+            <h1 className="mt-5 font-display text-3xl font-bold md:text-4xl">{MARKETPLACE_INQUIRY_RECEIPT.title}</h1>
             <p className="mt-4 text-muted-foreground">
-              Your request was successfully submitted. Matching vendors may contact you directly using the information you provided.
-              You can keep browsing food trucks while you wait. We don't guarantee that a vendor will respond.
+              {MARKETPLACE_INQUIRY_RECEIPT.body} You can keep browsing listings while you wait.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Button asChild size="lg" className="rounded-full"><Link to="/food-trucks">Browse Food Trucks <ArrowRight className="ml-1.5 h-4 w-4" /></Link></Button>

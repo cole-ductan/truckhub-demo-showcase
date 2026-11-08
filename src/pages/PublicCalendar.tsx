@@ -9,18 +9,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useSEO } from "@/hooks/useSEO";
+import { InventoryKindBadge } from "@/components/site/InventoryKindBadge";
+import { isSampleInventory } from "@/lib/listingPresentation";
 
 type Ev = {
   id: string; title: string; tag: string | null;
   location: string | null; event_date: string | null;
   start_time: string | null; end_time: string | null;
-  businesses?: { slug?: string | null; name?: string | null } | null;
+  is_demo?: boolean | null;
+  businesses?: { slug?: string | null; name?: string | null; is_demo?: boolean | null } | null;
 };
 
 export default function PublicCalendar() {
   useSEO({
     title: "Local Event Calendar | FoodXMobile",
-    description: "Browse upcoming food truck rallies, farmers markets, pop-ups, and local community events on FoodXMobile.",
+    description: "Browse public events saved on FoodXMobile. Demo events are labeled. Times are saved on the event, not a live update.",
   });
 
   const [events, setEvents] = useState<Ev[]>([]);
@@ -32,7 +35,7 @@ export default function PublicCalendar() {
     const today = new Date().toISOString().slice(0, 10);
     supabase
       .from("business_events")
-      .select("id,title,tag,location,event_date,start_time,end_time,businesses(slug,name)")
+      .select("id,title,tag,location,event_date,start_time,end_time,is_demo,businesses(slug,name,is_demo)")
       .eq("is_public", true)
       .gte("event_date", today)
       .order("event_date")
@@ -67,7 +70,7 @@ export default function PublicCalendar() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Local calendar</p>
               <h1 className="mt-3 font-display text-4xl font-bold md:text-5xl">Upcoming events</h1>
-              <p className="mt-3 max-w-2xl text-muted-foreground">Food truck rallies, farmers markets, pop-ups, festivals, and community events near you.</p>
+              <p className="mt-3 max-w-2xl text-muted-foreground">Public events saved on listings. Demo events are sample content. A verified label means the event is not marked demo, not that the time was confirmed today.</p>
             </div>
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
@@ -111,7 +114,8 @@ export default function PublicCalendar() {
                           </div>
                         </div>
                         <div className="min-w-0">
-                          {e.tag && <span className="rounded-full bg-accent/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-foreground">{e.tag}</span>}
+                          <InventoryKindBadge subject="event" isDemo={isSampleInventory(e.is_demo, e.businesses?.is_demo)} />
+                          {e.tag && <span className="ml-2 rounded-full bg-accent/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-foreground">{e.tag}</span>}
                           <h3 className="mt-1.5 font-display text-lg font-semibold leading-tight">{e.title}</h3>
                           <p className="text-sm text-muted-foreground">
                             {e.location}
@@ -152,7 +156,8 @@ export default function PublicCalendar() {
                       </div>
                     ) : filtered.map((e) => (
                       <div key={e.id} className="rounded-xl border border-border bg-card p-4">
-                        {e.tag && <span className="rounded-full bg-accent/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-foreground">{e.tag}</span>}
+                        <InventoryKindBadge subject="event" isDemo={isSampleInventory(e.is_demo, e.businesses?.is_demo)} />
+                        {e.tag && <span className="ml-2 rounded-full bg-accent/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-foreground">{e.tag}</span>}
                         <h3 className="mt-1.5 font-display text-base font-semibold">{e.title}</h3>
                         <p className="text-xs text-muted-foreground">{e.location}{e.start_time ? ` · ${e.start_time}${e.end_time ? `–${e.end_time}` : ""}` : ""}</p>
                         {e.businesses?.slug && <Link to={`/food-trucks/${e.businesses.slug}`} className="mt-2 inline-flex items-center text-xs font-semibold text-primary">View vendor →</Link>}

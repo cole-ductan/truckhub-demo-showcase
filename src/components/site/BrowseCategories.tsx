@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, CalendarDays, Store, Truck, Users } from "lucide-react";
 
 const categories = [
-  { title: "Food Trucks", body: "Browse live locations and menus.", href: "/food-trucks", icon: Truck },
+  { title: "Food Trucks", body: "Browse published listings and menus. Demo cards are labeled.", href: "/food-trucks", icon: Truck },
   { title: "Farmers Markets", body: "Find weekly markets in the area.", href: "/calendar", icon: Store },
   { title: "Food Truck Rallies", body: "Catch the next rally near you.", href: "/calendar", icon: Users },
   { title: "Local Events", body: "Festivals, pop-ups, and more.", href: "/calendar", icon: CalendarDays },
