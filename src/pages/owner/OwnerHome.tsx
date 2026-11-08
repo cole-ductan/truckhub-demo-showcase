@@ -71,6 +71,8 @@ export default function OwnerHome() {
     (async () => {
       const today = new Date().toISOString().slice(0, 10);
       const [l, e, prefs, deposits] = await Promise.all([
+        // Direct leads only. Marketplace projections come from the per-vendor directory
+        // (useOwnerLeadBoard). Do not OR assigned_vendor_ids; shared leads.stage is not vendor CRM.
         supabase.from("leads").select("id,contact_name,event_type,event_date,guest_count,message,stage,estimated_value,created_at,updated_at")
           .eq("business_id", business.id).order("created_at", { ascending: false }),
         supabase.from("business_events").select("id,title,event_date,location,start_time,end_time,is_public")

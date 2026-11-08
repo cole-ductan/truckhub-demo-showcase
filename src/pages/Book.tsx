@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { supabaseLeadDirectory } from "@/lib/crm/liveLeadDirectory";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { DemoBanner } from "@/components/site/DemoBanner";
@@ -32,11 +33,15 @@ export default function Book() {
     const parsed = schema.safeParse(payload);
     if (!parsed.success) { toast({ title: "Please check your form", description: parsed.error.issues[0]?.message ?? "Invalid input", variant: "destructive" }); return; }
     setBusy(true);
-    const { data: inserted, error } = await supabase.from("leads").insert({ business_id: biz.id, contact_name: payload.contact_name, contact_email: payload.contact_email, contact_phone: payload.contact_phone || null, event_type: payload.event_type || null, event_date: payload.event_date || null, guest_count: payload.guest_count || null, message: payload.message || null, source: "public_form" }).select("id").maybeSingle();
-    setBusy(false);
-    if (error) { toast({ title: "Could not send", description: error.message, variant: "destructive" }); return; }
-    if (inserted?.id) supabase.functions.invoke("notify-new-lead", { body: { lead_id: inserted.id } }).catch(() => {});
-    setDone(true);
+    try {
+      const receipt = await supabaseLeadDirectory.submitDirect({ kind: "anonymous" }, { businessId: biz.id, contactName: payload.contact_name, contactEmail: payload.contact_email, contactPhone: payload.contact_phone || null, eventType: payload.event_type || null, eventDate: payload.event_date || null, guestCount: payload.guest_count || null, message: payload.message || null, source: "public_form" });
+      supabase.functions.invoke("notify-new-lead", { body: { lead_id: receipt.id } }).catch(() => {});
+      setDone(true);
+    } catch (error) {
+      toast({ title: "Could not send", description: error instanceof Error ? error.message : "Could not send", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (biz === null) return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;

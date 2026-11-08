@@ -35,6 +35,7 @@ export default function OwnerBookings() {
 
   useEffect(() => {
     if (!business) return;
+    // Direct business_id rows only. A marketplace booking uses that vendor's VendorLeadState.stage.
     supabase.from("leads")
       .select("id,contact_name,event_type,event_date,guest_count,estimated_value,stage,message,created_at,updated_at")
       .eq("business_id", business.id)

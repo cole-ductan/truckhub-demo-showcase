@@ -1,0 +1,262 @@
+-- PROPOSAL ONLY. Not a migration. Do not apply to any hosted database.
+-- This draft did not repair live RLS. Executing this file is a no-op.
+--
+-- Future G2 work, not done here:
+-- - UPDATE column-allowlist enforcement (stage, notes, quote only)
+-- - replacement of the wide "owners read matched event inquiries" SELECT
+-- - anonymous grants and receipts without a general SELECT
+-- - schema-level exclusion of direct business_id leads from vendor_lead_state
+-- - transactional reassignment and a durable audit
+-- Do not treat the comments below as a completed security design.
+-- FXM-005 Lane A. Director G3 approval has to name the environment before this
+-- text is copied under supabase/migrations.
+--
+-- This file is documentation. It is not a Supabase migration.
+-- Do not copy it into supabase/migrations, and do not run it against
+-- https://foodxmobile.com or host akhmgnjmhvvmprvnwusp.
+-- Do not target https://truckhub.lovable.app.
+--
+-- Every statement below is commented. Executing this file is a no-op.
+--
+-- Does not rewrite historical leads.business_id.
+-- Does not mark assigned_vendor_ids membership as accepted.
+-- Does not grant anonymous SELECT on leads.
+--
+-- Director confirmation, 2026-11-08 about 2:20 PM CST (America/Chicago):
+-- public.leads has nullable text columns event_location and event_zip.
+-- It does not have event_city or event_street.
+-- event_location is one free-text field and may contain a private street.
+-- Offered summaries must not use event_location as a city or public venue.
+-- Do not parse or split event_location to invent a city.
+-- Until event_city (or a public-venue column) and event_street exist and are
+-- populated separately, offered publicLocation stays null.
+-- event_zip stays hidden until that vendor accepts.
+-- After accept, event_location is the precise-address stand-in and event_zip
+-- is the postal code.
+-- Adding event_city and event_street remains proposal-only. It is not a migration.
+
+-- Forward proposal, for a later approved migration only.
+--
+-- ALTER TABLE public.leads
+--   ADD COLUMN IF NOT EXISTS event_city text,
+--   ADD COLUMN IF NOT EXISTS event_street text;
+--
+-- Do not backfill event_city from event_location. That text may be a street.
+-- There is no UPDATE public.leads SET event_city = event_location in this proposal.
+--
+-- COMMENT ON COLUMN public.leads.event_city IS
+--   'City or public venue safe for an offered marketplace summary. Never a private street. Do not backfill by parsing event_location.';
+--
+-- COMMENT ON COLUMN public.leads.event_street IS
+--   'Street or precise address. Visible to a vendor only after that vendor accepts. Do not copy event_location into this column automatically.';
+--
+-- CREATE TABLE public.vendor_lead_state (
+--   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+--   lead_id uuid NOT NULL REFERENCES public.leads(id) ON DELETE CASCADE,
+--   business_id uuid NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+--   assignment_status text NOT NULL CHECK (assignment_status IN ('offered', 'accepted', 'declined', 'revoked', 'expired')),
+--   stage public.lead_stage NOT NULL DEFAULT 'new',
+--   notes text,
+--   quote text,
+--   thread_id uuid,
+--   assigned_at timestamptz NOT NULL DEFAULT now(),
+--   updated_at timestamptz NOT NULL DEFAULT now(),
+--   UNIQUE (lead_id, business_id)
+-- );
+--
+-- CREATE TABLE public.vendor_lead_messages (
+--   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+--   thread_id uuid NOT NULL,
+--   lead_id uuid NOT NULL REFERENCES public.leads(id) ON DELETE CASCADE,
+--   business_id uuid NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+--   sender_role text NOT NULL,
+--   sender_user_id uuid,
+--   body text NOT NULL,
+--   created_at timestamptz NOT NULL DEFAULT now()
+-- );
+--
+-- CREATE TABLE public.vendor_lead_assignment_events (
+--   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+--   lead_id uuid NOT NULL REFERENCES public.leads(id) ON DELETE CASCADE,
+--   business_id uuid NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+--   command text NOT NULL CHECK (command IN ('offer', 'accept', 'decline', 'revoke', 'expire', 'reassign', 'map_legacy')),
+--   from_status text,
+--   to_status text NOT NULL,
+--   actor_kind text NOT NULL,
+--   created_at timestamptz NOT NULL DEFAULT now()
+-- );
+--
+-- unique (lead_id, business_id) is the one-row rule. Commands refuse a second
+-- offered or accepted row for that pair. Declined, revoked, and expired stay
+-- on the same row.
+--
+-- ALTER TABLE public.vendor_lead_state ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.vendor_lead_messages ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.vendor_lead_assignment_events ENABLE ROW LEVEL SECURITY;
+--
+-- Vendors read only their own state row. They do not select the shared leads
+-- row for a marketplace inquiry. The old broad marketplace SELECT must be
+-- dropped in the same migration. Do not forget it: assigned_vendor_ids must
+-- not remain a way to read the raw lead.
+--
+-- DROP POLICY IF EXISTS "owners read matched event inquiries" ON public.leads;
+--
+-- CREATE POLICY "owners read own vendor lead state"
+--   ON public.vendor_lead_state FOR SELECT
+--   USING (public.owns_business(auth.uid(), business_id));
+--
+-- CREATE POLICY "admins read vendor lead state"
+--   ON public.vendor_lead_state FOR SELECT
+--   USING (public.is_admin(auth.uid()));
+--
+-- Accepted vendors may update only stage, notes, and quote.
+-- A USING / WITH CHECK policy is not enough: it does not limit columns.
+-- Column grants plus a trigger are both required. Assignment commands stay
+-- in security-definer functions, which may change assignment_status.
+--
+-- REVOKE UPDATE ON public.vendor_lead_state FROM authenticated;
+-- GRANT UPDATE (stage, notes, quote) ON public.vendor_lead_state TO authenticated;
+--
+-- CREATE OR REPLACE FUNCTION public.vendor_lead_state_limit_owner_columns()
+-- RETURNS trigger
+-- LANGUAGE plpgsql
+-- AS $$
+-- BEGIN
+--   IF public.is_admin(auth.uid()) THEN
+--     RETURN NEW;
+--   END IF;
+--   IF NEW.id IS DISTINCT FROM OLD.id
+--      OR NEW.lead_id IS DISTINCT FROM OLD.lead_id
+--      OR NEW.business_id IS DISTINCT FROM OLD.business_id
+--      OR NEW.assignment_status IS DISTINCT FROM OLD.assignment_status
+--      OR NEW.thread_id IS DISTINCT FROM OLD.thread_id
+--      OR NEW.assigned_at IS DISTINCT FROM OLD.assigned_at
+--   THEN
+--     RAISE EXCEPTION 'owners cannot edit assignment or admin fields';
+--   END IF;
+--   IF OLD.assignment_status IS DISTINCT FROM 'accepted' THEN
+--     RAISE EXCEPTION 'only an accepted vendor can edit stage, notes, and quote';
+--   END IF;
+--   RETURN NEW;
+-- END;
+-- $$;
+--
+-- CREATE TRIGGER vendor_lead_state_limit_owner_columns
+--   BEFORE UPDATE ON public.vendor_lead_state
+--   FOR EACH ROW EXECUTE FUNCTION public.vendor_lead_state_limit_owner_columns();
+--
+-- Do not use a broad UPDATE policy as the column allowlist. A policy that only
+-- checks ownership and accepted status still lets the role change lead_id,
+-- business_id, thread_id, and assigned_at when the role can UPDATE the table.
+-- The future G2 sketch is column grants or a narrow RPC, not that broad policy.
+--
+-- CREATE OR REPLACE FUNCTION public.update_vendor_lead_crm(
+--   _lead_id uuid,
+--   _business_id uuid,
+--   _stage public.lead_stage,
+--   _notes text,
+--   _quote text
+-- ) RETURNS public.vendor_lead_state
+-- LANGUAGE plpgsql
+-- SECURITY DEFINER
+-- SET search_path = public
+-- AS $$
+-- DECLARE
+--   row_out public.vendor_lead_state;
+-- BEGIN
+--   IF NOT public.owns_business(auth.uid(), _business_id) THEN
+--     RAISE EXCEPTION 'forbidden';
+--   END IF;
+--   UPDATE public.vendor_lead_state
+--      SET stage = _stage,
+--          notes = _notes,
+--          quote = _quote,
+--          updated_at = now()
+--    WHERE lead_id = _lead_id
+--      AND business_id = _business_id
+--      AND assignment_status = 'accepted'
+--    RETURNING * INTO row_out;
+--   IF row_out.id IS NULL THEN
+--     RAISE EXCEPTION 'not an accepted assignment';
+--   END IF;
+--   RETURN row_out;
+-- END;
+-- $$;
+--
+-- REVOKE ALL ON FUNCTION public.update_vendor_lead_crm(uuid, uuid, public.lead_stage, text, text) FROM PUBLIC, anon;
+-- GRANT EXECUTE ON FUNCTION public.update_vendor_lead_crm(uuid, uuid, public.lead_stage, text, text) TO authenticated;
+--
+
+-- CREATE POLICY "owners read own accepted thread"
+--   ON public.vendor_lead_messages FOR SELECT
+--   USING (
+--     public.owns_business(auth.uid(), business_id)
+--     AND EXISTS (
+--       SELECT 1 FROM public.vendor_lead_state s
+--       WHERE s.thread_id = vendor_lead_messages.thread_id
+--         AND s.business_id = vendor_lead_messages.business_id
+--         AND s.lead_id = vendor_lead_messages.lead_id
+--         AND s.assignment_status = 'accepted'
+--     )
+--   );
+--
+-- CREATE POLICY "admins read vendor messages"
+--   ON public.vendor_lead_messages FOR SELECT
+--   USING (public.is_admin(auth.uid()));
+--
+-- CREATE POLICY "admins read assignment events"
+--   ON public.vendor_lead_assignment_events FOR SELECT
+--   USING (public.is_admin(auth.uid()));
+--
+-- Owners do not get a policy on assignment events or on other businesses' rows.
+-- Anonymous role has no select grant on these tables or on leads.
+--
+-- Legacy slots become offered CRM shells. Do not set accepted, notes, quote, or thread.
+-- Direct leads (business_id is not null) are not copied into this table.
+--
+-- INSERT INTO public.vendor_lead_state (lead_id, business_id, assignment_status, stage, notes, quote, thread_id)
+-- SELECT l.id, slot.business_id, 'offered', 'new', NULL, NULL, NULL
+-- FROM public.leads l
+-- CROSS JOIN LATERAL unnest(l.assigned_vendor_ids) AS slot(business_id)
+-- WHERE l.business_id IS NULL
+--   AND l.lead_type = 'event_inquiry'
+--   AND NOT EXISTS (
+--     SELECT 1 FROM public.vendor_lead_state s
+--     WHERE s.lead_id = l.id AND s.business_id = slot.business_id
+--   );
+--
+-- Security-definer commands (sketch, still commented):
+-- accept(lead, business): owner, offered -> accepted. This is the only unlock for customer columns.
+-- decline(lead, business): owner, offered -> declined. Does not delete the lead or messages.
+-- revoke(lead, business): admin, offered|accepted -> revoked.
+-- expire(lead, business): admin or later expire-offers job, same privacy as revoke.
+-- offer(lead, business): admin. Inserts offered, or reopens a declined|revoked|expired row. Refuses a second active row.
+-- reassign(lead, from, to): admin. Revokes the active source row and offers the target. Writes two assignment events.
+-- map_legacy(lead): admin. Same insert as above for that lead. Does not touch rows that already exist.
+-- submit_direct_inquiry(payload) returns uuid. Replaces anonymous insert().select('id').
+--   Grant execute to anon and authenticated. Do not add an anonymous select policy on leads.
+-- Vendor-facing delete stays limited to leads.business_id = the owned direct lead.
+-- There is no owner delete policy for marketplace rows (business_id is null).
+--
+-- Projection function returns allowlisted columns only.
+-- Offered / declined / revoked / expired: event type, request type, date, times,
+-- guest count, cuisine, budget, estimated_value, service style, frequency,
+-- plus that vendor's own stage, notes, and quote.
+-- publicLocation / event_city is omitted until that column exists and is populated
+-- separately. Never parse event_location to fill it.
+-- Customer name, email, phone, message, event_street, event_zip, and legacy
+-- event_location are returned only when assignment_status = 'accepted'.
+-- admin_notes, other vendors' state, and the raw leads row are never returned to a vendor.
+
+-- Rollback proposal. Apply only if the forward change was applied, and only
+-- with the same named approval. Dropping these tables discards per-vendor CRM
+-- written after the forward change. It does not rewrite historical leads.business_id.
+--
+-- DROP TRIGGER IF EXISTS vendor_lead_state_limit_owner_columns ON public.vendor_lead_state;
+-- DROP FUNCTION IF EXISTS public.vendor_lead_state_limit_owner_columns();
+-- DROP TABLE IF EXISTS public.vendor_lead_assignment_events;
+-- DROP TABLE IF EXISTS public.vendor_lead_messages;
+-- DROP TABLE IF EXISTS public.vendor_lead_state;
+-- ALTER TABLE public.leads
+--   DROP COLUMN IF EXISTS event_city,
+--   DROP COLUMN IF EXISTS event_street;

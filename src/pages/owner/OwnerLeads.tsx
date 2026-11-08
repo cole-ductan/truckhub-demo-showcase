@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOwnerBusiness } from "@/hooks/useOwnerBusiness";
+import { useLeadDirectory, useOwnerLeadBoard } from "@/hooks/useOwnerLeadBoard";
+import type { Actor, VendorLeadStage } from "@/lib/crm/types";
+import { projectionToOwnerLeadView, type OwnerLeadView } from "@/lib/crm/viewModel";
 import { Onboarding } from "@/components/owner/Onboarding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,28 +12,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, DollarSign, LayoutGrid, List, Mail, MessageSquare, Phone, Search, Trash2, Users } from "lucide-react";
+import { Calendar, DollarSign, LayoutGrid, List, Mail, MapPin, MessageSquare, Phone, Search, Trash2, Users } from "lucide-react";
 import { DepositSection } from "@/components/owner/DepositSection";
 
-export type Lead = {
-  id: string;
-  business_id: string;
-  contact_name: string;
-  contact_email: string;
-  contact_phone: string | null;
-  event_type: string | null;
-  event_date: string | null;
-  guest_count: string | null;
-  message: string | null;
-  stage: "new" | "contacted" | "quote_sent" | "pending" | "booked" | "completed" | "lost";
-  estimated_value: number | null;
-  internal_notes: string | null;
-  source: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-const STAGES: { v: Lead["stage"]; label: string; color: string }[] = [
+const STAGES: { v: VendorLeadStage; label: string; color: string }[] = [
   { v: "new", label: "New", color: "bg-blue-500/10 text-blue-700" },
   { v: "contacted", label: "Contacted", color: "bg-cyan-500/10 text-cyan-700" },
   { v: "quote_sent", label: "Quote Sent", color: "bg-amber-500/10 text-amber-700" },
@@ -45,21 +30,23 @@ type SortKey = "newest" | "event_date" | "value";
 type ViewMode = "table" | "kanban";
 
 export default function OwnerLeads() {
-  const { business, loading } = useOwnerBusiness();
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const { toast } = useToast();
+  const board = useOwnerLeadBoard();
+  const [leads, setLeads] = useState<OwnerLeadView[]>([]);
   const [stage, setStage] = useState<string>("all");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<SortKey>("newest");
-  const [open, setOpen] = useState<Lead | null>(null);
+  const [open, setOpen] = useState<OwnerLeadView | null>(null);
   const [view, setView] = useState<ViewMode>("kanban");
-  const { toast } = useToast();
 
-  async function reload() {
-    if (!business) return;
-    const { data } = await supabase.from("leads").select("*").eq("business_id", business.id).order("created_at", { ascending: false });
-    setLeads((data ?? []) as Lead[]);
-  }
-  useEffect(() => { reload(); /* eslint-disable-next-line */ }, [business]);
+  const workspaceKey = `${board.business?.id ?? ""}:${board.actor.kind === "owner" ? board.actor.userId : ""}`;
+  const marketplaceReady = board.directory.marketplaceStatus === "available";
+  const workspaceRef = useRef(workspaceKey);
+  const openIdRef = useRef<string | null>(open?.id ?? null);
+  workspaceRef.current = workspaceKey;
+  openIdRef.current = open?.id ?? null;
+  useEffect(() => { setLeads(board.views); }, [board.views]);
+  useEffect(() => { setOpen(null); setLeads([]); }, [workspaceKey]);
 
   const filtered = useMemo(() => {
     let out = leads;
@@ -67,8 +54,8 @@ export default function OwnerLeads() {
     if (q.trim()) {
       const s = q.toLowerCase();
       out = out.filter((l) =>
-        [l.contact_name, l.contact_email, l.contact_phone, l.event_type, l.event_date, l.message]
-          .some((v) => (v ?? "").toString().toLowerCase().includes(s))
+        [l.contact_name, l.contact_email, l.contact_phone, l.event_type, l.event_date, l.public_location, l.guest_count, l.message]
+          .some((value) => (value ?? "").toString().toLowerCase().includes(s))
       );
     }
     if (sort === "newest") out = [...out].sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -77,16 +64,29 @@ export default function OwnerLeads() {
     return out;
   }, [leads, stage, q, sort]);
 
-  if (loading) return <div className="text-muted-foreground">Loading…</div>;
-  if (!business) return <Onboarding />;
+  if (board.loading) return <div className="text-muted-foreground">Loading…</div>;
+  if (!board.business) return <Onboarding />;
 
-  async function moveStage(leadId: string, newStage: Lead["stage"]) {
+  async function moveStage(leadId: string, newStage: VendorLeadStage) {
+    const current = leads.find((lead) => lead.id === leadId);
+    if (!current?.can_edit_crm || !board.business || board.actor.kind !== "owner") {
+      toast({ title: "This inquiry can't be moved yet", description: "Accept a marketplace request before changing its stage." });
+      return;
+    }
+    const startedWorkspace = workspaceKey;
     const prev = leads;
     setLeads((p) => p.map((l) => l.id === leadId ? { ...l, stage: newStage } : l));
-    const { error } = await supabase.from("leads").update({ stage: newStage }).eq("id", leadId);
-    if (error) {
+    try {
+      const updated = projectionToOwnerLeadView(
+        await board.directory.updateOwnerCrm(board.actor, board.business.id, leadId, { stage: newStage }),
+      );
+      if (workspaceRef.current !== startedWorkspace) return;
+      setLeads((p) => p.map((l) => l.id === leadId && l.business_id === updated.business_id ? updated : l));
+      setOpen((currentOpen) => currentOpen?.id === leadId && currentOpen.business_id === updated.business_id ? updated : currentOpen);
+    } catch (error) {
+      if (workspaceRef.current !== startedWorkspace) return;
       setLeads(prev);
-      toast({ title: "Failed to move", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to move", description: error instanceof Error ? error.message : "Failed to move", variant: "destructive" });
     }
   }
 
@@ -95,7 +95,11 @@ export default function OwnerLeads() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold">Leads</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Catering inquiries from your FoodXMobile page.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {marketplaceReady
+              ? "Direct inquiries for this business. Assigned marketplace requests show up here only in a workspace that can load per-vendor state. Other vendors cannot see your notes."
+              : "Direct inquiries sent to your page. Marketplace assignment is not available in this database yet."}
+          </p>
         </div>
         <div className="inline-flex rounded-full border border-border bg-card p-1">
           <button
@@ -113,6 +117,8 @@ export default function OwnerLeads() {
         </div>
       </div>
 
+      {board.error && <div role="alert" className="rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{board.error}</div>}
+
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -129,7 +135,7 @@ export default function OwnerLeads() {
         </select>
       </div>
 
-      {filtered.length === 0 && view === "table" ? (
+      {filtered.length === 0 && view === "table" && !board.error ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-muted-foreground">
           {leads.length === 0 ? "No inquiries yet. They'll show up here as soon as customers reach out." : "No leads match your filters."}
         </div>
@@ -151,10 +157,10 @@ export default function OwnerLeads() {
               {filtered.map((l) => {
                 const s = stageMeta(l.stage);
                 return (
-                  <tr key={l.id} onClick={() => setOpen(l)} className="cursor-pointer hover:bg-muted/40">
+                  <tr key={l.id} onClick={() => setOpen(l)} className="cursor-pointer hover:bg-muted/40" data-testid="owner-lead-row" data-lead-id={l.id} data-customer-visible={l.customer_visible ? "true" : "false"} data-stage={l.stage}>
                     <td className="px-4 py-3">
                       <p className="font-semibold">{l.contact_name}</p>
-                      <p className="text-xs text-muted-foreground">{l.contact_email}</p>
+                      <p className="text-xs text-muted-foreground">{l.customer_visible ? l.contact_email : l.assignment_status ?? "Direct"}</p>
                     </td>
                     <td className="px-4 py-3">
                       <p>{l.event_type ?? "—"}</p>
@@ -173,69 +179,158 @@ export default function OwnerLeads() {
         </div>
       )}
 
-      <LeadSheet lead={open} onClose={() => setOpen(null)} onChange={(updated) => {
-        setLeads((p) => p.map((x) => x.id === updated.id ? updated : x));
-        setOpen(updated);
-      }} onDelete={(id) => { setLeads((p) => p.filter((x) => x.id !== id)); setOpen(null); }} />
+      <LeadSheet key={`${workspaceKey}:${open?.id ?? "closed"}`} lead={open} onClose={() => setOpen(null)} onChange={(updated) => {
+        if (workspaceRef.current !== workspaceKey) return;
+        setLeads((current) => current.map((row) => row.id === updated.id && row.business_id === updated.business_id ? updated : row));
+        setOpen((current) => current?.id === updated.id && current.business_id === updated.business_id ? updated : current);
+      }} onDelete={(id) => {
+        if (workspaceRef.current !== workspaceKey) return;
+        setLeads((current) => current.filter((row) => row.id !== id));
+        setOpen((current) => current?.id === id ? null : current);
+      }} />
     </div>
   );
 }
 
-type Msg = { id: string; lead_id: string; sender_role: string; sender_user_id: string | null; body: string; created_at: string };
+type Msg = { id: string; body: string; sender_role: string; created_at: string };
 
-export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: Lead | null; onClose: () => void; onChange: (l: Lead) => void; onDelete: (id: string) => void; }) {
+export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: OwnerLeadView | null; onClose: () => void; onChange: (l: OwnerLeadView) => void; onDelete: (id: string) => void; }) {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const { businesses } = useOwnerBusiness();
+  const directory = useLeadDirectory();
   const { toast } = useToast();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [reply, setReply] = useState("");
-  const [draft, setDraft] = useState<Lead | null>(null);
+  const [draft, setDraft] = useState<OwnerLeadView | null>(null);
+  const [threadError, setThreadError] = useState<string | null>(null);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [threadAttempt, setThreadAttempt] = useState(0);
+  const businessKey = businesses.map((business) => business.id).join("|");
+  const marketplaceReady = directory.marketplaceStatus === "available";
+  const leadId = lead?.id ?? null;
+  const aliveRef = useRef(true);
+  const scopeRef = useRef({ userId, businessKey, leadId });
+  scopeRef.current = { userId, businessKey, leadId };
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => { aliveRef.current = false; };
+  }, []);
+
+  function stillCurrent(started: { userId: string | null; businessKey: string; leadId: string }) {
+    if (!aliveRef.current) return false;
+    const current = scopeRef.current;
+    return current.userId === started.userId && current.businessKey === started.businessKey && current.leadId === started.leadId;
+  }
 
   useEffect(() => {
     setDraft(lead);
-    if (!lead) { setMessages([]); return; }
-    supabase.from("lead_messages").select("*").eq("lead_id", lead.id).order("created_at")
-      .then(({ data }) => setMessages((data ?? []) as Msg[]));
-  }, [lead]);
+    setReply("");
+    setMessages([]);
+    setThreadError(null);
+    if (!lead?.thread_open || !userId || !leadId) { setThreadLoading(false); return; }
+    const threadActor: Actor = { kind: "owner", userId, businessIds: businessKey ? businessKey.split("|") : [] };
+    let cancelled = false;
+    setThreadLoading(true);
+    directory.listThread(threadActor, lead.business_id, leadId)
+      .then((rows) => {
+        if (cancelled) return;
+        setMessages(rows.map((row) => ({ id: row.id, body: row.body, sender_role: row.senderRole, created_at: row.createdAt })));
+        setThreadError(null);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setMessages([]);
+        setThreadError(error instanceof Error ? error.message : "Could not load messages.");
+      })
+      .finally(() => { if (!cancelled) setThreadLoading(false); });
+    return () => { cancelled = true; };
+  }, [lead, leadId, directory, userId, businessKey, threadAttempt]);
 
   if (!lead || !draft) return <Sheet open={false} onOpenChange={() => onClose()}><SheetContent /></Sheet>;
 
+  function actor(): Actor | null {
+    if (!userId) return null;
+    return { kind: "owner", userId, businessIds: businessKey ? businessKey.split("|") : [] };
+  }
+
   async function saveLead() {
-    if (!draft) return;
-    const payload = {
-      stage: draft.stage,
-      estimated_value: draft.estimated_value,
-      internal_notes: draft.internal_notes,
-    };
-    const { data, error } = await supabase.from("leads").update(payload).eq("id", draft.id).select().maybeSingle();
-    if (error) { toast({ title: "Save failed", description: error.message, variant: "destructive" }); return; }
-    onChange(data as Lead);
-    toast({ title: "Lead updated" });
+    if (!draft?.can_edit_crm) return;
+    const who = actor();
+    if (!who) return;
+    const started = { userId, businessKey, leadId: draft.id };
+    const patch = draft.kind === "marketplace"
+      ? { stage: draft.stage, notes: draft.internal_notes, quote: draft.quote }
+      : { stage: draft.stage, notes: draft.internal_notes, estimatedValue: draft.estimated_value };
+    try {
+      const updated = projectionToOwnerLeadView(await directory.updateOwnerCrm(who, draft.business_id, draft.id, patch));
+      if (!stillCurrent(started)) return;
+      onChange(updated);
+      toast({ title: "Lead updated" });
+    } catch (error) {
+      if (!stillCurrent(started)) return;
+      toast({ title: "Save failed", description: error instanceof Error ? error.message : "Save failed", variant: "destructive" });
+    }
+  }
+
+  async function runAssignment(command: "accept" | "decline") {
+    const who = actor();
+    if (!who || !draft) return;
+    const started = { userId, businessKey, leadId: draft.id };
+    try {
+      const updated = projectionToOwnerLeadView(
+        command === "accept"
+          ? await directory.acceptAssignment(who, draft.business_id, draft.id)
+          : await directory.declineAssignment(who, draft.business_id, draft.id),
+      );
+      if (!stillCurrent(started)) return;
+      onChange(updated);
+      toast({ title: command === "accept" ? "Inquiry accepted" : "Inquiry declined" });
+    } catch (error) {
+      if (!stillCurrent(started)) return;
+      toast({ title: "Could not update the assignment", description: error instanceof Error ? error.message : "Could not update the assignment", variant: "destructive" });
+    }
   }
 
   async function sendReply() {
-    if (!reply.trim() || !lead || !user) return;
-    const { data, error } = await supabase.from("lead_messages").insert({
-      lead_id: lead.id, sender_role: "owner", sender_user_id: user.id, body: reply.trim(),
-    }).select().maybeSingle();
-    if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
-    setMessages((p) => [...p, data as Msg]);
-    setReply("");
-    if (data?.id) {
-      supabase.functions.invoke("notify-owner-reply", { body: { message_id: data.id } }).catch(() => {});
-    }
-    if (lead.stage === "new") {
-      const { data: upd } = await supabase.from("leads").update({ stage: "contacted" }).eq("id", lead.id).select().maybeSingle();
-      if (upd) onChange(upd as Lead);
+    if (!reply.trim() || !lead?.thread_open || !user) return;
+    const who = actor();
+    if (!who) return;
+    const started = { userId, businessKey, leadId: lead.id };
+    try {
+      const message = await directory.appendOwnerMessage(who, lead.business_id, lead.id, reply.trim());
+      if (!stillCurrent(started)) return;
+      setMessages((p) => [...p, { id: message.id, body: message.body, sender_role: message.senderRole, created_at: message.createdAt }]);
+      setReply("");
+      if (lead.kind === "direct") {
+        supabase.functions.invoke("notify-owner-reply", { body: { message_id: message.id } }).catch(() => {});
+      }
+      if (lead.stage === "new") {
+        const updated = projectionToOwnerLeadView(await directory.updateOwnerCrm(who, lead.business_id, lead.id, { stage: "contacted" }));
+        if (!stillCurrent(started)) return;
+        onChange(updated);
+      }
+    } catch (error) {
+      if (!stillCurrent(started)) return;
+      toast({ title: "Failed", description: error instanceof Error ? error.message : "Failed", variant: "destructive" });
     }
   }
 
   async function remove() {
+    if (!lead?.can_delete) return;
     if (!confirm("Delete this lead and all its messages?")) return;
-    await supabase.from("lead_messages").delete().eq("lead_id", lead.id);
-    const { error } = await supabase.from("leads").delete().eq("id", lead.id);
-    if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
-    onDelete(lead.id);
-    toast({ title: "Deleted" });
+    const who = actor();
+    if (!who) return;
+    const started = { userId, businessKey, leadId: lead.id };
+    try {
+      await directory.deleteDirectLead(who, lead.business_id, lead.id);
+      if (!stillCurrent(started)) return;
+      onDelete(lead.id);
+      toast({ title: "Deleted" });
+    } catch (error) {
+      if (!stillCurrent(started)) return;
+      toast({ title: "Failed", description: error instanceof Error ? error.message : "Failed", variant: "destructive" });
+    }
   }
 
   const s = stageMeta(draft.stage);
@@ -245,89 +340,144 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: Lead | 
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader>
           <SheetTitle className="font-display text-2xl">{lead.contact_name}</SheetTitle>
-          <span className={`mt-1 inline-flex w-fit rounded-full px-2.5 py-1 text-[11px] font-semibold ${s.color}`}>{s.label}</span>
+          <div className="mt-1 flex flex-wrap gap-2">
+            <span className={`inline-flex w-fit rounded-full px-2.5 py-1 text-[11px] font-semibold ${s.color}`}>{s.label}</span>
+            {lead.kind === "marketplace" && lead.assignment_status && (
+              <span className="inline-flex w-fit rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase text-muted-foreground">{lead.assignment_status.replace("_", " ")}</span>
+            )}
+          </div>
         </SheetHeader>
 
         <div className="mt-6 space-y-5">
+          {!lead.customer_visible && (
+            <p className="rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+              {lead.can_accept ? "Accept this request to see the customer's contact details." : "Contact details are hidden for this assignment."}
+            </p>
+          )}
+
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <Info icon={Mail} label="Email" value={lead.contact_email} href={`mailto:${lead.contact_email}`} />
-            {lead.contact_phone && <Info icon={Phone} label="Phone" value={lead.contact_phone} href={`tel:${lead.contact_phone}`} />}
+            {lead.customer_visible && <Info icon={Mail} label="Email" value={lead.contact_email} href={`mailto:${lead.contact_email}`} />}
+            {lead.customer_visible && lead.contact_phone && <Info icon={Phone} label="Phone" value={lead.contact_phone} href={`tel:${lead.contact_phone}`} />}
             {lead.event_type && <Info icon={Calendar} label="Event" value={lead.event_type} />}
-            {lead.event_date && <Info icon={Calendar} label="Date" value={lead.event_date} />}
+            {lead.event_date && <Info icon={Calendar} label="Date" value={[lead.event_date, lead.event_start_time, lead.event_end_time].filter(Boolean).join(" · ")} />}
             {lead.guest_count && <Info icon={Users} label="Guests" value={lead.guest_count} />}
+            {lead.public_location && <Info icon={MapPin} label="Location" value={lead.public_location} />}
+            {lead.customer_visible && lead.street_address && <Info icon={MapPin} label="Address" value={lead.street_address} />}
             <Info icon={Calendar} label="Received" value={new Date(lead.created_at).toLocaleString()} />
           </div>
 
-          {lead.message && (
+          {lead.customer_visible && lead.message && (
             <div className="rounded-xl border border-border bg-muted/30 p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Original message</p>
               <p className="mt-2 whitespace-pre-wrap text-sm">{lead.message}</p>
             </div>
           )}
 
+          {marketplaceReady && (lead.can_accept || lead.can_decline) && (
+            <div className="flex gap-2">
+              {lead.can_accept && <Button onClick={() => runAssignment("accept")}>Accept inquiry</Button>}
+              {lead.can_decline && <Button variant="outline" onClick={() => runAssignment("decline")}>Decline</Button>}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Stage</Label>
-              <select className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={draft.stage} onChange={(e) => setDraft({ ...draft, stage: e.target.value as any })}>
+              <select className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm" disabled={!draft.can_edit_crm}
+                value={draft.stage} onChange={(e) => setDraft({ ...draft, stage: e.target.value as VendorLeadStage })}>
                 {STAGES.map((x) => <option key={x.v} value={x.v}>{x.label}</option>)}
               </select>
             </div>
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Estimated value</Label>
-              <div className="relative mt-1.5">
-                <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input type="number" className="pl-9" value={draft.estimated_value ?? ""}
-                  onChange={(e) => setDraft({ ...draft, estimated_value: e.target.value === "" ? null : Number(e.target.value) })} />
+            {draft.kind === "direct" ? (
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Estimated value</Label>
+                <div className="relative mt-1.5">
+                  <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input type="number" className="pl-9" value={draft.estimated_value ?? ""}
+                    onChange={(e) => setDraft({ ...draft, estimated_value: e.target.value === "" ? null : Number(e.target.value) })} />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Customer budget</Label>
+                <p className="mt-2 text-sm font-medium">{draft.estimated_value != null ? `$${Number(draft.estimated_value).toLocaleString()}` : draft.budget_range ?? "—"}</p>
+              </div>
+            )}
           </div>
+
+          {draft.kind === "marketplace" && (
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Your quote</Label>
+              {draft.can_edit_crm ? (
+                <Textarea className="mt-1.5" rows={2} value={draft.quote ?? ""} onChange={(e) => setDraft({ ...draft, quote: e.target.value })} placeholder="Other vendors cannot see this quote." />
+              ) : (
+                <p className="mt-1.5 text-sm">{draft.quote ?? "No quote yet."}</p>
+              )}
+            </div>
+          )}
 
           <div>
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Internal notes</Label>
-            <Textarea className="mt-1.5" rows={3} value={draft.internal_notes ?? ""} onChange={(e) => setDraft({ ...draft, internal_notes: e.target.value })} placeholder="Only you can see this." />
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">{draft.kind === "marketplace" ? "Your notes" : "Internal notes"}</Label>
+            {draft.can_edit_crm ? (
+              <Textarea className="mt-1.5" rows={3} value={draft.internal_notes ?? ""} onChange={(e) => setDraft({ ...draft, internal_notes: e.target.value })} placeholder="Other vendors cannot see these notes." />
+            ) : (
+              <p className="mt-1.5 whitespace-pre-wrap text-sm">{draft.internal_notes ?? "No notes."}</p>
+            )}
           </div>
 
-          <DepositSection
-            businessId={lead.business_id}
-            leadId={lead.id}
-            customerName={lead.contact_name}
-            customerEmail={lead.contact_email}
-            estimatedValue={draft.estimated_value}
-          />
+          {lead.kind === "direct" && (
+            <DepositSection
+              businessId={lead.business_id}
+              leadId={lead.id}
+              customerName={lead.contact_name}
+              customerEmail={lead.contact_email}
+              estimatedValue={draft.estimated_value}
+            />
+          )}
 
           <div className="flex justify-between gap-2">
-            <Button variant="ghost" className="text-destructive" onClick={remove}><Trash2 className="mr-1.5 h-4 w-4" /> Delete</Button>
-            <Button onClick={saveLead}>Save changes</Button>
+            {lead.can_delete ? (
+              <Button variant="ghost" className="text-destructive" onClick={remove}><Trash2 className="mr-1.5 h-4 w-4" /> Delete</Button>
+            ) : <span />}
+            {draft.can_edit_crm && <Button onClick={saveLead}>Save changes</Button>}
           </div>
 
-          <div className="border-t border-border pt-5">
-            <h3 className="flex items-center gap-2 font-display text-lg font-semibold"><MessageSquare className="h-4 w-4" /> Messages</h3>
-            <div className="mt-3 space-y-2">
-              {messages.length === 0 && <p className="text-sm text-muted-foreground">No messages yet. Start the conversation below.</p>}
-              {messages.map((m) => (
-                <div key={m.id} className={`max-w-[85%] rounded-2xl p-3 text-sm ${m.sender_role === "owner" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted"}`}>
-                  <p className="whitespace-pre-wrap">{m.body}</p>
-                  <p className={`mt-1 text-[10px] ${m.sender_role === "owner" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                    {m.sender_role} · {new Date(m.created_at).toLocaleString()}
-                  </p>
-                </div>
-              ))}
+          {lead.thread_open && (
+            <div className="border-t border-border pt-5">
+              <h3 className="flex items-center gap-2 font-display text-lg font-semibold"><MessageSquare className="h-4 w-4" /> Messages</h3>
+              <div className="mt-3 space-y-2">
+                {threadError && (
+                  <div role="alert" data-testid="lead-thread-error" className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                    <p>{threadError}</p>
+                    <Button type="button" variant="outline" className="mt-2" onClick={() => setThreadAttempt((attempt) => attempt + 1)}>Retry</Button>
+                  </div>
+                )}
+                {threadLoading && !threadError && <p className="text-sm text-muted-foreground">Loading messages…</p>}
+                {!threadError && !threadLoading && messages.length === 0 && <p className="text-sm text-muted-foreground">No messages yet. Start the conversation below.</p>}
+                {messages.map((m) => (
+                  <div key={m.id} className={`max-w-[85%] rounded-2xl p-3 text-sm ${m.sender_role === "owner" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted"}`}>
+                    <p className="whitespace-pre-wrap">{m.body}</p>
+                    <p className={`mt-1 text-[10px] ${m.sender_role === "owner" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                      {m.sender_role} · {new Date(m.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <Textarea rows={2} placeholder="Write a reply…" value={reply} onChange={(e) => setReply(e.target.value)} />
+                <Button onClick={sendReply} disabled={!reply.trim()}>Send</Button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">Replies are saved to FoodXMobile. Email/SMS delivery coming soon.</p>
             </div>
-            <div className="mt-3 flex gap-2">
-              <Textarea rows={2} placeholder="Write a reply…" value={reply} onChange={(e) => setReply(e.target.value)} />
-              <Button onClick={sendReply} disabled={!reply.trim()}>Send</Button>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">Replies are saved to FoodXMobile. Email/SMS delivery coming soon.</p>
-          </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>
   );
 }
 
-function KanbanBoard({ leads, onOpen, onMove }: { leads: Lead[]; onOpen: (l: Lead) => void; onMove: (id: string, stage: Lead["stage"]) => void }) {
-  const [dragId, setDragId] = useState<string | null>(null);
+function KanbanBoard({ leads, onOpen, onMove }: { leads: OwnerLeadView[]; onOpen: (l: OwnerLeadView) => void; onMove: (id: string, stage: VendorLeadStage) => void }) {
+  const dragIdRef = useRef<string | null>(null);
   const cols = STAGES.filter((s) => s.v !== "completed" && s.v !== "lost");
   const extras = STAGES.filter((s) => s.v === "completed" || s.v === "lost");
   const allCols = [...cols, ...extras];
@@ -340,8 +490,9 @@ function KanbanBoard({ leads, onOpen, onMove }: { leads: Lead[]; onOpen: (l: Lea
         return (
           <div
             key={col.v}
+            data-testid={`stage-column-${col.v}`}
             onDragOver={(e) => e.preventDefault()}
-            onDrop={() => { if (dragId) { onMove(dragId, col.v); setDragId(null); } }}
+            onDrop={() => { const id = dragIdRef.current; if (id) { onMove(id, col.v); dragIdRef.current = null; } }}
             className="flex w-72 shrink-0 flex-col rounded-2xl border border-border bg-muted/30 p-3"
           >
             <div className="mb-2 flex items-center justify-between">
@@ -358,18 +509,25 @@ function KanbanBoard({ leads, onOpen, onMove }: { leads: Lead[]; onOpen: (l: Lea
                 items.map((l) => (
                   <div
                     key={l.id}
-                    draggable
-                    onDragStart={() => setDragId(l.id)}
-                    onDragEnd={() => setDragId(null)}
+                    draggable={l.can_edit_crm}
+                    onDragStart={() => { dragIdRef.current = l.id; }}
+                    onDragEnd={() => { dragIdRef.current = null; }}
                     onClick={() => onOpen(l)}
+                    data-testid="owner-lead-card"
+                    data-lead-id={l.id}
+                    data-customer-visible={l.customer_visible ? "true" : "false"}
+                    data-stage={l.stage}
+                    data-assignment={l.assignment_status ?? "direct"}
                     className="cursor-pointer rounded-xl border border-border bg-card p-3 shadow-sm transition hover:shadow-md"
                   >
                     <p className="truncate font-display text-sm font-semibold">{l.contact_name}</p>
                     {l.event_type && <p className="mt-0.5 truncate text-xs text-muted-foreground">{l.event_type}</p>}
+                    {l.public_location && <p className="truncate text-xs text-muted-foreground">{l.public_location}</p>}
                     <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
                       <span>{l.event_date ?? "Date TBD"}</span>
                       {l.estimated_value != null && <span className="font-semibold text-foreground">${Number(l.estimated_value).toLocaleString()}</span>}
                     </div>
+                    {l.assignment_status && <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{l.assignment_status.replace("_", " ")}</p>}
                   </div>
                 ))
               )}
@@ -381,7 +539,7 @@ function KanbanBoard({ leads, onOpen, onMove }: { leads: Lead[]; onOpen: (l: Lea
   );
 }
 
-function Info({ icon: Icon, label, value, href }: { icon: any; label: string; value: string; href?: string }) {
+function Info({ icon: Icon, label, value, href }: { icon: typeof Mail; label: string; value: string; href?: string }) {
   const inner = (
     <div className="rounded-xl border border-border p-3">
       <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"><Icon className="h-3 w-3" /> {label}</p>
