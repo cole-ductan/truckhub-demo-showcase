@@ -52,7 +52,7 @@ const directRow = {
   id: FX.directA,
   business_id: FX.bizA,
   contact_name: "Pat Example",
-  contact_email: "pat.example@example.test",
+  contact_email: "pat.example@fxm-synthetic.test",
   contact_phone: null,
   event_type: "Birthday",
   event_date: "2026-11-02",
@@ -82,7 +82,7 @@ describe("supabase lead directory", () => {
   it("reads direct leads by business_id and drops raw marketplace rows", async () => {
     const fake = fakeClient({
       from: () => ({
-        data: [directRow, { ...directRow, id: "other", business_id: null, contact_email: "leaked@example.test", admin_notes: "ADMIN-NOTES-MUST-NOT-LEAK" }],
+        data: [directRow, { ...directRow, id: "other", business_id: null, contact_email: "leaked@fxm-synthetic.test", admin_notes: "ADMIN-NOTES-MUST-NOT-LEAK" }],
         error: null,
       }),
     });
@@ -94,7 +94,7 @@ describe("supabase lead directory", () => {
     expect(rows[0].customer.streetAddress).toBe("STREET-PAT");
     expect(rows[0].request.publicLocation).toBeNull();
     expect(JSON.stringify(rows)).not.toContain("ADMIN-NOTES-MUST-NOT-LEAK");
-    expect(JSON.stringify(rows)).not.toContain("leaked@example.test");
+    expect(JSON.stringify(rows)).not.toContain("leaked@fxm-synthetic.test");
     expect(JSON.stringify(rows)).not.toContain("assigned_vendor_ids");
     const methods = fake.calls.flatMap((call) => call.ops.map((op) => op.method));
     expect(methods).not.toContain("or");
@@ -140,16 +140,16 @@ describe("supabase lead directory", () => {
     // This trims the client result. It does not prove hosted RLS.
     const fake = fakeClient({
       from: () => ({
-        data: { id: "receipt-1", contact_email: "anon.direct@example.test", admin_notes: "ADMIN-NOTES-MUST-NOT-LEAK" },
+        data: { id: "receipt-1", contact_email: "anon.direct@fxm-synthetic.test", admin_notes: "ADMIN-NOTES-MUST-NOT-LEAK" },
         error: null,
       }),
-      rpc: () => ({ data: { id: "too-wide", contact_email: "wide@example.test" }, error: null }),
+      rpc: () => ({ data: { id: "too-wide", contact_email: "wide@fxm-synthetic.test" }, error: null }),
     });
     const crm = createSupabaseLeadDirectory(fake.client);
     const receipt = await crm.submitDirect(actorAnonymous, {
       businessId: FX.bizA,
       contactName: "Anon Direct",
-      contactEmail: "anon.direct@example.test",
+      contactEmail: "anon.direct@fxm-synthetic.test",
     });
     expect(receipt).toEqual({ saved: true, id: "receipt-1" });
     expect(JSON.stringify(receipt)).not.toContain("anon.direct");
@@ -157,7 +157,7 @@ describe("supabase lead directory", () => {
     expect(select?.args).toEqual(["id"]);
     await expect(crm.submitMarketplace(actorAnonymous, {
       contactName: "Anon Example",
-      contactEmail: "wide@example.test",
+      contactEmail: "wide@fxm-synthetic.test",
     })).rejects.toMatchObject({ code: "forbidden" });
     await expect(crm.listOwnerProjections(actorAnonymous, FX.bizA)).rejects.toMatchObject({ code: "unauthenticated" });
   });
@@ -167,7 +167,7 @@ describe("supabase lead directory", () => {
     const crm = createSupabaseLeadDirectory(fake.client);
     const receipt = await crm.submitMarketplace(actorAnonymous, {
       contactName: "Anon Example",
-      contactEmail: "anon.submitter@example.test",
+      contactEmail: "anon.submitter@fxm-synthetic.test",
       streetAddress: "STREET-ANON",
       cityOrVenue: "Exampleville",
     });
@@ -179,7 +179,7 @@ describe("supabase lead directory", () => {
   it("sends the previous event-inquiry form fields except the honeypot", async () => {
     const form = {
       contact_name: "Anon Example",
-      contact_email: "anon.submitter@example.test",
+      contact_email: "anon.submitter@fxm-synthetic.test",
       contact_phone: "PHONE-ANON",
       event_date: "2026-12-20",
       event_start_time: "11:00",

@@ -43,6 +43,8 @@ export interface LeadDirectory {
   deleteDirectLead(actor: Actor, businessId: BusinessId, leadId: LeadId): Promise<void>;
   acceptAssignment(actor: Actor, businessId: BusinessId, leadId: LeadId): Promise<OwnerLeadProjection>;
   declineAssignment(actor: Actor, businessId: BusinessId, leadId: LeadId): Promise<OwnerLeadProjection>;
+  /** Live adapter reports migration_required and does not expose marketplace commands. */
+  readonly marketplaceStatus: "available" | "migration_required";
   listAdminLeads(actor: Actor): Promise<AdminLeadVisibility[]>;
   offerAssignment(actor: Actor, leadId: LeadId, businessId: BusinessId): Promise<VendorLeadState>;
   revokeAssignment(actor: Actor, leadId: LeadId, businessId: BusinessId): Promise<VendorLeadState>;
@@ -72,6 +74,7 @@ export function createMockLeadDirectory(
     newId: overrides.newId ?? ids(),
   };
   return {
+    marketplaceStatus: "available",
     readSnapshot: () => structuredClone(snapshot),
     async listOwnerProjections(actor, businessId) {
       return listOwnerProjections(actor, snapshot, businessId);

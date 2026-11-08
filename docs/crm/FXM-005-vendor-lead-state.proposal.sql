@@ -1,4 +1,13 @@
 -- PROPOSAL ONLY. Not a migration. Do not apply to any hosted database.
+-- This draft did not repair live RLS. Executing this file is a no-op.
+--
+-- Future G2 work, not done here:
+-- - UPDATE column-allowlist enforcement (stage, notes, quote only)
+-- - replacement of the wide "owners read matched event inquiries" SELECT
+-- - anonymous grants and receipts without a general SELECT
+-- - schema-level exclusion of direct business_id leads from vendor_lead_state
+-- - transactional reassignment and a durable audit
+-- Do not treat the comments below as a completed security design.
 -- FXM-005 Lane A. Director G3 approval has to name the environment before this
 -- text is copied under supabase/migrations.
 --
@@ -136,11 +145,48 @@
 --   BEFORE UPDATE ON public.vendor_lead_state
 --   FOR EACH ROW EXECUTE FUNCTION public.vendor_lead_state_limit_owner_columns();
 --
--- CREATE POLICY "accepted vendors update own crm"
---   ON public.vendor_lead_state FOR UPDATE
---   USING (public.owns_business(auth.uid(), business_id) AND assignment_status = 'accepted')
---   WITH CHECK (public.owns_business(auth.uid(), business_id) AND assignment_status = 'accepted');
+-- Do not use a broad UPDATE policy as the column allowlist. A policy that only
+-- checks ownership and accepted status still lets the role change lead_id,
+-- business_id, thread_id, and assigned_at when the role can UPDATE the table.
+-- The future G2 sketch is column grants or a narrow RPC, not that broad policy.
 --
+-- CREATE OR REPLACE FUNCTION public.update_vendor_lead_crm(
+--   _lead_id uuid,
+--   _business_id uuid,
+--   _stage public.lead_stage,
+--   _notes text,
+--   _quote text
+-- ) RETURNS public.vendor_lead_state
+-- LANGUAGE plpgsql
+-- SECURITY DEFINER
+-- SET search_path = public
+-- AS $$
+-- DECLARE
+--   row_out public.vendor_lead_state;
+-- BEGIN
+--   IF NOT public.owns_business(auth.uid(), _business_id) THEN
+--     RAISE EXCEPTION 'forbidden';
+--   END IF;
+--   UPDATE public.vendor_lead_state
+--      SET stage = _stage,
+--          notes = _notes,
+--          quote = _quote,
+--          updated_at = now()
+--    WHERE lead_id = _lead_id
+--      AND business_id = _business_id
+--      AND assignment_status = 'accepted'
+--    RETURNING * INTO row_out;
+--   IF row_out.id IS NULL THEN
+--     RAISE EXCEPTION 'not an accepted assignment';
+--   END IF;
+--   RETURN row_out;
+-- END;
+-- $$;
+--
+-- REVOKE ALL ON FUNCTION public.update_vendor_lead_crm(uuid, uuid, public.lead_stage, text, text) FROM PUBLIC, anon;
+-- GRANT EXECUTE ON FUNCTION public.update_vendor_lead_crm(uuid, uuid, public.lead_stage, text, text) TO authenticated;
+--
+
 -- CREATE POLICY "owners read own accepted thread"
 --   ON public.vendor_lead_messages FOR SELECT
 --   USING (

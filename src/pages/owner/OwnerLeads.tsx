@@ -39,7 +39,10 @@ export default function OwnerLeads() {
   const [open, setOpen] = useState<OwnerLeadView | null>(null);
   const [view, setView] = useState<ViewMode>("kanban");
 
+  const workspaceKey = `${board.business?.id ?? ""}:${board.actor.kind === "owner" ? board.actor.userId : ""}`;
+  const marketplaceReady = board.directory.marketplaceStatus === "available";
   useEffect(() => { setLeads(board.views); }, [board.views]);
+  useEffect(() => { setOpen(null); setLeads([]); }, [workspaceKey]);
 
   const filtered = useMemo(() => {
     let out = leads;
@@ -85,7 +88,11 @@ export default function OwnerLeads() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold">Leads</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Direct inquiries and marketplace requests for this business. Another vendor's notes stay on their own lead.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {marketplaceReady
+              ? "Direct inquiries for this business. Assigned marketplace requests show up here only in a workspace that can load per-vendor state. Other vendors cannot see your notes."
+              : "Direct inquiries sent to your page. Marketplace assignment is not available in this database yet."}
+          </p>
         </div>
         <div className="inline-flex rounded-full border border-border bg-card p-1">
           <button
@@ -165,7 +172,7 @@ export default function OwnerLeads() {
         </div>
       )}
 
-      <LeadSheet lead={open} onClose={() => setOpen(null)} onChange={(updated) => {
+      <LeadSheet key={`${workspaceKey}:${open?.id ?? "closed"}`} lead={open} onClose={() => setOpen(null)} onChange={(updated) => {
         setLeads((p) => p.map((x) => x.id === updated.id ? updated : x));
         setOpen(updated);
       }} onDelete={(id) => { setLeads((p) => p.filter((x) => x.id !== id)); setOpen(null); }} />
@@ -184,20 +191,36 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: OwnerLe
   const [messages, setMessages] = useState<Msg[]>([]);
   const [reply, setReply] = useState("");
   const [draft, setDraft] = useState<OwnerLeadView | null>(null);
+  const [threadError, setThreadError] = useState<string | null>(null);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [threadAttempt, setThreadAttempt] = useState(0);
   const businessKey = businesses.map((business) => business.id).join("|");
+  const marketplaceReady = directory.marketplaceStatus === "available";
+  const leadId = lead?.id ?? null;
 
   useEffect(() => {
     setDraft(lead);
-    if (!lead?.thread_open || !userId) { setMessages([]); return; }
+    setReply("");
+    setMessages([]);
+    setThreadError(null);
+    if (!lead?.thread_open || !userId || !leadId) { setThreadLoading(false); return; }
     const threadActor: Actor = { kind: "owner", userId, businessIds: businessKey ? businessKey.split("|") : [] };
     let cancelled = false;
-    directory.listThread(threadActor, lead.business_id, lead.id)
+    setThreadLoading(true);
+    directory.listThread(threadActor, lead.business_id, leadId)
       .then((rows) => {
-        if (!cancelled) setMessages(rows.map((row) => ({ id: row.id, body: row.body, sender_role: row.senderRole, created_at: row.createdAt })));
+        if (cancelled) return;
+        setMessages(rows.map((row) => ({ id: row.id, body: row.body, sender_role: row.senderRole, created_at: row.createdAt })));
+        setThreadError(null);
       })
-      .catch(() => { if (!cancelled) setMessages([]); });
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setMessages([]);
+        setThreadError(error instanceof Error ? error.message : "Could not load messages.");
+      })
+      .finally(() => { if (!cancelled) setThreadLoading(false); });
     return () => { cancelled = true; };
-  }, [lead, directory, userId, businessKey]);
+  }, [lead, leadId, directory, userId, businessKey, threadAttempt]);
 
   if (!lead || !draft) return <Sheet open={false} onOpenChange={() => onClose()}><SheetContent /></Sheet>;
 
@@ -312,7 +335,7 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: OwnerLe
             </div>
           )}
 
-          {(lead.can_accept || lead.can_decline) && (
+          {marketplaceReady && (lead.can_accept || lead.can_decline) && (
             <div className="flex gap-2">
               {lead.can_accept && <Button onClick={() => runAssignment("accept")}>Accept inquiry</Button>}
               {lead.can_decline && <Button variant="outline" onClick={() => runAssignment("decline")}>Decline</Button>}
@@ -348,7 +371,7 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: OwnerLe
             <div>
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Your quote</Label>
               {draft.can_edit_crm ? (
-                <Textarea className="mt-1.5" rows={2} value={draft.quote ?? ""} onChange={(e) => setDraft({ ...draft, quote: e.target.value })} placeholder="Only your business can see this quote." />
+                <Textarea className="mt-1.5" rows={2} value={draft.quote ?? ""} onChange={(e) => setDraft({ ...draft, quote: e.target.value })} placeholder="Other vendors cannot see this quote." />
               ) : (
                 <p className="mt-1.5 text-sm">{draft.quote ?? "No quote yet."}</p>
               )}
@@ -358,7 +381,7 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: OwnerLe
           <div>
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">{draft.kind === "marketplace" ? "Your notes" : "Internal notes"}</Label>
             {draft.can_edit_crm ? (
-              <Textarea className="mt-1.5" rows={3} value={draft.internal_notes ?? ""} onChange={(e) => setDraft({ ...draft, internal_notes: e.target.value })} placeholder="Only your business can see this." />
+              <Textarea className="mt-1.5" rows={3} value={draft.internal_notes ?? ""} onChange={(e) => setDraft({ ...draft, internal_notes: e.target.value })} placeholder="Other vendors cannot see these notes." />
             ) : (
               <p className="mt-1.5 whitespace-pre-wrap text-sm">{draft.internal_notes ?? "No notes."}</p>
             )}
@@ -385,7 +408,14 @@ export function LeadSheet({ lead, onClose, onChange, onDelete }: { lead: OwnerLe
             <div className="border-t border-border pt-5">
               <h3 className="flex items-center gap-2 font-display text-lg font-semibold"><MessageSquare className="h-4 w-4" /> Messages</h3>
               <div className="mt-3 space-y-2">
-                {messages.length === 0 && <p className="text-sm text-muted-foreground">No messages yet. Start the conversation below.</p>}
+                {threadError && (
+                  <div role="alert" data-testid="lead-thread-error" className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                    <p>{threadError}</p>
+                    <Button type="button" variant="outline" className="mt-2" onClick={() => setThreadAttempt((attempt) => attempt + 1)}>Retry</Button>
+                  </div>
+                )}
+                {threadLoading && !threadError && <p className="text-sm text-muted-foreground">Loading messages…</p>}
+                {!threadError && !threadLoading && messages.length === 0 && <p className="text-sm text-muted-foreground">No messages yet. Start the conversation below.</p>}
                 {messages.map((m) => (
                   <div key={m.id} className={`max-w-[85%] rounded-2xl p-3 text-sm ${m.sender_role === "owner" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted"}`}>
                     <p className="whitespace-pre-wrap">{m.body}</p>

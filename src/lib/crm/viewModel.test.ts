@@ -29,7 +29,7 @@ describe("owner lead view", () => {
       },
       customer: {
         contactName: "Casey Sample",
-        contactEmail: "casey.sample@example.test",
+        contactEmail: "casey.sample@fxm-synthetic.test",
         contactPhone: "PHONE-CASEY",
         message: "PII-MESSAGE-CASEY",
         streetAddress: "STREET-CASEY",

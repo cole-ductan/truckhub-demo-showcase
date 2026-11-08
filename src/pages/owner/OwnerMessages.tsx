@@ -21,9 +21,17 @@ export default function OwnerMessages() {
   const [error, setError] = useState<string | null>(null);
 
   const businessId = board.business?.id ?? null;
+  const workspaceKey = `${businessId ?? ""}:${board.actor.kind === "owner" ? board.actor.userId : ""}`;
+  const marketplaceReady = board.directory.marketplaceStatus === "available";
+  useEffect(() => {
+    setOpen(null);
+    setThreads([]);
+    setError(null);
+  }, [workspaceKey]);
   useEffect(() => {
     if (board.loading || !businessId || board.actor.kind !== "owner") return;
     let cancelled = false;
+    setThreads([]);
     board.directory.listOwnerThreads(board.actor, businessId)
       .then((rows) => {
         if (cancelled) return;
@@ -49,7 +57,11 @@ export default function OwnerMessages() {
     <div data-tour="messages-list" className="space-y-5">
       <div>
         <h1 className="font-display text-3xl font-bold">Messages</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Direct inquiries and marketplace requests this business has accepted. Each vendor has a separate thread.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {marketplaceReady
+            ? "Conversations for this business. You cannot read another vendor's thread."
+            : "Conversations for direct inquiries to this business. Marketplace threads are not available in this database yet."}
+        </p>
       </div>
 
       {error && <div role="alert" className="rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
@@ -87,7 +99,7 @@ export default function OwnerMessages() {
         </ul>
       )}
 
-      <LeadSheet
+      <LeadSheet key={`${workspaceKey}:${open?.id ?? "closed"}`}
         lead={open}
         onClose={() => { setOpen(null); board.reload(); }}
         onChange={(updated) => setOpen(updated)}

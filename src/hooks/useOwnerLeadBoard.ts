@@ -46,6 +46,7 @@ export function useOwnerLeadBoard() {
       return;
     }
     let cancelled = false;
+    setViews([]);
     setFetching(true);
     directory.listOwnerProjections(actor, businessId)
       .then((projections) => {

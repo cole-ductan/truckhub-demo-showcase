@@ -4,7 +4,7 @@ Proposal only. This is not a migration, not a production write, and not authoriz
 
 The application types follow the Director's Lane A contract, including the 2026-11-08 about 2:20 PM CST location lock and the about 2:23 PM CST `estimated_value` amendment. No status union was renamed. Matching (FXM-006 / #19) and manual lead capture (FXM-015) stay type-only pointers. Preference defaults for a vendor with no saved row belong to FXM-006, not this change.
 
-Mock security tests in this repo are not proof of deployed row-level security.
+This is a mock contract plus a direct-lead compatibility adapter. Mock and client tests are not proof of deployed row-level security or of a real database. This draft does not claim head CI until a workflow run exists, and it does not repair live RLS.
 
 ## Integration scope
 
@@ -73,5 +73,15 @@ Adding `event_city` and `event_street` stays proposal-only. It is not an authori
 ## Rollback, once a future migration exists
 
 Drop `vendor_lead_assignment_events`, `vendor_lead_messages`, and `vendor_lead_state`. Restore the previous owner select policy only if the product still wants the old behavior. Do not rewrite historical `business_id` values; this design does not change them. No backfill marks a legacy slot accepted, so there is no accepted flag to undo.
+
+## Future G2 work, not done by this draft
+
+The proposal file stays fully commented. It does not repair live RLS. These items are still future design, not delivered here:
+
+- UPDATE column-allowlist enforcement so an accepted vendor can write only `stage`, `notes`, and `quote` (column grants or a narrow RPC, not a broad UPDATE policy)
+- replacement of the existing wide matched-lead SELECT policy `"owners read matched event inquiries"`
+- anonymous grants and receipts without a general `SELECT` on `leads`
+- a schema check that refuses `vendor_lead_state` rows for direct `business_id` leads
+- transactional reassignment and a durable audit
 
 SQL sketch: `docs/crm/FXM-005-vendor-lead-state.proposal.sql`.

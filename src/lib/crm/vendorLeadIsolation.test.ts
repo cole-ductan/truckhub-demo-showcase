@@ -23,6 +23,12 @@ function directory() {
   return createMockLeadDirectory();
 }
 
+it("keeps contact emails on the synthetic fixture domain", () => {
+  const emails = JSON.stringify(syntheticCrmSnapshot()).match(/[^\s"]+@[^\s"]+/g) ?? [];
+  expect(emails.length).toBeGreaterThan(0);
+  for (const email of emails) expect(email.endsWith("@fxm-synthetic.test")).toBe(true);
+});
+
 function dump(value: unknown): string {
   return JSON.stringify(value);
 }
@@ -472,7 +478,7 @@ describe("per-vendor marketplace lead isolation", () => {
 
     const receipt = await crm.submitMarketplace(actorAnonymous, {
       contactName: "Anon Example",
-      contactEmail: "anon.submitter@example.test",
+      contactEmail: "anon.submitter@fxm-synthetic.test",
       contactPhone: "PHONE-ANON",
       cityOrVenue: "Exampleville",
       streetAddress: "STREET-ANON",
@@ -483,19 +489,19 @@ describe("per-vendor marketplace lead isolation", () => {
     });
     expect(receipt).toEqual({ saved: true, id: expect.any(String) });
     expect(Object.keys(receipt).sort()).toEqual(["id", "saved"]);
-    expect(dump(receipt)).not.toContain("anon.submitter@example.test");
+    expect(dump(receipt)).not.toContain("anon.submitter@fxm-synthetic.test");
     await expect(crm.getOwnerProjection(actorAnonymous, FX.bizA, receipt.id)).rejects.toMatchObject({ code: "unauthenticated" });
     await expect(crm.listOwnerProjections(actorAnonymous, FX.bizA)).rejects.toMatchObject({ code: "unauthenticated" });
     const stored = crm.readSnapshot().leads.find((row) => row.id === receipt.id);
     expect(stored?.businessId).toBeNull();
     expect(crm.readSnapshot().vendorStates.some((row) => row.leadId === receipt.id)).toBe(false);
     const admin = await crm.listAdminLeads(actorAdmin);
-    expect(admin.find((lead) => lead.leadId === receipt.id)?.customer.contactEmail).toBe("anon.submitter@example.test");
+    expect(admin.find((lead) => lead.leadId === receipt.id)?.customer.contactEmail).toBe("anon.submitter@fxm-synthetic.test");
 
     const direct = await crm.submitDirect(actorAnonymous, {
       businessId: FX.bizA,
       contactName: "Anon Direct",
-      contactEmail: "anon.direct@example.test",
+      contactEmail: "anon.direct@fxm-synthetic.test",
       message: "PII-MESSAGE-DIRECT-ANON",
     });
     expect(Object.keys(direct).sort()).toEqual(["id", "saved"]);

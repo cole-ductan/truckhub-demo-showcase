@@ -127,6 +127,7 @@ export function createSupabaseLeadDirectory(client: SupabaseLeadClient): LeadDir
   }
 
   return {
+    marketplaceStatus: "migration_required",
     listOwnerProjections,
 
     async getOwnerProjection(actor, businessId, leadId) {

@@ -1,6 +1,10 @@
 import type { Actor, AdminActor, BusinessId, CrmSnapshot, LeadRecord, OwnerActor, ProfileId, SystemActor, VendorLeadState } from "./types";
 
-/** Synthetic ids and secrets. These are not production customers. */
+/**
+ * Synthetic ids and secrets. These are not production customers.
+ * Marketplace ids such as m1111111-… are in-memory identifiers for the mock
+ * directory, not database seeds. Do not insert them into a hosted database.
+ */
 export const FX = {
   ownerA: "11111111-1111-4111-a111-111111111111",
   ownerB: "22222222-2222-4222-a222-222222222222",
@@ -83,15 +87,15 @@ export const SECRET = {
   zipGray: "ZIP-GRAY",
   zipDrew: "ZIP-DREW",
   zipLegacy: "ZIP-LEGACY",
-  emailRiley: "riley.sample@example.test",
-  emailCasey: "casey.sample@example.test",
-  emailJordan: "jordan.sample@example.test",
-  emailGray: "gray.sample@example.test",
-  emailDrew: "drew.sample@example.test",
-  emailLegacy: "legacy.person@example.test",
-  emailPat: "pat.example@example.test",
-  emailQuinn: "quinn.example@example.test",
-  emailSky: "sky.example@example.test",
+  emailRiley: "riley.sample@fxm-synthetic.test",
+  emailCasey: "casey.sample@fxm-synthetic.test",
+  emailJordan: "jordan.sample@fxm-synthetic.test",
+  emailGray: "gray.sample@fxm-synthetic.test",
+  emailDrew: "drew.sample@fxm-synthetic.test",
+  emailLegacy: "legacy.person@fxm-synthetic.test",
+  emailPat: "pat.example@fxm-synthetic.test",
+  emailQuinn: "quinn.example@fxm-synthetic.test",
+  emailSky: "sky.example@fxm-synthetic.test",
 } as const;
 
 export const actorOwnerA: OwnerActor = { kind: "owner", userId: FX.ownerA, businessIds: [FX.bizA] };
