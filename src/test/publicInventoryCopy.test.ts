@@ -3,11 +3,19 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   DIRECT_INQUIRY_RECEIPT,
+  EVENT_KIND,
   FORBIDDEN_PUBLIC_PHRASES,
+  INVENTORY_KIND,
+  LISTED_STATUS_LABEL,
   MARKETPLACE_INQUIRY_RECEIPT,
   PUBLIC_COPY_FILES,
+  SAVED_LOCATION_NOTE,
+  STATUS_NOT_LIVE_NOTE,
+  findForbiddenPhrases,
   formatVerifiedAggregate,
 } from "@/lib/publicInventoryCopy";
+import { listingPageCopy } from "@/lib/listingPresentation";
+import { PIN_KIND_LABEL } from "@/lib/mapPinIcons";
 
 describe("verified inventory aggregate", () => {
   it("uses the defined verified and demo scopes for the 2026-11-08 snapshot", () => {
@@ -78,17 +86,62 @@ describe("public copy files", () => {
 
   it("does not keep the hardcoded 28+ trucks claim", () => {
     for (const source of sources) {
-      expect(source.text, source.file).not.toContain("28+");
+      expect(source.text, source.file).not.toMatch(/28\+/i);
       expect(source.text, source.file).not.toMatch(/Trucks on the hub/i);
     }
   });
 
   it("does not advertise unverified live location, continuous updates, Google sync, or delivery", () => {
     for (const source of sources) {
-      for (const phrase of FORBIDDEN_PUBLIC_PHRASES) {
-        expect(source.text, `${source.file} contains “${phrase}”`).not.toContain(phrase);
-      }
+      expect(findForbiddenPhrases(source.text), source.file).toEqual([]);
     }
+  });
+
+  it("catches the old saved-pin toast without banning a not-live disclaimer", () => {
+    expect(findForbiddenPhrases("Live map pin updated")).toContain("Live map pin updated");
+    expect(findForbiddenPhrases("CUSTOMERS CAN NOW SEE YOUR CURRENT LOCATION on the map.")).toContain(
+      "Customers can now see your current location",
+    );
+    const disclaimer = `${STATUS_NOT_LIVE_NOTE} ${SAVED_LOCATION_NOTE} They are not a live check-in.`;
+    expect(findForbiddenPhrases(disclaimer)).toEqual([]);
+  });
+
+  it("checks rendered copy exports instead of comments that name banned phrases", () => {
+    const demo = listingPageCopy({
+      name: "North Kitchen",
+      is_demo: true,
+      description: "Best brisket daily",
+      tagline: "Open now for lunch",
+    });
+    const rendered = [
+      formatVerifiedAggregate({ verifiedPublished: 1, demoPublished: 6, unavailable: false }),
+      formatVerifiedAggregate({ verifiedPublished: null, demoPublished: null, unavailable: true }),
+      ...Object.values(LISTED_STATUS_LABEL),
+      ...Object.values(INVENTORY_KIND).flatMap((kind) => [kind.label, kind.detail]),
+      ...Object.values(EVENT_KIND).flatMap((kind) => [kind.label, kind.detail]),
+      STATUS_NOT_LIVE_NOTE,
+      SAVED_LOCATION_NOTE,
+      DIRECT_INQUIRY_RECEIPT.title("North Kitchen"),
+      DIRECT_INQUIRY_RECEIPT.body,
+      DIRECT_INQUIRY_RECEIPT.formNote("North Kitchen"),
+      DIRECT_INQUIRY_RECEIPT.asideNote,
+      MARKETPLACE_INQUIRY_RECEIPT.title,
+      MARKETPLACE_INQUIRY_RECEIPT.description,
+      MARKETPLACE_INQUIRY_RECEIPT.body,
+      PIN_KIND_LABEL.demo,
+      PIN_KIND_LABEL.verified,
+      demo.title,
+      demo.description,
+    ].join("\n");
+    expect(findForbiddenPhrases(rendered)).toEqual([]);
+    expect(rendered.toLowerCase()).toContain("not a live check-in");
+    expect(PUBLIC_COPY_FILES).toEqual(expect.arrayContaining([
+      "src/pages/ClaimListing.tsx",
+      "src/components/demo/tourSteps.ts",
+      "src/pages/owner/OwnerMapLocations.tsx",
+      "src/pages/owner/OwnerProfile.tsx",
+    ]));
+    expect(PUBLIC_COPY_FILES).not.toContain("src/lib/publicInventoryCopy.ts");
   });
 
   it("keeps demo and verified labels on inventory surfaces", () => {
@@ -104,7 +157,7 @@ describe("public copy files", () => {
     for (const file of inventorySurfaces) {
       const text = sources.find((source) => source.file === file)?.text ?? "";
       expect(text, file).toMatch(/is_demo/);
-      expect(text, file).toMatch(/InventoryKindBadge|Verified listing/);
+      expect(text, file).toMatch(/InventoryKindBadge|PinKindLegend|renderPinElement/);
     }
   });
 });

@@ -11,6 +11,7 @@ import {
   formatVerifiedAggregate,
   type PublicInventoryCounts,
 } from "@/lib/publicInventoryCopy";
+import { loadPublicInventoryCounts } from "@/lib/publicInventoryCounts";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -83,30 +84,9 @@ const Index = () => {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const [verified, demo] = await Promise.all([
-        supabase
-          .from("businesses")
-          .select("id", { count: "exact", head: true })
-          .eq("is_published", true)
-          .eq("is_demo", false),
-        supabase
-          .from("businesses")
-          .select("id", { count: "exact", head: true })
-          .eq("is_published", true)
-          .eq("is_demo", true),
-      ]);
-      if (cancelled) return;
-      if (verified.error || demo.error || verified.count == null || demo.count == null) {
-        setCounts({ verifiedPublished: null, demoPublished: null, unavailable: true });
-        return;
-      }
-      setCounts({
-        verifiedPublished: verified.count,
-        demoPublished: demo.count,
-        unavailable: false,
-      });
-    })();
+    loadPublicInventoryCounts(supabase as unknown as Parameters<typeof loadPublicInventoryCounts>[0]).then((next) => {
+      if (!cancelled) setCounts(next);
+    });
     return () => {
       cancelled = true;
     };

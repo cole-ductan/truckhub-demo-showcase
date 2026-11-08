@@ -4,6 +4,7 @@ import { ArrowRight, ArrowUpRight, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { InventoryKindBadge } from "@/components/site/InventoryKindBadge";
+import { isSampleInventory } from "@/lib/listingPresentation";
 
 type Ev = {
   id: string; title: string; tag: string | null;
@@ -71,7 +72,7 @@ export function EventsThisWeek() {
                     </div>
                   </div>
                   <div className="min-w-0">
-                    <span className="mr-2 inline-flex"><InventoryKindBadge isDemo={Boolean(e.is_demo || e.businesses?.is_demo)} /></span>
+                    <span className="mr-2 inline-flex"><InventoryKindBadge subject="event" isDemo={isSampleInventory(e.is_demo, e.businesses?.is_demo)} /></span>
                     {e.tag && <span className="rounded-full bg-accent/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-foreground">{e.tag}</span>}
                     <h3 className="mt-1.5 font-display text-lg font-semibold leading-tight">{e.title}</h3>
                     <p className="text-sm text-muted-foreground">

@@ -10,6 +10,7 @@ import { ArrowLeft, Briefcase, Calendar, Clock, Facebook, Flame, Globe, Instagra
 import { useSEO } from "@/hooks/useSEO";
 import { InventoryKindBadge } from "@/components/site/InventoryKindBadge";
 import { LISTED_STATUS_LABEL, SAVED_LOCATION_NOTE } from "@/lib/publicInventoryCopy";
+import { isSampleInventory, listingPageCopy } from "@/lib/listingPresentation";
 
 type Biz = {
   id: string; slug: string; name: string; tagline: string | null; description: string | null;
@@ -25,7 +26,7 @@ type Biz = {
 };
 type MenuCat = { id: string; name: string; sort_order: number };
 type MenuItem = { id: string; category_id: string; name: string; description: string | null; price: string | null; sort_order: number; is_featured: boolean };
-type Event = { id: string; kind: "weekly" | "one_off"; title: string; weekday: string | null; start_time: string | null; end_time: string | null; location: string | null; tag: string | null; event_date: string | null };
+type Event = { id: string; kind: "weekly" | "one_off"; title: string; weekday: string | null; start_time: string | null; end_time: string | null; location: string | null; tag: string | null; event_date: string | null; is_demo?: boolean | null };
 type Photo = { id: string; url: string };
 type SavedLoc = {
   id: string; label: string; address: string | null; weekday: string | null;
@@ -101,31 +102,28 @@ export default function TruckProfile() {
   }, [slug]);
 
   const bizLoaded = biz && biz !== "missing" ? biz : null;
-  const seoTitle = bizLoaded
-    ? `${bizLoaded.name} — FoodXMobile listing`
-    : "Listing — FoodXMobile";
-  const seoDesc = bizLoaded
-    ? (bizLoaded.description?.slice(0, 155) || bizLoaded.tagline || `${bizLoaded.name} listing on FoodXMobile.`)
-    : "A published listing on FoodXMobile.";
-  const seoImage = bizLoaded ? resolveImage(bizLoaded.hero_image_url) : undefined;
-  const seoJsonLd = bizLoaded
-    ? {
-        "@context": "https://schema.org",
-        "@type": "FoodEstablishment",
+  const presentation = bizLoaded
+    ? listingPageCopy({
         name: bizLoaded.name,
-        description: bizLoaded.description || bizLoaded.tagline || undefined,
+        is_demo: bizLoaded.is_demo,
+        description: bizLoaded.description,
+        tagline: bizLoaded.tagline,
+        cuisine: bizLoaded.cuisine,
+        categoryName: primaryCat?.name ?? null,
+        city: bizLoaded.city,
+        phone: bizLoaded.phone,
+        email: bizLoaded.email,
+        website: bizLoaded.website,
+        instagram: bizLoaded.instagram,
+        facebook: bizLoaded.facebook,
         image: resolveImage(bizLoaded.hero_image_url),
-        servesCuisine: bizLoaded.cuisine || undefined,
-        telephone: bizLoaded.phone || undefined,
-        email: bizLoaded.email || undefined,
         url: typeof window !== "undefined" ? window.location.href : undefined,
-        ...(bizLoaded.city
-          ? { address: { "@type": "PostalAddress", addressLocality: bizLoaded.city, addressRegion: "WI", addressCountry: "US" } }
-          : {}),
-        sameAs: [bizLoaded.website, bizLoaded.instagram, bizLoaded.facebook].filter(Boolean),
-      }
-    : undefined;
-  useSEO({ title: seoTitle, description: seoDesc, image: seoImage, jsonLd: seoJsonLd });
+      })
+    : null;
+  const seoTitle = presentation?.title ?? "Listing — FoodXMobile";
+  const seoDesc = presentation?.description ?? "A published listing on FoodXMobile.";
+  const seoImage = bizLoaded ? resolveImage(bizLoaded.hero_image_url) : undefined;
+  useSEO({ title: seoTitle, description: seoDesc, image: seoImage, jsonLd: presentation?.jsonLd ?? undefined });
 
   if (biz === null) return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
   if (biz === "missing")
@@ -150,9 +148,9 @@ export default function TruckProfile() {
     .filter((l) => l.is_recurring && l.weekday)
     .sort((a, b) => weekdayOrder.indexOf(a.weekday ?? "") - weekdayOrder.indexOf(b.weekday ?? ""));
   // Merge weekly events + recurring saved locations into a unified weekly schedule
-  const weeklySchedule: Array<{ id: string; weekday: string; location: string | null; start_time: string | null; end_time: string | null; source: "event" | "location" }> = [
-    ...weekly.map((w) => ({ id: w.id, weekday: w.weekday ?? "", location: w.location, start_time: w.start_time, end_time: w.end_time, source: "event" as const })),
-    ...recurringLocs.map((l) => ({ id: l.id, weekday: l.weekday ?? "", location: l.address ? `${l.label} · ${l.address}` : l.label, start_time: l.start_time, end_time: l.end_time, source: "location" as const })),
+  const weeklySchedule: Array<{ id: string; weekday: string; location: string | null; start_time: string | null; end_time: string | null; source: "event" | "location"; isDemo: boolean }> = [
+    ...weekly.map((w) => ({ id: w.id, weekday: w.weekday ?? "", location: w.location, start_time: w.start_time, end_time: w.end_time, source: "event" as const, isDemo: isSampleInventory(w.is_demo, biz.is_demo) })),
+    ...recurringLocs.map((l) => ({ id: l.id, weekday: l.weekday ?? "", location: l.address ? `${l.label} · ${l.address}` : l.label, start_time: l.start_time, end_time: l.end_time, source: "location" as const, isDemo: isSampleInventory(false, biz.is_demo) })),
   ].sort((a, b) => weekdayOrder.indexOf(a.weekday) - weekdayOrder.indexOf(b.weekday));
 
   const statusBadge =
@@ -367,7 +365,10 @@ export default function TruckProfile() {
               {weeklySchedule.map((row) => (
                 <div key={row.id} className="grid grid-cols-[64px_1fr_auto] items-center gap-4 border-b border-border p-5 last:border-b-0">
                   <div className="text-center font-display text-lg font-bold">{row.weekday}</div>
-                  <p className="flex items-center gap-1.5 font-medium"><MapPin className="h-3.5 w-3.5 text-primary" /> {row.location}</p>
+                  <div>
+                    <InventoryKindBadge subject={row.source === "event" ? "event" : "listing"} isDemo={row.isDemo} />
+                    <p className="mt-1 flex items-center gap-1.5 font-medium"><MapPin className="h-3.5 w-3.5 text-primary" /> {row.location}</p>
+                  </div>
                   {(row.start_time || row.end_time) ? (
                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" /> {row.start_time} – {row.end_time}
@@ -389,7 +390,8 @@ export default function TruckProfile() {
             <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {upcoming.map((e) => (
                 <div key={e.id} className="rounded-2xl border border-border bg-card p-5 transition hover:-translate-y-1 hover:shadow-card">
-                  <div className="font-display text-2xl font-bold text-primary">{e.event_date?.slice(5)}</div>
+                  <InventoryKindBadge subject="event" isDemo={isSampleInventory(e.is_demo, biz.is_demo)} />
+                  <div className="mt-2 font-display text-2xl font-bold text-primary">{e.event_date?.slice(5)}</div>
                   <h3 className="mt-2 font-display text-lg font-semibold leading-tight">{e.title}</h3>
                   {e.location && <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-3 w-3" />{e.location}</p>}
                 </div>

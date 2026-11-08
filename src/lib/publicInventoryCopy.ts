@@ -37,6 +37,17 @@ export const INVENTORY_KIND = {
   },
 } as const;
 
+export const EVENT_KIND = {
+  demo: {
+    label: "Demo",
+    detail: "Sample event. Not a confirmed occurrence.",
+  },
+  verified: {
+    label: "Verified",
+    detail: "Public event that is not marked demo. Saved time and place are not a live update.",
+  },
+} as const;
+
 export type ListedStatus = "open" | "soon" | "closed";
 
 /** Stored listing status. These words must not read as a live check-in. */
@@ -101,7 +112,17 @@ export const FORBIDDEN_PUBLIC_PHRASES = [
   "Serving now",
   "Open now",
   "2,400",
+  "Live map pin updated",
+  "Customers can now see your current location",
 ] as const;
+
+export function findForbiddenPhrases(
+  text: string,
+  phrases: readonly string[] = FORBIDDEN_PUBLIC_PHRASES,
+): string[] {
+  const haystack = text.toLowerCase();
+  return phrases.filter((phrase) => haystack.includes(phrase.toLowerCase()));
+}
 
 export const PUBLIC_COPY_FILES = [
   "index.html",
@@ -112,7 +133,11 @@ export const PUBLIC_COPY_FILES = [
   "src/pages/Book.tsx",
   "src/pages/BookFoodTruck.tsx",
   "src/pages/BookRequestReceived.tsx",
+  "src/pages/ClaimListing.tsx",
   "src/pages/PublicCalendar.tsx",
+  "src/pages/owner/OwnerMapLocations.tsx",
+  "src/pages/owner/OwnerProfile.tsx",
+  "src/components/demo/tourSteps.ts",
   "src/components/site/BrowseCategories.tsx",
   "src/components/site/DemoBanner.tsx",
   "src/components/site/EventsThisWeek.tsx",

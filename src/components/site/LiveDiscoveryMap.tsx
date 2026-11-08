@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { applyCartoonStyle } from "@/lib/cartoonMapStyle";
 import {
   renderPinElement, categorizeEvent, categorizeBusiness,
-  CATEGORY_LABEL, LegendDot, type PinCategory,
+  CATEGORY_LABEL, LegendDot, PinKindLegend, type PinCategory,
 } from "@/lib/mapPinIcons";
+import { EVENT_KIND, INVENTORY_KIND } from "@/lib/publicInventoryCopy";
+import { isSampleInventory } from "@/lib/listingPresentation";
 
 declare global {
   interface Window { maplibregl?: any; }
@@ -88,9 +90,9 @@ export function LiveDiscoveryMap({ compact = false }: { compact?: boolean } = {}
       const category = categorizeBusiness({ cuisine: t.cuisine });
       const photo = t.hero_image_url || t.logo_url;
       const photoHtml = photo ? `<img src="${clean(photo)}" alt="${clean(t.name)}" style="display:block;width:100%;height:110px;object-fit:cover;border-radius:10px;margin-bottom:8px"/>` : "";
-      const kind = t.is_demo ? "Demo — sample listing" : "Verified listing — saved pin, not a live check-in";
+      const kind = t.is_demo ? INVENTORY_KIND.demo.detail : INVENTORY_KIND.verified.detail;
       const popup = new window.maplibregl.Popup({ offset: 22, closeButton: false }).setHTML(`<div style="min-width:220px;max-width:240px">${photoHtml}<strong>${clean(t.emoji)} ${clean(t.name)}</strong><div style="margin-top:5px;font-size:12px">${clean(kind)}</div><div style="margin-top:5px;font-size:12px">${clean(t.cuisine)}</div><div style="margin-top:5px;font-size:12px">${clean(t.today_location)}${t.today_hours ? ` · ${clean(t.today_hours)}` : ""}</div><a href="/food-trucks/${clean(t.slug)}" style="display:inline-block;margin-top:9px;color:#ea580c;font-weight:700;font-size:12px">View listing →</a></div>`);
-      const el = renderPinElement(category, { status: t.status });
+      const el = renderPinElement(category, { status: t.status, isDemo: t.is_demo, accessibleName: t.name });
       const marker = new window.maplibregl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([t.today_longitude, t.today_latitude]).setPopup(popup).addTo(map);
       el.addEventListener("mouseenter", () => { if (!popup.isOpen()) marker.togglePopup(); });
@@ -100,13 +102,14 @@ export function LiveDiscoveryMap({ compact = false }: { compact?: boolean } = {}
 
     filteredEvents.forEach((e) => {
       const category = categorizeEvent(e.tag);
-      const eventKind = e.is_demo || e.businesses?.is_demo ? "Demo event" : "Published event — saved details, not a live update";
+      const sampleEvent = isSampleInventory(e.is_demo, e.businesses?.is_demo);
+      const eventKind = sampleEvent ? EVENT_KIND.demo.detail : EVENT_KIND.verified.detail;
       const vendor = e.businesses?.name ? `<div style="margin-top:5px;font-size:12px">Hosted by ${clean(e.businesses.name)}</div>` : "";
       const link = e.businesses?.slug ? `<a href="/food-trucks/${clean(e.businesses.slug)}" style="display:inline-block;margin-top:9px;color:#ea580c;font-weight:700;font-size:12px">View listing →</a>` : "";
       const photo = e.businesses?.hero_image_url || e.businesses?.logo_url || null;
       const photoHtml = photo ? `<img src="${clean(photo)}" alt="${clean(e.title)}" style="display:block;width:100%;height:110px;object-fit:cover;border-radius:10px;margin-bottom:8px"/>` : "";
       const popup = new window.maplibregl.Popup({ offset: 22, closeButton: false }).setHTML(`<div style="min-width:220px;max-width:240px">${photoHtml}<strong>${clean(CATEGORY_LABEL[category])} · ${clean(e.title)}</strong><div style="margin-top:5px;font-size:12px">${clean(eventKind)}</div><div style="margin-top:5px;font-size:12px">${clean(e.location)}${e.start_time ? ` · ${clean(e.start_time)}${e.end_time ? `–${clean(e.end_time)}` : ""}` : ""}</div>${vendor}${link}</div>`);
-      const el = renderPinElement(category);
+      const el = renderPinElement(category, { isDemo: sampleEvent, accessibleName: e.title });
       const marker = new window.maplibregl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([e.longitude, e.latitude]).setPopup(popup).addTo(map);
       el.addEventListener("mouseenter", () => { if (!popup.isOpen()) marker.togglePopup(); });
@@ -139,6 +142,9 @@ export function LiveDiscoveryMap({ compact = false }: { compact?: boolean } = {}
           </div>
         )}
         {loading && key && <div className="absolute inset-0 grid place-items-center bg-card/70 text-sm text-muted-foreground backdrop-blur-sm">Loading nearby trucks and events…</div>}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border px-4 py-2 text-xs">
+          <PinKindLegend />
+        </div>
       </div>
     );
   }
@@ -150,7 +156,7 @@ export function LiveDiscoveryMap({ compact = false }: { compact?: boolean } = {}
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Directory map</p>
             <h2 className="mt-3 font-display text-4xl font-bold md:text-5xl">Saved listing and event pins</h2>
-            <p className="mt-3 max-w-2xl text-muted-foreground">Pins use coordinates saved on published listings and public events. They are not a live location. Demo listings are labeled in the pin details.</p>
+            <p className="mt-3 max-w-2xl text-muted-foreground">Pins use coordinates saved on published listings and public events. They are not a live location. Sample demo and verified are printed on each pin before it is opened.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {filters.map((f) => <button key={f.id} onClick={() => setFilter(f.id)} className={`rounded-full border px-3.5 py-2 text-xs font-semibold transition ${filter === f.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground/75 hover:border-primary/40"}`}>{f.label}</button>)}
@@ -169,6 +175,7 @@ export function LiveDiscoveryMap({ compact = false }: { compact?: boolean } = {}
           )}
           {loading && key && <div className="absolute inset-0 grid place-items-center bg-card/70 text-sm text-muted-foreground backdrop-blur-sm">Loading nearby trucks and events…</div>}
           <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-background/92 px-3 py-2 text-xs shadow-soft backdrop-blur md:right-auto">
+            <PinKindLegend />
             {legendCategories.map((c) => (
               <span key={c} className="inline-flex items-center gap-1.5">
                 <LegendDot category={c} />

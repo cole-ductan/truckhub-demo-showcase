@@ -73,11 +73,17 @@ export function categorizeBusiness(opts: { isFeatured?: boolean; cuisine?: strin
   return "truck";
 }
 
+export const PIN_KIND_LABEL = {
+  demo: "DEMO",
+  verified: "VERIFIED",
+} as const;
+
 // Cartoon-sticker pin: chunky outline, drop-shadow, pointer tail, icon centered.
 // Status applies a thin colored ring (open/soon/closed) for trucks.
+// Sample vs verified is a text flag and accessible name, separate from category color.
 export function renderPinElement(
   category: PinCategory,
-  opts: { status?: "open" | "soon" | "closed"; size?: number } = {}
+  opts: { status?: "open" | "soon" | "closed"; size?: number; isDemo?: boolean; accessibleName?: string } = {}
 ): HTMLElement {
   const size = opts.size ?? 48;
   const palette = PALETTE[category];
@@ -93,10 +99,25 @@ export function renderPinElement(
     <IconCmp size={Math.round(size * 0.46)} color={palette.icon} strokeWidth={2.5} />
   );
 
+  const sample = opts.isDemo === true;
+  const kindLabel = sample ? PIN_KIND_LABEL.demo : PIN_KIND_LABEL.verified;
   const wrapper = document.createElement("div");
   // NOTE: MapLibre controls `transform` on the marker root to position it.
   // Never set transform here — apply scale to an inner element instead.
-  wrapper.style.cssText = `width:${size}px;height:${size + 10}px;cursor:pointer;`;
+  wrapper.style.cssText = `position:relative;width:${size}px;height:${size + 10}px;cursor:pointer;overflow:visible;`;
+  wrapper.dataset.pinKind = sample ? "demo" : "verified";
+  wrapper.setAttribute("role", "img");
+  wrapper.setAttribute(
+    "aria-label",
+    opts.accessibleName ? `${sample ? "Sample demo" : "Verified"}: ${opts.accessibleName}` : (sample ? "Sample demo" : "Verified"),
+  );
+  const flag = document.createElement("span");
+  flag.dataset.pinKind = sample ? "demo" : "verified";
+  flag.textContent = kindLabel;
+  flag.style.cssText = sample
+    ? "position:absolute;left:50%;top:0;transform:translate(-50%,-70%);z-index:1;border:2px dashed #fde68a;border-radius:999px;background:#b45309;color:#fff;font:700 9px/1 sans-serif;letter-spacing:.04em;padding:2px 4px;white-space:nowrap;"
+    : "position:absolute;left:50%;top:0;transform:translate(-50%,-70%);z-index:1;border:2px solid #faf6ee;border-radius:999px;background:#1f160e;color:#faf6ee;font:700 9px/1 sans-serif;letter-spacing:.04em;padding:2px 4px;white-space:nowrap;";
+  wrapper.appendChild(flag);
 
   const inner = document.createElement("div");
   inner.style.cssText = `width:100%;height:100%;transform-origin:50% 100%;transition:transform .18s ease;`;
@@ -116,6 +137,21 @@ export function renderPinElement(
     </svg>
   `;
   return wrapper;
+}
+
+export function PinKindLegend() {
+  return (
+    <>
+      <span className="inline-flex items-center gap-1.5">
+        <span data-pin-kind="demo" className="rounded-full border-2 border-dashed border-amber-200 bg-amber-700 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-white">{PIN_KIND_LABEL.demo}</span>
+        <span className="font-medium text-foreground/80">Sample demo</span>
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span data-pin-kind="verified" className="rounded-full border-2 border-solid border-stone-100 bg-stone-900 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-stone-50">{PIN_KIND_LABEL.verified}</span>
+        <span className="font-medium text-foreground/80">Verified</span>
+      </span>
+    </>
+  );
 }
 
 // Legend swatch used in the filter chip strip

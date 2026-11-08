@@ -64,7 +64,7 @@ export default function OwnerMapLocations() {
     setSaving(false);
     if (error) return toast({ title: "Could not save pin", description: error.message, variant: "destructive" });
     setBusiness(data as Business);
-    toast({ title: "Live map pin updated", description: "Customers can now see your current location on the map." });
+    toast({ title: "Saved map pin updated", description: "The coordinates stored on this listing were saved. Customers see those saved coordinates, not a live GPS check-in." });
   }
 
   async function addStop() {
