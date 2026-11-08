@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
+import { supabaseLeadDirectory } from "@/lib/crm/liveLeadDirectory";
 import { useSEO } from "@/hooks/useSEO";
 import { resolveImage } from "@/lib/assets";
 import { AVAILABILITY_LABEL, AVAILABILITY_TONE, getAvailabilityState } from "@/lib/availability";
@@ -144,15 +145,32 @@ export default function BookFoodTruck() {
     }
     if (form.hp) return; // honeypot
     setSubmitting(true);
-    const { error } = await (supabase as any).rpc("submit_event_inquiry", {
-      _payload: {
-        ...form,
-        category_id: form.category_id || null,
-        consent: true,
-      },
-    });
+    try {
+      await supabaseLeadDirectory.submitMarketplace({ kind: "anonymous" }, {
+        contactName: form.contact_name,
+        contactEmail: form.contact_email,
+        contactPhone: form.contact_phone,
+        eventDate: form.event_date,
+        eventStartTime: form.event_start_time,
+        eventEndTime: form.event_end_time,
+        streetAddress: form.event_location,
+        postalCode: form.event_zip,
+        guestCount: form.guest_count,
+        eventType: form.event_type,
+        cuisinePreference: form.cuisine_preference,
+        budgetRange: form.budget_range,
+        message: form.message,
+        requestType: form.request_type,
+        eventFrequency: form.event_frequency,
+        serviceStyle: form.service_style,
+        categoryId: form.category_id || null,
+      });
+    } catch (error) {
+      setSubmitting(false);
+      toast.error(error instanceof Error ? error.message : "Could not send");
+      return;
+    }
     setSubmitting(false);
-    if (error) { toast.error(error.message); return; }
     localStorage.setItem(SUBMIT_LOCK_KEY, String(Date.now()));
     navigate("/book-a-food-truck/request-received");
   };
