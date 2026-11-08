@@ -44,6 +44,7 @@ import OwnerSetPassword from "./pages/owner/OwnerSetPassword.tsx";
 import { DemoTourProvider } from "@/components/demo/useDemoTour";
 import { GuidedTour } from "@/components/demo/GuidedTour";
 import { DemoLauncher } from "@/components/demo/DemoLauncher";
+import { PublicDiscoveryRouteElements } from "./routes/publicDiscoveryRoutes.tsx";
 
 const queryClient = new QueryClient();
 
@@ -59,9 +60,7 @@ const App = () => (
             <Route path="/" element={<CustomerHome />} />
             <Route path="/for-vendors" element={<Index />} />
             <Route path="/explore" element={<Navigate to="/food-trucks" replace />} />
-            <Route path="/markets" element={<Navigate to="/food-trucks" replace />} />
-            <Route path="/events" element={<Navigate to="/food-trucks" replace />} />
-            <Route path="/vendors" element={<Navigate to="/food-trucks" replace />} />
+            {PublicDiscoveryRouteElements()}
             <Route path="/food-trucks" element={<FoodTrucks />} />
             <Route path="/food-trucks/:slug" element={<TruckProfile />} />
             <Route path="/food-trucks/:slug/claim" element={<ClaimListing />} />
