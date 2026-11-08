@@ -1,6 +1,10 @@
 # Logs
 logs
 *.log
+
+# Local Supabase CLI scratch. Keys and container state stay off the branch.
+supabase/.temp/
+supabase/.branches/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

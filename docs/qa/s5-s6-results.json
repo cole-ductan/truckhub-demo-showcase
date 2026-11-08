@@ -1,0 +1,2212 @@
+{
+  "label": "local ephemeral Supabase: migration replay + per-role JWT RLS",
+  "provesProductionRls": false,
+  "canCloseIssues": false,
+  "head": "fc996b3c1a93f13998dbb3d6aece43c182daf706",
+  "discardedHostedShellVariables": false,
+  "versionComparison": {
+    "localCount": 42,
+    "descriptiveApplied": [
+      "20260603170000_add_map_coordinates.sql",
+      "20260603171000_seed_demo_map_coordinates.sql",
+      "20260603172000_keep_map_pins_in_sync.sql",
+      "20260603172100_scope_demo_map_helpers.sql",
+      "20260604013000_sync_inventory_coordinates_to_live_map.sql",
+      "20260604023500_harden_claim_workflow.sql",
+      "20260604033000_lock_down_public_security_definer_execute.sql",
+      "20260604034500_harden_outreach_crm.sql",
+      "20260604041000_guard_ready_for_outreach_transition.sql",
+      "20260604044500_allow_admin_business_insert.sql",
+      "20260607020000_workflow_polish_pass_3_backend.sql",
+      "20260607023000_business_assets_storage.sql",
+      "20260607024500_public_archive_guards_and_email_validation.sql",
+      "20260607030000_lock_archived_listings.sql",
+      "20260608000000_workflow_polish_pass_3_review_fixes.sql"
+    ],
+    "productionVersionExactMatches": []
+  },
+  "finding18": {
+    "confirmed": true,
+    "policy": {
+      "name": "owners read matched event inquiries",
+      "using_expr": "((lead_type = 'event_inquiry'::text) AND (business_id IS NULL) AND (auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1\n   FROM businesses b\n  WHERE ((b.owner_id = auth.uid()) AND (b.id = ANY (leads.assigned_vendor_ids))))))"
+    },
+    "statement": "On the live-shaped baseline, OWN-A and OWN-B are both in assigned_vendor_ids for one marketplace lead and both SELECT the same stage and internal_notes. That is the known FXM-005 / #18 gap. Separate note bodies were stored as lead_messages because the table has no per-vendor note."
+  },
+  "mutation": {
+    "policy": "fxm_s7_mutation_leak_leads",
+    "negativeTestFailedOpen": true,
+    "restoredToClosed": true
+  },
+  "failures": [],
+  "cells": [
+    {
+      "id": "s5-replay",
+      "baseline": "repo-shaped",
+      "role": "harness",
+      "operation": "supabase db reset --local",
+      "expect": "all migration files applied",
+      "observed": "42 versions",
+      "pass": true,
+      "detail": "42 files recorded in local schema_migrations"
+    },
+    {
+      "id": "jwt-service-role-not-used-for-rls",
+      "baseline": "repo-shaped",
+      "role": "harness",
+      "operation": "inspect service role claim",
+      "expect": "service_role",
+      "observed": "service_role",
+      "pass": true,
+      "detail": "The service role is used only to seed. Role assertions use signed-in user JWTs or the anon key."
+    },
+    {
+      "id": "jwt-anon-role",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "anon key role claim",
+      "expect": "anon",
+      "observed": "anon",
+      "pass": true,
+      "detail": "Anonymous calls use the local anon key and no user session."
+    },
+    {
+      "id": "repo-shaped-anon-select-leads",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "select leads",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "repo-shaped-anon-select-lead_messages",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "select lead_messages",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "repo-shaped-anon-select-business_outreach",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "select business_outreach",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-anon-select-claim_requests",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "select claim_requests",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-anon-select-event_import_queue",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "select event_import_queue",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-anon-select-event_sources",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "select event_sources",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-anon-select-vendor_lead_preferences",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "select vendor_lead_preferences",
+      "expect": "deny",
+      "observed": "error: permission denied for function owns_business",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "repo-shaped-anon-select-owner_preferences",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "select owner_preferences",
+      "expect": "deny",
+      "observed": "error: permission denied for function owns_business",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "repo-shaped-anon-select-user_roles",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "select user_roles",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "repo-shaped-anon-select-archived-business",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "select archived business",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "repo-shaped-anon-select-draft-business",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "select draft business",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "repo-shaped-anon-select-published-business",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "select published North Pier",
+      "expect": "finding: query aborts on is_admin EXECUTE",
+      "observed": "permission denied for function is_admin",
+      "pass": true,
+      "detail": "20260604033000 revokes anon EXECUTE on is_admin, and a businesses SELECT policy calls it. That filename is not a production schema_migrations version. The replay was not edited. No row was returned. This does not prove production browsing is broken."
+    },
+    {
+      "id": "repo-shaped-anon-insert-direct-lead",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "insert direct lead",
+      "expect": "finding: insert aborts on is_admin EXECUTE",
+      "observed": "permission denied for function is_admin",
+      "pass": true,
+      "detail": "The insert policy reads businesses as the caller. The same unapplied lockdown file makes that check raise. submit_event_inquiry still returns an id because it is SECURITY DEFINER. The migration was not edited."
+    },
+    {
+      "id": "repo-shaped-anon-read-back-inserted-direct-lead",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "read back inserted direct lead",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "repo-shaped-anon-submit-event-inquiry",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "submit_event_inquiry",
+      "expect": "allow",
+      "observed": "returned id",
+      "pass": true,
+      "detail": "Valid payload with an unmatched category id. No rate-limit or honeypot parameter exists on this function."
+    },
+    {
+      "id": "repo-shaped-anon-read-back-event-inquiry",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "read back event inquiry",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "repo-shaped-own-a-read-own-direct-lead",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read own direct lead",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "repo-shaped-own-a-read-own-b-direct-lead",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read OWN-B direct lead",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-b-read-own-direct-lead",
+      "baseline": "repo-shaped",
+      "role": "OWN-B",
+      "operation": "read own direct lead",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "repo-shaped-own-b-read-own-a-direct-lead",
+      "baseline": "repo-shaped",
+      "role": "OWN-B",
+      "operation": "read OWN-A direct lead",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-a-read-own-b-lead-message",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read OWN-B lead message",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-b-read-own-a-lead-message",
+      "baseline": "repo-shaped",
+      "role": "OWN-B",
+      "operation": "read OWN-A lead message",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-a-read-own-lead-message",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read own lead message",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "repo-shaped-own-a-cannot-update-own-b-business",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "update OWN-B business",
+      "expect": "deny",
+      "observed": "update rows 0; tagline=null",
+      "pass": true,
+      "detail": "Cross-owner business update must not stick."
+    },
+    {
+      "id": "repo-shaped-own-b-cannot-update-own-a-business",
+      "baseline": "repo-shaped",
+      "role": "OWN-B",
+      "operation": "update OWN-A business",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Cross-owner business update in the other direction."
+    },
+    {
+      "id": "repo-shaped-own-a-update-own-b-menu",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "update OWN-B menu",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-b-update-own-a-menu",
+      "baseline": "repo-shaped",
+      "role": "OWN-B",
+      "operation": "update OWN-A menu",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-a-read-own-b-private-event",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read OWN-B private event",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-b-read-own-a-private-event",
+      "baseline": "repo-shaped",
+      "role": "OWN-B",
+      "operation": "read OWN-A private event",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-a-read-own-private-event",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read own private event",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "repo-shaped-anon-read-private-event",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "read private event",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "repo-shaped-own-b-read-own-a-vendor-prefs",
+      "baseline": "repo-shaped",
+      "role": "OWN-B",
+      "operation": "read OWN-A vendor prefs",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-a-read-own-b-vendor-prefs",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read OWN-B vendor prefs",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-a-read-own-vendor-prefs",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read own vendor prefs",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "repo-shaped-own-b-read-own-a-owner-prefs",
+      "baseline": "repo-shaped",
+      "role": "OWN-B",
+      "operation": "read OWN-A owner prefs",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-a-read-own-b-owner-prefs",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read OWN-B owner prefs",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-a-update-own-b-saved-location",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "update OWN-B saved location",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-b-update-own-a-saved-location",
+      "baseline": "repo-shaped",
+      "role": "OWN-B",
+      "operation": "update OWN-A saved location",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-a-read-shared-marketplace-lead",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read shared marketplace lead",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "repo-shaped-own-b-read-shared-marketplace-lead",
+      "baseline": "repo-shaped",
+      "role": "OWN-B",
+      "operation": "read shared marketplace lead",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "repo-shaped-fxm-005-18-shared-lead-crm",
+      "baseline": "repo-shaped",
+      "role": "OWN-A/OWN-B",
+      "operation": "read shared leads.stage and internal_notes",
+      "expect": "known #18 gap if both accepted owners see the same values",
+      "observed": "both see stage=quote_sent",
+      "pass": true,
+      "detail": "Not an isolation pass. Today's policy returns the whole lead row to every business id in assigned_vendor_ids. There is no per-vendor stage or note column. PR #36 was not applied."
+    },
+    {
+      "id": "repo-shaped-separate-note-messages",
+      "baseline": "repo-shaped",
+      "role": "OWN-A/OWN-B",
+      "operation": "read per-vendor lead_messages on the shared lead",
+      "expect": "record visibility; other vendor body must not be returned",
+      "observed": "A=[] B=[]",
+      "pass": true,
+      "detail": "lead_messages policies key on leads.business_id. The marketplace lead's business_id is null, so this is not a per-vendor note store."
+    },
+    {
+      "id": "repo-shaped-owners-cannot-write-shared-note",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "update marketplace internal_notes",
+      "expect": "deny write",
+      "observed": "update closed=true; note remains shared=true",
+      "pass": true,
+      "detail": "Matched owners can read the shared CRM columns and cannot write a private replacement."
+    },
+    {
+      "id": "repo-shaped-declined-read-marketplace-lead",
+      "baseline": "repo-shaped",
+      "role": "DECLINED",
+      "operation": "read marketplace lead",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-revoked-read-marketplace-lead",
+      "baseline": "repo-shaped",
+      "role": "REVOKED",
+      "operation": "read marketplace lead",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-declined-read-north-pier-note-message",
+      "baseline": "repo-shaped",
+      "role": "DECLINED",
+      "operation": "read North Pier note message",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-declined-read-fox-lantern-note-message",
+      "baseline": "repo-shaped",
+      "role": "DECLINED",
+      "operation": "read Fox Lantern note message",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-revoked-read-north-pier-note-message",
+      "baseline": "repo-shaped",
+      "role": "REVOKED",
+      "operation": "read North Pier note message",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-revoked-read-fox-lantern-note-message",
+      "baseline": "repo-shaped",
+      "role": "REVOKED",
+      "operation": "read Fox Lantern note message",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-c-read-ml-1",
+      "baseline": "repo-shaped",
+      "role": "OWN-C",
+      "operation": "read ML-1",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-c-read-ml-2",
+      "baseline": "repo-shaped",
+      "role": "OWN-C",
+      "operation": "read ML-2",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "repo-shaped-own-a-read-ml-2",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read ML-2",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-b-read-ml-2",
+      "baseline": "repo-shaped",
+      "role": "OWN-B",
+      "operation": "read ML-2",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-clm-read-leads",
+      "baseline": "repo-shaped",
+      "role": "CLM",
+      "operation": "read leads",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-clm-read-vendor-prefs",
+      "baseline": "repo-shaped",
+      "role": "CLM",
+      "operation": "read vendor prefs",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-clm-read-outreach",
+      "baseline": "repo-shaped",
+      "role": "CLM",
+      "operation": "read outreach",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-suspended-rls-observation",
+      "baseline": "repo-shaped",
+      "role": "suspended",
+      "operation": "select leads",
+      "expect": "observation only; RLS does not consult account_status",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Recorded so a UI suspension gate is not described as an RLS deny. This user owns no business."
+    },
+    {
+      "id": "repo-shaped-adm-read-both-direct-leads",
+      "baseline": "repo-shaped",
+      "role": "ADM",
+      "operation": "read both direct leads",
+      "expect": "allow",
+      "observed": "rows 2",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "repo-shaped-adm-read-marketplace-lead",
+      "baseline": "repo-shaped",
+      "role": "ADM",
+      "operation": "read marketplace lead",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "repo-shaped-adm-read-outreach",
+      "baseline": "repo-shaped",
+      "role": "ADM",
+      "operation": "read outreach",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "repo-shaped-own-a-read-outreach",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read outreach",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-b-read-outreach",
+      "baseline": "repo-shaped",
+      "role": "OWN-B",
+      "operation": "read outreach",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-adm-read-event-import",
+      "baseline": "repo-shaped",
+      "role": "ADM",
+      "operation": "read event import",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "repo-shaped-own-a-read-event-import",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read event import",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-own-a-read-event-sources",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read event sources",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-outreach-status-values",
+      "baseline": "repo-shaped",
+      "role": "ADM",
+      "operation": "read one row per live outreach_status",
+      "expect": "not_contacted,researching,ready_to_contact,contacted,follow_up_needed,interested,claim_invited,claimed,not_interested,do_not_contact",
+      "observed": "claim_invited,claimed,contacted,do_not_contact,follow_up_needed,interested,not_contacted,not_interested,ready_to_contact,researching",
+      "pass": true,
+      "detail": "These are outreach_status values. crm_state is not a live-shaped column."
+    },
+    {
+      "id": "repo-shaped-adm-select-crm_state",
+      "baseline": "repo-shaped",
+      "role": "ADM",
+      "operation": "select crm_state",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "repo-shaped-own-a-select-crm_state",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "select crm_state",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-own-a-crm-rpc-denied",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "set_business_outreach_crm_state",
+      "expect": "deny",
+      "observed": "admin only",
+      "pass": true,
+      "detail": "Admin-only function from the replayed pass-3 migration. The proposal file was not executed."
+    },
+    {
+      "id": "repo-anon-crm-rpc-denied",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "set_business_outreach_crm_state",
+      "expect": "deny",
+      "observed": "admin only",
+      "pass": true,
+      "detail": "Anonymous execute is denied."
+    },
+    {
+      "id": "repo-admin-crm-rpc-allowed",
+      "baseline": "repo-shaped",
+      "role": "ADM",
+      "operation": "set_business_outreach_crm_state",
+      "expect": "allow on ephemeral data",
+      "observed": "returned row",
+      "pass": true,
+      "detail": "Ephemeral only. The column is dropped again when the live-shaped baseline is built."
+    },
+    {
+      "id": "repo-shaped-review-event-import-absent",
+      "baseline": "repo-shaped",
+      "role": "ADM",
+      "operation": "review_event_import",
+      "expect": "function does not exist",
+      "observed": "Could not find the function public.review_event_import(_decision, _extra, _id, _notes) in the schema cache",
+      "pass": true,
+      "detail": "Not restored. No publication path was added."
+    },
+    {
+      "id": "repo-shaped-own-a-approve-claim-denied",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "approve_claim_request",
+      "expect": "deny",
+      "observed": "admin only",
+      "pass": true,
+      "detail": "Uses a non-claim id so a denied call cannot approve a fixture."
+    },
+    {
+      "id": "repo-shaped-admin-approve-claim-guard-holds",
+      "baseline": "repo-shaped",
+      "role": "ADM",
+      "operation": "approve_claim_request missing id",
+      "expect": "admin guard allows the call and the row is not found",
+      "observed": "claim request not found",
+      "pass": true,
+      "detail": "Does not approve the claimant fixture."
+    },
+    {
+      "id": "repo-own-a-archive-denied",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "archive_business_listing",
+      "expect": "deny",
+      "observed": "admin only",
+      "pass": true,
+      "detail": "Archive helper exists only on the repo-shaped replay."
+    },
+    {
+      "id": "repo-shaped-clm-insert-own-claim",
+      "baseline": "repo-shaped",
+      "role": "CLM",
+      "operation": "insert own claim",
+      "expect": "allow",
+      "observed": "inserted",
+      "pass": true,
+      "detail": "Pending claim on the unclaimed synthetic cart."
+    },
+    {
+      "id": "repo-shaped-clm-read-own-claim",
+      "baseline": "repo-shaped",
+      "role": "CLM",
+      "operation": "read own claim",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "repo-shaped-own-a-read-claimant-claim",
+      "baseline": "repo-shaped",
+      "role": "OWN-A",
+      "operation": "read claimant claim",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-shaped-anon-read-claims-after-insert",
+      "baseline": "repo-shaped",
+      "role": "ANON",
+      "operation": "read claims after insert",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "repo-typo-email-rejected",
+      "baseline": "repo-shaped",
+      "role": "CLM",
+      "operation": "insert claim with .con email",
+      "expect": "trigger rejects",
+      "observed": "That email domain looks mistyped. Please review and correct the email address.",
+      "pass": true,
+      "detail": "reject_obvious_claim_email_typos is present only on the repo-shaped replay."
+    },
+    {
+      "id": "catalog-repo-has-or-records-set_business_outreach_crm_state",
+      "baseline": "repo-shaped",
+      "role": "harness",
+      "operation": "routine set_business_outreach_crm_state",
+      "expect": "present after replay",
+      "observed": "present",
+      "pass": true,
+      "detail": "Presence comes from replaying supabase/migrations. review_event_import is not in those files."
+    },
+    {
+      "id": "catalog-live-absent-set_business_outreach_crm_state",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "routine set_business_outreach_crm_state",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "Removed locally to match the confirmed-absent catalog. Not a production change."
+    },
+    {
+      "id": "catalog-repo-has-or-records-enforce_archived_business_unpublished",
+      "baseline": "repo-shaped",
+      "role": "harness",
+      "operation": "routine enforce_archived_business_unpublished",
+      "expect": "present after replay",
+      "observed": "present",
+      "pass": true,
+      "detail": "Presence comes from replaying supabase/migrations. review_event_import is not in those files."
+    },
+    {
+      "id": "catalog-live-absent-enforce_archived_business_unpublished",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "routine enforce_archived_business_unpublished",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "Removed locally to match the confirmed-absent catalog. Not a production change."
+    },
+    {
+      "id": "catalog-repo-has-or-records-archive_business_listing",
+      "baseline": "repo-shaped",
+      "role": "harness",
+      "operation": "routine archive_business_listing",
+      "expect": "present after replay",
+      "observed": "present",
+      "pass": true,
+      "detail": "Presence comes from replaying supabase/migrations. review_event_import is not in those files."
+    },
+    {
+      "id": "catalog-live-absent-archive_business_listing",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "routine archive_business_listing",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "Removed locally to match the confirmed-absent catalog. Not a production change."
+    },
+    {
+      "id": "catalog-repo-has-or-records-reject_obvious_claim_email_typos",
+      "baseline": "repo-shaped",
+      "role": "harness",
+      "operation": "routine reject_obvious_claim_email_typos",
+      "expect": "present after replay",
+      "observed": "present",
+      "pass": true,
+      "detail": "Presence comes from replaying supabase/migrations. review_event_import is not in those files."
+    },
+    {
+      "id": "catalog-live-absent-reject_obvious_claim_email_typos",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "routine reject_obvious_claim_email_typos",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "Removed locally to match the confirmed-absent catalog. Not a production change."
+    },
+    {
+      "id": "catalog-repo-has-or-records-prevent_implicit_archived_business_restore",
+      "baseline": "repo-shaped",
+      "role": "harness",
+      "operation": "routine prevent_implicit_archived_business_restore",
+      "expect": "present after replay",
+      "observed": "present",
+      "pass": true,
+      "detail": "Presence comes from replaying supabase/migrations. review_event_import is not in those files."
+    },
+    {
+      "id": "catalog-live-absent-prevent_implicit_archived_business_restore",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "routine prevent_implicit_archived_business_restore",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "Removed locally to match the confirmed-absent catalog. Not a production change."
+    },
+    {
+      "id": "catalog-repo-has-or-records-review_event_import",
+      "baseline": "repo-shaped",
+      "role": "harness",
+      "operation": "routine review_event_import",
+      "expect": "absent on main replay",
+      "observed": "absent",
+      "pass": true,
+      "detail": "Presence comes from replaying supabase/migrations. review_event_import is not in those files."
+    },
+    {
+      "id": "catalog-live-absent-review_event_import",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "routine review_event_import",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "Removed locally to match the confirmed-absent catalog. Not a production change."
+    },
+    {
+      "id": "catalog-repo-column-crm_state",
+      "baseline": "repo-shaped",
+      "role": "harness",
+      "operation": "business_outreach.crm_state",
+      "expect": "present",
+      "observed": "present",
+      "pass": true,
+      "detail": "Repo-shaped keeps the pass-3 columns created by the replay."
+    },
+    {
+      "id": "catalog-live-column-crm_state",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "business_outreach.crm_state",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "Live-shaped drops the four outreach columns confirmed absent."
+    },
+    {
+      "id": "catalog-repo-column-completed_at",
+      "baseline": "repo-shaped",
+      "role": "harness",
+      "operation": "business_outreach.completed_at",
+      "expect": "present",
+      "observed": "present",
+      "pass": true,
+      "detail": "Repo-shaped keeps the pass-3 columns created by the replay."
+    },
+    {
+      "id": "catalog-live-column-completed_at",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "business_outreach.completed_at",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "Live-shaped drops the four outreach columns confirmed absent."
+    },
+    {
+      "id": "catalog-repo-column-archived_at",
+      "baseline": "repo-shaped",
+      "role": "harness",
+      "operation": "business_outreach.archived_at",
+      "expect": "present",
+      "observed": "present",
+      "pass": true,
+      "detail": "Repo-shaped keeps the pass-3 columns created by the replay."
+    },
+    {
+      "id": "catalog-live-column-archived_at",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "business_outreach.archived_at",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "Live-shaped drops the four outreach columns confirmed absent."
+    },
+    {
+      "id": "catalog-repo-column-deleted_at",
+      "baseline": "repo-shaped",
+      "role": "harness",
+      "operation": "business_outreach.deleted_at",
+      "expect": "present",
+      "observed": "present",
+      "pass": true,
+      "detail": "Repo-shaped keeps the pass-3 columns created by the replay."
+    },
+    {
+      "id": "catalog-live-column-deleted_at",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "business_outreach.deleted_at",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "Live-shaped drops the four outreach columns confirmed absent."
+    },
+    {
+      "id": "catalog-live-trigger-businesses_force_archived_unpublished",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "businesses_force_archived_unpublished",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "Archive-guard and claim-email typo triggers are confirmed absent live."
+    },
+    {
+      "id": "catalog-live-trigger-businesses_block_implicit_archived_restore",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "businesses_block_implicit_archived_restore",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "Archive-guard and claim-email typo triggers are confirmed absent live."
+    },
+    {
+      "id": "catalog-live-trigger-claim_requests_reject_obvious_email_typos",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "claim_requests_reject_obvious_email_typos",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "Archive-guard and claim-email typo triggers are confirmed absent live."
+    },
+    {
+      "id": "catalog-bucket-repo-shaped",
+      "baseline": "repo-shaped",
+      "role": "harness",
+      "operation": "storage.buckets business-assets",
+      "expect": "present and public",
+      "observed": "public=true",
+      "pass": true,
+      "detail": "Kept even though 20260607023000_business_assets_storage.sql is not a production schema_migrations version."
+    },
+    {
+      "id": "catalog-review-import-repo-shaped",
+      "baseline": "repo-shaped",
+      "role": "harness",
+      "operation": "review_event_import",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "PR #13 was not merged or replayed. The RPC stays absent on both baselines."
+    },
+    {
+      "id": "catalog-bucket-live-shaped",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "storage.buckets business-assets",
+      "expect": "present and public",
+      "observed": "public=true",
+      "pass": true,
+      "detail": "Kept even though 20260607023000_business_assets_storage.sql is not a production schema_migrations version."
+    },
+    {
+      "id": "catalog-review-import-live-shaped",
+      "baseline": "live-shaped",
+      "role": "harness",
+      "operation": "review_event_import",
+      "expect": "absent",
+      "observed": "absent",
+      "pass": true,
+      "detail": "PR #13 was not merged or replayed. The RPC stays absent on both baselines."
+    },
+    {
+      "id": "live-shaped-anon-select-leads",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "select leads",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "live-shaped-anon-select-lead_messages",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "select lead_messages",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "live-shaped-anon-select-business_outreach",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "select business_outreach",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-anon-select-claim_requests",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "select claim_requests",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-anon-select-event_import_queue",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "select event_import_queue",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-anon-select-event_sources",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "select event_sources",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-anon-select-vendor_lead_preferences",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "select vendor_lead_preferences",
+      "expect": "deny",
+      "observed": "error: permission denied for function owns_business",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "live-shaped-anon-select-owner_preferences",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "select owner_preferences",
+      "expect": "deny",
+      "observed": "error: permission denied for function owns_business",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "live-shaped-anon-select-user_roles",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "select user_roles",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "live-shaped-anon-select-archived-business",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "select archived business",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "live-shaped-anon-select-draft-business",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "select draft business",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "live-shaped-anon-select-published-business",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "select published North Pier",
+      "expect": "finding: query aborts on is_admin EXECUTE",
+      "observed": "permission denied for function is_admin",
+      "pass": true,
+      "detail": "20260604033000 revokes anon EXECUTE on is_admin, and a businesses SELECT policy calls it. That filename is not a production schema_migrations version. The replay was not edited. No row was returned. This does not prove production browsing is broken."
+    },
+    {
+      "id": "live-shaped-anon-insert-direct-lead",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "insert direct lead",
+      "expect": "finding: insert aborts on is_admin EXECUTE",
+      "observed": "permission denied for function is_admin",
+      "pass": true,
+      "detail": "The insert policy reads businesses as the caller. The same unapplied lockdown file makes that check raise. submit_event_inquiry still returns an id because it is SECURITY DEFINER. The migration was not edited."
+    },
+    {
+      "id": "live-shaped-anon-read-back-inserted-direct-lead",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "read back inserted direct lead",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "live-shaped-anon-submit-event-inquiry",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "submit_event_inquiry",
+      "expect": "allow",
+      "observed": "returned id",
+      "pass": true,
+      "detail": "Valid payload with an unmatched category id. No rate-limit or honeypot parameter exists on this function."
+    },
+    {
+      "id": "live-shaped-anon-read-back-event-inquiry",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "read back event inquiry",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "live-shaped-own-a-read-own-direct-lead",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read own direct lead",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "live-shaped-own-a-read-own-b-direct-lead",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read OWN-B direct lead",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-b-read-own-direct-lead",
+      "baseline": "live-shaped",
+      "role": "OWN-B",
+      "operation": "read own direct lead",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "live-shaped-own-b-read-own-a-direct-lead",
+      "baseline": "live-shaped",
+      "role": "OWN-B",
+      "operation": "read OWN-A direct lead",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-a-read-own-b-lead-message",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read OWN-B lead message",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-b-read-own-a-lead-message",
+      "baseline": "live-shaped",
+      "role": "OWN-B",
+      "operation": "read OWN-A lead message",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-a-read-own-lead-message",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read own lead message",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "live-shaped-own-a-cannot-update-own-b-business",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "update OWN-B business",
+      "expect": "deny",
+      "observed": "update rows 0; tagline=null",
+      "pass": true,
+      "detail": "Cross-owner business update must not stick."
+    },
+    {
+      "id": "live-shaped-own-b-cannot-update-own-a-business",
+      "baseline": "live-shaped",
+      "role": "OWN-B",
+      "operation": "update OWN-A business",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Cross-owner business update in the other direction."
+    },
+    {
+      "id": "live-shaped-own-a-update-own-b-menu",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "update OWN-B menu",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-b-update-own-a-menu",
+      "baseline": "live-shaped",
+      "role": "OWN-B",
+      "operation": "update OWN-A menu",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-a-read-own-b-private-event",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read OWN-B private event",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-b-read-own-a-private-event",
+      "baseline": "live-shaped",
+      "role": "OWN-B",
+      "operation": "read OWN-A private event",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-a-read-own-private-event",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read own private event",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "live-shaped-anon-read-private-event",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "read private event",
+      "expect": "deny",
+      "observed": "error: permission denied for function is_admin",
+      "pass": true,
+      "detail": "Fail closed because EXECUTE is denied on an RLS helper. No row was returned. This is not an empty-filter proof."
+    },
+    {
+      "id": "live-shaped-own-b-read-own-a-vendor-prefs",
+      "baseline": "live-shaped",
+      "role": "OWN-B",
+      "operation": "read OWN-A vendor prefs",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-a-read-own-b-vendor-prefs",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read OWN-B vendor prefs",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-a-read-own-vendor-prefs",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read own vendor prefs",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "live-shaped-own-b-read-own-a-owner-prefs",
+      "baseline": "live-shaped",
+      "role": "OWN-B",
+      "operation": "read OWN-A owner prefs",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-a-read-own-b-owner-prefs",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read OWN-B owner prefs",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-a-update-own-b-saved-location",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "update OWN-B saved location",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-b-update-own-a-saved-location",
+      "baseline": "live-shaped",
+      "role": "OWN-B",
+      "operation": "update OWN-A saved location",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-a-read-shared-marketplace-lead",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read shared marketplace lead",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "live-shaped-own-b-read-shared-marketplace-lead",
+      "baseline": "live-shaped",
+      "role": "OWN-B",
+      "operation": "read shared marketplace lead",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "live-shaped-fxm-005-18-shared-lead-crm",
+      "baseline": "live-shaped",
+      "role": "OWN-A/OWN-B",
+      "operation": "read shared leads.stage and internal_notes",
+      "expect": "known #18 gap if both accepted owners see the same values",
+      "observed": "both see stage=quote_sent",
+      "pass": true,
+      "detail": "Not an isolation pass. Today's policy returns the whole lead row to every business id in assigned_vendor_ids. There is no per-vendor stage or note column. PR #36 was not applied."
+    },
+    {
+      "id": "live-shaped-separate-note-messages",
+      "baseline": "live-shaped",
+      "role": "OWN-A/OWN-B",
+      "operation": "read per-vendor lead_messages on the shared lead",
+      "expect": "record visibility; other vendor body must not be returned",
+      "observed": "A=[] B=[]",
+      "pass": true,
+      "detail": "lead_messages policies key on leads.business_id. The marketplace lead's business_id is null, so this is not a per-vendor note store."
+    },
+    {
+      "id": "live-shaped-owners-cannot-write-shared-note",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "update marketplace internal_notes",
+      "expect": "deny write",
+      "observed": "update closed=true; note remains shared=true",
+      "pass": true,
+      "detail": "Matched owners can read the shared CRM columns and cannot write a private replacement."
+    },
+    {
+      "id": "live-shaped-declined-read-marketplace-lead",
+      "baseline": "live-shaped",
+      "role": "DECLINED",
+      "operation": "read marketplace lead",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-revoked-read-marketplace-lead",
+      "baseline": "live-shaped",
+      "role": "REVOKED",
+      "operation": "read marketplace lead",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-declined-read-north-pier-note-message",
+      "baseline": "live-shaped",
+      "role": "DECLINED",
+      "operation": "read North Pier note message",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-declined-read-fox-lantern-note-message",
+      "baseline": "live-shaped",
+      "role": "DECLINED",
+      "operation": "read Fox Lantern note message",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-revoked-read-north-pier-note-message",
+      "baseline": "live-shaped",
+      "role": "REVOKED",
+      "operation": "read North Pier note message",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-revoked-read-fox-lantern-note-message",
+      "baseline": "live-shaped",
+      "role": "REVOKED",
+      "operation": "read Fox Lantern note message",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-c-read-ml-1",
+      "baseline": "live-shaped",
+      "role": "OWN-C",
+      "operation": "read ML-1",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-c-read-ml-2",
+      "baseline": "live-shaped",
+      "role": "OWN-C",
+      "operation": "read ML-2",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "live-shaped-own-a-read-ml-2",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read ML-2",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-b-read-ml-2",
+      "baseline": "live-shaped",
+      "role": "OWN-B",
+      "operation": "read ML-2",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-clm-read-leads",
+      "baseline": "live-shaped",
+      "role": "CLM",
+      "operation": "read leads",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-clm-read-vendor-prefs",
+      "baseline": "live-shaped",
+      "role": "CLM",
+      "operation": "read vendor prefs",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-clm-read-outreach",
+      "baseline": "live-shaped",
+      "role": "CLM",
+      "operation": "read outreach",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-suspended-rls-observation",
+      "baseline": "live-shaped",
+      "role": "suspended",
+      "operation": "select leads",
+      "expect": "observation only; RLS does not consult account_status",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Recorded so a UI suspension gate is not described as an RLS deny. This user owns no business."
+    },
+    {
+      "id": "live-shaped-adm-read-both-direct-leads",
+      "baseline": "live-shaped",
+      "role": "ADM",
+      "operation": "read both direct leads",
+      "expect": "allow",
+      "observed": "rows 2",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "live-shaped-adm-read-marketplace-lead",
+      "baseline": "live-shaped",
+      "role": "ADM",
+      "operation": "read marketplace lead",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "live-shaped-adm-read-outreach",
+      "baseline": "live-shaped",
+      "role": "ADM",
+      "operation": "read outreach",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "live-shaped-own-a-read-outreach",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read outreach",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-b-read-outreach",
+      "baseline": "live-shaped",
+      "role": "OWN-B",
+      "operation": "read outreach",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-adm-read-event-import",
+      "baseline": "live-shaped",
+      "role": "ADM",
+      "operation": "read event import",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "live-shaped-own-a-read-event-import",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read event import",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-own-a-read-event-sources",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read event sources",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-outreach-status-values",
+      "baseline": "live-shaped",
+      "role": "ADM",
+      "operation": "read one row per live outreach_status",
+      "expect": "not_contacted,researching,ready_to_contact,contacted,follow_up_needed,interested,claim_invited,claimed,not_interested,do_not_contact",
+      "observed": "claim_invited,claimed,contacted,do_not_contact,follow_up_needed,interested,not_contacted,not_interested,ready_to_contact,researching",
+      "pass": true,
+      "detail": "These are outreach_status values. crm_state is not a live-shaped column."
+    },
+    {
+      "id": "live-admin-crm-state-errors",
+      "baseline": "live-shaped",
+      "role": "ADM",
+      "operation": "select crm_state",
+      "expect": "error, not an empty success",
+      "observed": "column business_outreach.crm_state does not exist",
+      "pass": true,
+      "detail": "The live-shaped list query that names crm_state fails. A select of columns that exist still returns rows, so the failure is not a zero count."
+    },
+    {
+      "id": "live-admin-crm-rpc-missing",
+      "baseline": "live-shaped",
+      "role": "ADM",
+      "operation": "set_business_outreach_crm_state",
+      "expect": "function does not exist",
+      "observed": "Could not find the function public.set_business_outreach_crm_state(_business_id, _crm_state) in the schema cache",
+      "pass": true,
+      "detail": "Absence is the live-shaped result. The proposal SQL was not applied to recreate it."
+    },
+    {
+      "id": "live-OWN-A-crm-rpc-missing",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "set_business_outreach_crm_state",
+      "expect": "function does not exist",
+      "observed": "Could not find the function public.set_business_outreach_crm_state(_business_id, _crm_state) in the schema cache",
+      "pass": true,
+      "detail": "Same absence for non-admin callers."
+    },
+    {
+      "id": "live-ANON-crm-rpc-missing",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "set_business_outreach_crm_state",
+      "expect": "function does not exist",
+      "observed": "Could not find the function public.set_business_outreach_crm_state(_business_id, _crm_state) in the schema cache",
+      "pass": true,
+      "detail": "Same absence for non-admin callers."
+    },
+    {
+      "id": "live-shaped-review-event-import-absent",
+      "baseline": "live-shaped",
+      "role": "ADM",
+      "operation": "review_event_import",
+      "expect": "function does not exist",
+      "observed": "Could not find the function public.review_event_import(_decision, _extra, _id, _notes) in the schema cache",
+      "pass": true,
+      "detail": "Not restored. No publication path was added."
+    },
+    {
+      "id": "live-shaped-own-a-approve-claim-denied",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "approve_claim_request",
+      "expect": "deny",
+      "observed": "admin only",
+      "pass": true,
+      "detail": "Uses a non-claim id so a denied call cannot approve a fixture."
+    },
+    {
+      "id": "live-shaped-admin-approve-claim-guard-holds",
+      "baseline": "live-shaped",
+      "role": "ADM",
+      "operation": "approve_claim_request missing id",
+      "expect": "admin guard allows the call and the row is not found",
+      "observed": "claim request not found",
+      "pass": true,
+      "detail": "Does not approve the claimant fixture."
+    },
+    {
+      "id": "live-archive-function-absent",
+      "baseline": "live-shaped",
+      "role": "ADM",
+      "operation": "archive_business_listing",
+      "expect": "function does not exist",
+      "observed": "Could not find the function public.archive_business_listing(_business_id) in the schema cache",
+      "pass": true,
+      "detail": "Confirmed-absent archive helper stays absent."
+    },
+    {
+      "id": "live-shaped-clm-read-own-claim",
+      "baseline": "live-shaped",
+      "role": "CLM",
+      "operation": "read own claim",
+      "expect": "allow",
+      "observed": "rows 1",
+      "pass": true,
+      "detail": "Allowed cell returned at least one row."
+    },
+    {
+      "id": "live-shaped-own-a-read-claimant-claim",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "read claimant claim",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-shaped-anon-read-claims-after-insert",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "read claims after insert",
+      "expect": "deny",
+      "observed": "rows 0",
+      "pass": true,
+      "detail": "Negative test must fail closed."
+    },
+    {
+      "id": "live-typo-email-not-blocked",
+      "baseline": "live-shaped",
+      "role": "CLM",
+      "operation": "insert claim with .con email",
+      "expect": "trigger absent, insert succeeds",
+      "observed": "inserted",
+      "pass": true,
+      "detail": "The typo guard is confirmed absent. This insert stays on the local database."
+    },
+    {
+      "id": "live-anon-storage-write-denied",
+      "baseline": "live-shaped",
+      "role": "ANON",
+      "operation": "upload business-assets",
+      "expect": "deny",
+      "observed": "new row violates row-level security policy",
+      "pass": true,
+      "detail": "Public bucket read is separate from write."
+    },
+    {
+      "id": "live-own-b-storage-write-denied",
+      "baseline": "live-shaped",
+      "role": "OWN-B",
+      "operation": "upload into OWN-A prefix",
+      "expect": "deny",
+      "observed": "new row violates row-level security policy",
+      "pass": true,
+      "detail": "Storage write is limited to the owning business id prefix or an admin."
+    },
+    {
+      "id": "live-own-a-storage-write-allowed",
+      "baseline": "live-shaped",
+      "role": "OWN-A",
+      "operation": "upload into own prefix",
+      "expect": "allow",
+      "observed": "uploaded",
+      "pass": true,
+      "detail": "Synthetic 1x1 PNG on the local bucket only."
+    },
+    {
+      "id": "s7-mutation-owner-b-reads-owner-a-lead",
+      "baseline": "live-shaped",
+      "role": "OWN-B",
+      "operation": "temporary permissive lead policy",
+      "expect": "negative test fails open, then closes again",
+      "observed": "open=true; restored=true",
+      "pass": true,
+      "detail": "A permissive SELECT policy was added and then dropped on the local database only."
+    }
+  ],
+  "catalogs": {
+    "repo-shaped": {
+      "columns": [
+        "archived_at",
+        "assigned_to",
+        "business_id",
+        "completed_at",
+        "contact_attempt_count",
+        "created_at",
+        "crm_state",
+        "deleted_at",
+        "last_contacted_at",
+        "next_follow_up_at",
+        "outreach_status",
+        "preferred_contact_method",
+        "priority",
+        "source",
+        "updated_at"
+      ],
+      "routines": [
+        {
+          "name": "approve_claim_request",
+          "args": "_claim_request_id uuid",
+          "security_definer": true,
+          "config": "search_path=public"
+        },
+        {
+          "name": "archive_business_listing",
+          "args": "_business_id uuid",
+          "security_definer": true,
+          "config": "search_path=public"
+        },
+        {
+          "name": "assign_business_owner",
+          "args": "_business_id uuid, _user_id uuid",
+          "security_definer": true,
+          "config": "search_path=public"
+        },
+        {
+          "name": "enforce_archived_business_unpublished",
+          "args": "",
+          "security_definer": false,
+          "config": "search_path=public"
+        },
+        {
+          "name": "is_admin",
+          "args": "_user_id uuid",
+          "security_definer": true,
+          "config": "search_path=public"
+        },
+        {
+          "name": "prevent_implicit_archived_business_restore",
+          "args": "",
+          "security_definer": false,
+          "config": "search_path=public"
+        },
+        {
+          "name": "reject_obvious_claim_email_typos",
+          "args": "",
+          "security_definer": false,
+          "config": "search_path=public"
+        },
+        {
+          "name": "set_business_outreach_crm_state",
+          "args": "_business_id uuid, _crm_state text",
+          "security_definer": true,
+          "config": "search_path=public"
+        },
+        {
+          "name": "submit_event_inquiry",
+          "args": "_payload jsonb",
+          "security_definer": true,
+          "config": "search_path=public"
+        }
+      ],
+      "triggers": [
+        {
+          "table_name": "businesses",
+          "trigger_name": "businesses_block_implicit_archived_restore"
+        },
+        {
+          "table_name": "businesses",
+          "trigger_name": "businesses_force_archived_unpublished"
+        },
+        {
+          "table_name": "businesses",
+          "trigger_name": "trg_businesses_ensure_outreach_row"
+        },
+        {
+          "table_name": "claim_requests",
+          "trigger_name": "claim_requests_reject_obvious_email_typos"
+        }
+      ],
+      "buckets": [
+        {
+          "id": "business-assets",
+          "name": "business-assets",
+          "public": true
+        }
+      ],
+      "claimFk": [
+        {
+          "conname": "claim_requests_requester_user_id_fkey",
+          "on_delete": "SET NULL"
+        }
+      ],
+      "policies": [
+        {
+          "name": "admins read all leads",
+          "using_expr": "is_admin(auth.uid())"
+        },
+        {
+          "name": "admins update all leads",
+          "using_expr": "is_admin(auth.uid())"
+        },
+        {
+          "name": "anyone can submit leads to published",
+          "using_expr": null
+        },
+        {
+          "name": "owners delete own leads",
+          "using_expr": "owns_business(auth.uid(), business_id)"
+        },
+        {
+          "name": "owners read matched event inquiries",
+          "using_expr": "((lead_type = 'event_inquiry'::text) AND (business_id IS NULL) AND (auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1\n   FROM businesses b\n  WHERE ((b.owner_id = auth.uid()) AND (b.id = ANY (leads.assigned_vendor_ids))))))"
+        },
+        {
+          "name": "owners read own leads",
+          "using_expr": "owns_business(auth.uid(), business_id)"
+        },
+        {
+          "name": "owners update own leads",
+          "using_expr": "owns_business(auth.uid(), business_id)"
+        }
+      ],
+      "accountStatusPolicies": [
+        {
+          "policies": 0
+        }
+      ],
+      "assignBodyFlags": {
+        "present": true,
+        "mentionsCrmState": true,
+        "mentionsClaimRequests": true
+      }
+    },
+    "live-shaped": {
+      "columns": [
+        "assigned_to",
+        "business_id",
+        "contact_attempt_count",
+        "created_at",
+        "last_contacted_at",
+        "next_follow_up_at",
+        "outreach_status",
+        "preferred_contact_method",
+        "priority",
+        "source",
+        "updated_at"
+      ],
+      "routines": [
+        {
+          "name": "approve_claim_request",
+          "args": "_claim_request_id uuid",
+          "security_definer": true,
+          "config": "search_path=public"
+        },
+        {
+          "name": "assign_business_owner",
+          "args": "_business_id uuid, _user_id uuid",
+          "security_definer": true,
+          "config": "search_path=public"
+        },
+        {
+          "name": "is_admin",
+          "args": "_user_id uuid",
+          "security_definer": true,
+          "config": "search_path=public"
+        },
+        {
+          "name": "submit_event_inquiry",
+          "args": "_payload jsonb",
+          "security_definer": true,
+          "config": "search_path=public"
+        }
+      ],
+      "triggers": [
+        {
+          "table_name": "businesses",
+          "trigger_name": "trg_businesses_ensure_outreach_row"
+        }
+      ],
+      "buckets": [
+        {
+          "id": "business-assets",
+          "name": "business-assets",
+          "public": true
+        }
+      ],
+      "claimFk": [
+        {
+          "conname": "claim_requests_requester_user_id_fkey",
+          "on_delete": "SET NULL"
+        }
+      ],
+      "policies": [
+        {
+          "name": "admins read all leads",
+          "using_expr": "is_admin(auth.uid())"
+        },
+        {
+          "name": "admins update all leads",
+          "using_expr": "is_admin(auth.uid())"
+        },
+        {
+          "name": "anyone can submit leads to published",
+          "using_expr": null
+        },
+        {
+          "name": "owners delete own leads",
+          "using_expr": "owns_business(auth.uid(), business_id)"
+        },
+        {
+          "name": "owners read matched event inquiries",
+          "using_expr": "((lead_type = 'event_inquiry'::text) AND (business_id IS NULL) AND (auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1\n   FROM businesses b\n  WHERE ((b.owner_id = auth.uid()) AND (b.id = ANY (leads.assigned_vendor_ids))))))"
+        },
+        {
+          "name": "owners read own leads",
+          "using_expr": "owns_business(auth.uid(), business_id)"
+        },
+        {
+          "name": "owners update own leads",
+          "using_expr": "owns_business(auth.uid(), business_id)"
+        }
+      ],
+      "accountStatusPolicies": [
+        {
+          "policies": 0
+        }
+      ],
+      "assignBodyFlags": {
+        "present": true,
+        "mentionsCrmState": true,
+        "mentionsClaimRequests": true
+      }
+    }
+  }
+}

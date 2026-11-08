@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:local-supabase": "node scripts/local-supabase/run-s5-s6.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
