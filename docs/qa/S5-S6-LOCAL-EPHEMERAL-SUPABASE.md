@@ -15,7 +15,7 @@ Migration files changed in this worktree versus HEAD: none.
 
 `supabase db reset --local --no-seed` exit 0.
 Files: 42. Applied: 42.
-Log: [s5-migration-replay.log](./s5-migration-replay.log).
+Log: [s5-migration-replay.txt](./s5-migration-replay.txt).
 
 - Host net.bridge.bridge-nf-call-iptables=0.
 - Local schema_migrations has 42 versions after replay. 15 of those versions are the 15 descriptive GitHub filenames. 0 of the 27 recorded production version strings match a local version exactly. Production versions sit a few seconds earlier than the Lovable filenames, so an exact match is not expected. Local version rows are a replay record, not proof those filenames were applied on the hosted database.
