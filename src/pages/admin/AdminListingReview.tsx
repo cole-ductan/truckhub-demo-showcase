@@ -90,8 +90,8 @@ export default function AdminListingReview() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-bold">Review Queue</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{rows.length} listings need review (draft + unclaimed)</p>
+        <h1 className="font-display text-3xl font-bold">Business listing review</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{rows.length} draft or unclaimed listings still in business listing review. This is not the event import queue.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -129,7 +129,7 @@ export default function AdminListingReview() {
           );
         })}
         {rows.length === 0 && (
-          <Card className="md:col-span-2"><CardContent className="p-10 text-center text-sm text-muted-foreground">Nothing waiting for review.</CardContent></Card>
+          <Card className="md:col-span-2"><CardContent className="p-10 text-center text-sm text-muted-foreground">No business listings waiting for review.</CardContent></Card>
         )}
       </div>
     </div>

@@ -50,10 +50,10 @@ export default function AdminDashboard() {
 
   const cards = [
     { label: "Total businesses", value: stats?.totalBusinesses, hint: `${stats?.published ?? 0} published` },
-    { label: "Unpublished", value: stats?.unpublished, hint: "Awaiting review" },
+    { label: "Unpublished", value: stats?.unpublished, hint: "Not published" },
     { label: "Featured", value: stats?.featured, hint: "Highlighted on home" },
     { label: "Total leads", value: stats?.totalLeads, hint: `${stats?.newLeads ?? 0} new` },
-    { label: "Booked leads", value: stats?.bookedLeads, hint: "Converted" },
+    { label: "Booked leads", value: stats?.bookedLeads, hint: "Lead stage, not the bookings table" },
     { label: "Total signups", value: stats?.totalUsers, hint: "Profiles" },
   ];
 
