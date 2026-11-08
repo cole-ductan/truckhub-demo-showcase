@@ -8,6 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 
 const nav = [
   { label: "Home", href: "/" },
+  { label: "Markets", href: "/markets" },
+  { label: "Events", href: "/events" },
+  { label: "Vendors", href: "/vendors" },
   { label: "Food Trucks", href: "/food-trucks" },
   { label: "Calendar", href: "/calendar" },
   { label: "Book a Truck", href: "/book-a-food-truck" },
@@ -73,8 +76,8 @@ export const SiteHeader = ({ withBanner = false }: { withBanner?: boolean }) => 
     <header className={`fixed inset-x-0 ${bannerAware && !scrolled ? "top-8" : "top-0"} z-50 transition-all duration-300 ${scrolled ? "bg-background/85 backdrop-blur-xl border-b border-border" : "bg-transparent"}`}>
       <div className="container-tight flex h-16 items-center justify-between gap-4">
         <Logo />
-        <nav className="hidden items-center gap-7 md:flex" aria-label="Primary">
-          {nav.map((n) => <a key={n.href} href={n.href} className="text-sm font-medium text-foreground/75 transition-colors hover:text-foreground">{n.label}</a>)}
+        <nav className="hidden min-w-0 flex-1 items-center gap-4 overflow-x-auto px-3 md:flex" aria-label="Primary">
+          {nav.map((n) => <a key={n.href} href={n.href} className="shrink-0 text-sm font-medium text-foreground/75 transition-colors hover:text-foreground">{n.label}</a>)}
         </nav>
         <div className="hidden items-center gap-2 md:flex">
           {user ? (
