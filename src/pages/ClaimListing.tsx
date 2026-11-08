@@ -107,7 +107,7 @@ export default function ClaimListing() {
             <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-2xl border border-border bg-card p-6 shadow-card">
               <div className="flex items-start gap-2 rounded-lg bg-secondary/10 px-3 py-2 text-xs text-foreground/80">
                 <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
-                <span>Our team will review every claim and contact you to verify ownership before granting access.</span>
+                <span>A claim request is saved for review. Submitting it does not grant ownership and does not confirm that an email or text was delivered.</span>
               </div>
               <div><Label htmlFor="name">Full name *</Label><Input id="name" required value={form.claimant_name} onChange={(e) => setForm({ ...form, claimant_name: e.target.value })} /></div>
               <div><Label htmlFor="rel">Your role at the business *</Label><Input id="rel" required placeholder="Owner, manager, etc." value={form.relationship_to_business} onChange={(e) => setForm({ ...form, relationship_to_business: e.target.value })} /></div>
@@ -145,10 +145,10 @@ export default function ClaimListing() {
             <div className="mt-6 rounded-2xl border border-emerald-300 bg-emerald-50 p-6">
               <div className="flex items-center gap-2 text-emerald-700">
                 <CheckCircle2 className="h-5 w-5" />
-                <p className="font-semibold">Claim request received</p>
+                <p className="font-semibold">Claim request saved</p>
               </div>
               <p className="mt-2 text-sm text-emerald-900">
-                Thank you. Our team will review your request and contact you to verify ownership. Once approved, you will receive your FoodXMobile login details by email.
+                Thank you. Your claim request is saved for review. This page is not a delivery receipt, and it does not confirm that an email was sent. Approval is a separate step.
               </p>
               <div className="mt-4">
                 <Button asChild variant="outline" className="h-10 rounded-full">

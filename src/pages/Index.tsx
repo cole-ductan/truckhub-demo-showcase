@@ -5,9 +5,12 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { DemoBanner } from "@/components/site/DemoBanner";
 import { supabase } from "@/integrations/supabase/client";
-import { resolveImage } from "@/lib/assets";
 import heroTruck from "@/assets/hero-truck.jpg";
 import { useSEO } from "@/hooks/useSEO";
+import {
+  formatVerifiedAggregate,
+  type PublicInventoryCounts,
+} from "@/lib/publicInventoryCopy";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -20,7 +23,6 @@ import {
   Sparkles,
   RefreshCw,
   Check,
-  Star,
   Search,
   Megaphone,
   Inbox,
@@ -28,18 +30,18 @@ import {
 } from "lucide-react";
 
 const benefits = [
-  { icon: Utensils, title: "Beautiful Menu", body: "A clean, scrollable menu customers can read in one tap. Photos, prices, dietary tags." },
-  { icon: MapPin, title: "Today's Location", body: "One source of truth. We update where you're parked — no more 'Are you open?' DMs." },
-  { icon: Briefcase, title: "Catering Leads", body: "Inquiry form sends straight to your inbox or text. Capture private events on autopilot." },
-  { icon: Calendar, title: "Event Calendar", body: "Show every market, festival, and brewery night. People plan their weekends around you." },
-  { icon: Smartphone, title: "Mobile-First", body: "Looks gorgeous on the phone — because that's where your customers actually find you." },
-  { icon: RefreshCw, title: "Simple Updates", body: "Text us your weekly schedule. We handle the rest. No dashboards to learn." },
+  { icon: Utensils, title: "Menu", body: "A page can show menu items, photos, and prices when those details are saved on the listing." },
+  { icon: MapPin, title: "Saved location", body: "The listing can show a location the owner saved. FoodXMobile does not confirm a live GPS position." },
+  { icon: Briefcase, title: "Catering inquiries", body: "A customer can save an inquiry on the listing. Saving it is not the same as an email or text being delivered." },
+  { icon: Calendar, title: "Events on the listing", body: "Public events appear when they are saved on a listing. FoodXMobile does not fill in dates that were not entered." },
+  { icon: Smartphone, title: "Mobile-First", body: "The public pages are built to be read on a phone." },
+  { icon: RefreshCw, title: "Owner edits", body: "Owners can edit their own listing. FoodXMobile does not promise same-day or continuous public updates." },
 ];
 
 const steps = [
-  { n: "01", title: "We build your page", body: "Branded one-pager built around your truck — menu, photos, contact buttons. Live in 5 days." },
-  { n: "02", title: "We keep it updated", body: "You text us your schedule and menu changes. We update the page and the hub the same day." },
-  { n: "03", title: "Customers find & book", body: "You appear on the Green Bay hub, in search, and on social. One link does everything." },
+  { n: "01", title: "Create the listing", body: "A listing can include a menu, photos, and contact links. Publishing it does not by itself confirm the business is operating today." },
+  { n: "02", title: "Edit what is public", body: "Schedule and menu changes are whatever is saved on the listing. There is no same-day update promise." },
+  { n: "03", title: "Receive saved inquiries", body: "Customers can submit an inquiry. It is saved and routed to the listing. That is not confirmation of an email or text delivery." },
 ];
 
 const tiers = [
@@ -47,8 +49,8 @@ const tiers = [
     name: "Starter",
     price: "$39",
     period: "/mo",
-    blurb: "A clean one-page truck site. Perfect to replace your link-in-bio.",
-    features: ["Branded one-page site", "Menu & photo gallery", "Call / text / social buttons", "Mobile-optimized & fast", "Custom truckname.truckhubgb.com"],
+    blurb: "A one-page listing with the details you save.",
+    features: ["Listing page on foodxmobile.com", "Menu and photo fields", "Call, text, and social links you add", "Readable on a phone", "A public URL under foodxmobile.com"],
     cta: "Start Simple",
     featured: false,
   },
@@ -56,8 +58,8 @@ const tiers = [
     name: "Hub Plus",
     price: "$79",
     period: "/mo",
-    blurb: "Everything in Starter, plus we keep it fresh and put you on the map.",
-    features: ["Everything in Starter", "Listed on FoodXMobile directory", "Weekly schedule updates", "Today's-location widget", "Catering inquiry form"],
+    blurb: "Everything in Starter, plus a directory listing and an inquiry form.",
+    features: ["Everything in Starter", "Eligible for the FoodXMobile directory", "Schedule fields you edit", "A location field you edit", "Catering inquiry form that saves a request"],
     cta: "Most Popular",
     featured: true,
   },
@@ -72,27 +74,47 @@ const tiers = [
   },
 ];
 
-const StatusDot = ({ status }: { status: "open" | "soon" | "closed" }) => {
-  const map = {
-    open: { bg: "bg-emerald-500", label: "Serving now" },
-    soon: { bg: "bg-amber-500", label: "Opens later today" },
-    closed: { bg: "bg-muted-foreground/40", label: "Closed today" },
-  } as const;
-  const s = map[status];
-  return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-      <span className={`relative inline-flex h-2 w-2 rounded-full ${s.bg}`}>
-        {status === "open" && <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-60" />}
-      </span>
-      {s.label}
-    </span>
-  );
-};
-
 const Index = () => {
+  const [counts, setCounts] = useState<PublicInventoryCounts>({
+    verifiedPublished: null,
+    demoPublished: null,
+    unavailable: false,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [verified, demo] = await Promise.all([
+        supabase
+          .from("businesses")
+          .select("id", { count: "exact", head: true })
+          .eq("is_published", true)
+          .eq("is_demo", false),
+        supabase
+          .from("businesses")
+          .select("id", { count: "exact", head: true })
+          .eq("is_published", true)
+          .eq("is_demo", true),
+      ]);
+      if (cancelled) return;
+      if (verified.error || demo.error || verified.count == null || demo.count == null) {
+        setCounts({ verifiedPublished: null, demoPublished: null, unavailable: true });
+        return;
+      }
+      setCounts({
+        verifiedPublished: verified.count,
+        demoPublished: demo.count,
+        unavailable: false,
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useSEO({
-    title: "FoodXMobile — Find Food Trucks & Book Catering",
-    description: "Discover Green Bay's food trucks: today's locations, menus, upcoming events, and one-tap catering inquiries. Owners — manage leads, bookings, and your page in one hub.",
+    title: "FoodXMobile — Listings for mobile food businesses",
+    description: "FoodXMobile lists published businesses and sample demo listings. Locations are saved on each listing. Catering inquiries are saved, not confirmed as delivered.",
   });
 
   return (
@@ -114,8 +136,9 @@ const Index = () => {
               One clean online <em className="not-italic text-primary">home</em> for your food truck.
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground text-pretty">
-              FoodXMobile gives every truck a beautiful one-page site — menu, today's location,
-              catering form, all in one link. Plus a city-wide hub where hungry locals actually find you.
+              FoodXMobile is a listing page for a mobile food business: menu, a location you save,
+              and a catering inquiry form. The public directory mixes verified published listings
+              and labeled sample demos.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Button asChild size="lg" className="h-12 rounded-full bg-primary px-7 text-base text-primary-foreground shadow-ember hover:bg-primary/90">
@@ -128,14 +151,11 @@ const Index = () => {
               </Button>
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              Free to browse · Owners get a free preview before going live
+              Free to browse · Publishing a listing is a separate step from saving a draft
             </p>
-            <div className="mt-10 flex items-center gap-6 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1 text-amber-500">
-                {[...Array(5)].map((_, i) => <Star key={i} className="h-4 w-4 fill-current" />)}
-              </div>
-              <span><span className="font-semibold text-foreground">28+ trucks</span> already on the hub</span>
-            </div>
+            <p className="mt-10 max-w-xl text-sm leading-relaxed text-muted-foreground" data-testid="verified-inventory-aggregate">
+              {formatVerifiedAggregate(counts)}
+            </p>
           </div>
 
           <div className="relative">
@@ -150,40 +170,40 @@ const Index = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-ink/60 via-transparent to-transparent" />
             </div>
 
-            {/* Floating today card */}
+            {/* Sample illustration. Not a live location or a counted listing. */}
             <div className="absolute -left-4 bottom-6 w-[260px] rounded-2xl border border-border bg-card p-4 shadow-card md:-left-10">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Open Now</span>
-                <StatusDot status="open" />
-              </div>
-              <p className="mt-2 font-display text-lg font-semibold leading-tight">Smoke Trail BBQ</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Sample illustration</p>
+              <p className="mt-2 font-display text-lg font-semibold leading-tight">Example listing</p>
               <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3" /> Titletown · Brookwood Dr
+                <MapPin className="h-3 w-3" /> Location saved on the listing
               </p>
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" /> 11:30a – 8:00p
+                <Clock className="h-3 w-3" /> Hours saved on the listing
               </p>
+              <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Not a live check-in and not part of the directory count.</p>
             </div>
 
-            {/* Floating booking card */}
             <div className="absolute -right-2 top-8 hidden w-[240px] rounded-2xl border border-border bg-card p-4 shadow-card md:block">
               <div className="flex items-center gap-2">
                 <span className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-secondary-foreground">
                   <Briefcase className="h-4 w-4" />
                 </span>
                 <div>
-                  <p className="text-xs text-muted-foreground">New catering lead</p>
-                  <p className="font-semibold leading-tight">Wedding · 120 guests</p>
+                  <p className="text-xs text-muted-foreground">Sample inquiry</p>
+                  <p className="font-semibold leading-tight">Saved on the listing</p>
                 </div>
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">Sent straight to your phone — no logins.</p>
+              <p className="mt-2 text-xs text-muted-foreground">An inquiry is saved in FoodXMobile. This card is not a text delivery.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* MARQUEE */}
-      <section className="overflow-hidden border-y border-border bg-cream-deep py-5">
+      {/* Sample names only. These are not the public directory and not a truck count. */}
+      <section className="overflow-hidden border-y border-border bg-cream-deep py-5" aria-label="Sample listing names">
+        <p className="container-tight pb-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Sample names used in the preview. Not the public directory and not a count of operating businesses.
+        </p>
         <div className="flex animate-marquee gap-12 whitespace-nowrap text-sm font-medium uppercase tracking-[0.25em] text-muted-foreground">
           {[...Array(2)].map((_, k) => (
             <div key={k} className="flex items-center gap-12">
@@ -204,12 +224,12 @@ const Index = () => {
       <section className="py-20 md:py-28">
         <div className="container-tight">
           <div className="mx-auto max-w-2xl text-center">
-            <span className="pill"><span className="h-1.5 w-1.5 rounded-full bg-primary" />What every truck gets</span>
+            <span className="pill"><span className="h-1.5 w-1.5 rounded-full bg-primary" />What a listing can include</span>
             <h2 className="mt-5 font-display text-4xl font-bold leading-tight md:text-5xl">
               Everything you wish your <em className="text-primary not-italic">Facebook page</em> could do.
             </h2>
             <p className="mt-4 text-lg text-muted-foreground">
-              No dashboard to log into. No app to learn. Just a beautiful site that works as hard as you do.
+              Owners edit the listing. Customers see what was saved, including a clear demo or verified label.
             </p>
           </div>
 
@@ -333,7 +353,7 @@ const Index = () => {
                 "Bookings dashboard with revenue, deposits, and event calendar",
                 "Optional Stripe deposits — only when you want them",
                 "One link for bio, business cards, signage — everything",
-                "Customers stop asking 'where are you parked?'",
+                "Customers can read the location saved on the listing",
               ].map((line) => (
                 <li key={line} className="flex items-start gap-3">
                   <span className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-primary-glow" />
@@ -353,24 +373,17 @@ const Index = () => {
 
           <div className="relative">
             <div className="rounded-2xl border border-cream/15 bg-cream/5 p-6 backdrop-blur">
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { k: "Avg. monthly site visits", v: "2,400+" },
-                  { k: "Avg. catering leads / mo", v: "6–12" },
-                  { k: "Avg. setup time", v: "5 days" },
-                  { k: "Trucks on the hub", v: "28" },
-                ].map((s) => (
-                  <div key={s.k} className="rounded-xl bg-background/95 p-5 text-foreground">
-                    <div className="font-display text-3xl font-bold text-primary">{s.v}</div>
-                    <div className="mt-1 text-xs uppercase tracking-wider text-muted-foreground">{s.k}</div>
-                  </div>
-                ))}
+              <div className="rounded-xl bg-background/95 p-5 text-foreground">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Public directory</p>
+                <p className="mt-2 text-sm leading-relaxed" data-testid="verified-inventory-aggregate-detail">
+                  {formatVerifiedAggregate(counts)}
+                </p>
               </div>
               <div className="mt-5 rounded-xl bg-cream/10 p-5">
-                <p className="font-display text-lg italic leading-snug text-cream">
-                  "We replaced our Linktree, our outdated website, and three Facebook posts a week — with one FoodXMobile page. Catering bookings are up 3x."
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/70">Illustration only. Not a customer result.</p>
+                <p className="mt-3 font-display text-lg italic leading-snug text-cream">
+                  A listing can replace a scattered set of links when the owner keeps the saved details current.
                 </p>
-                <p className="mt-3 text-xs uppercase tracking-wider text-cream/60">— Sample testimonial · Smoke Trail BBQ</p>
               </div>
             </div>
           </div>
@@ -391,8 +404,7 @@ const Index = () => {
                   See your truck on FoodXMobile. <span className="opacity-80">Free preview.</span>
                 </h2>
                 <p className="mt-4 max-w-xl text-lg text-primary-foreground/85">
-                  We'll mock up your truck's page in 24 hours — no commitment. If you love it, we go live.
-                  If not, you keep the design.
+                  This preview form does not store a submission and does not create a listing.
                 </p>
               </div>
               <form

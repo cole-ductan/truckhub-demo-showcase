@@ -14,7 +14,7 @@ import { useSEO } from "@/hooks/useSEO";
 export default function SmokeTrail() {
   useSEO({
     title: "FoodXMobile | Discover Food Trucks, Markets & Local Events",
-    description: "Discover food trucks, markets, and local events near you. Browse live locations, menus, schedules, specialties, and upcoming events with FoodXMobile.",
+    description: "Browse published listings, sample demo listings, menus, saved schedules, and public events on FoodXMobile.",
   });
 
   return (
@@ -28,10 +28,10 @@ export default function SmokeTrail() {
             <div>
               <span className="badge-ember"><MapPin className="h-3 w-3" /> Local discovery, simplified</span>
               <h1 className="mt-5 font-display text-[clamp(3rem,7vw,5.5rem)] font-bold leading-[0.98]">
-                Discover what is <em className="not-italic text-primary">happening near you.</em>
+                Find local <em className="not-italic text-primary">listings and events.</em>
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-                Find food trucks, markets, vendors, and local events in one place. Browse today's locations, menus, schedules, and upcoming events.
+                Find published listings and public events in one place. Demo listings are labeled. Locations and hours are what each listing has saved.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button asChild size="lg" className="rounded-full"><Link to="/food-trucks"><Search className="mr-2 h-4 w-4" /> Explore Food Trucks</Link></Button>

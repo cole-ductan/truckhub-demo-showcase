@@ -21,7 +21,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/food-trucks",
     target: '[data-tour="directory-filters"]',
     title: "2. Public directory",
-    body: "Customers discover local food trucks here, with filters for cuisine, city, and availability.",
+    body: "Published listings are here. Demo cards are labeled and are not confirmed operating businesses. Cuisine, city, and status filters use saved listing fields, not a live check-in.",
     position: "bottom",
   },
   {
@@ -29,7 +29,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/food-trucks/smoke-trail-bbq",
     target: '[data-tour="truck-hero"]',
     title: "3. Public truck profile",
-    body: "Each truck gets a customer-facing page with menu, location, schedule, ordering, socials, and a booking inquiry.",
+    body: "A listing can show a menu, a saved location, a schedule, and a catering inquiry. Saving an inquiry is not confirmation that an email or text was delivered.",
     position: "bottom",
   },
   {
@@ -99,7 +99,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/owner/profile",
     target: '[data-tour="profile-editor"]',
     title: "12. Truck Page editor",
-    body: "Update the public truck page, online ordering link, today's location, recurring spots, photos, and visibility.",
+    body: "Update the public listing, ordering link, saved location, recurring spots, photos, and visibility. A saved location is not a live check-in.",
     position: "top",
   },
   {

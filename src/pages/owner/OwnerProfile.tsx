@@ -62,7 +62,7 @@ export default function OwnerProfile() {
 
   const b = business as any;
   const heroImg = resolveImage(b.hero_image_url);
-  const statusLabel = b.status === "open" ? "Open now" : b.status === "soon" ? "Opening soon" : "Closed";
+  const statusLabel = b.status === "open" ? "Listed as open" : b.status === "soon" ? "Listed as opening later" : "Listed as closed";
   const statusTone =
     b.status === "open" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
     : b.status === "soon" ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30"
@@ -74,7 +74,7 @@ export default function OwnerProfile() {
       .eq("id", b.id).select().maybeSingle();
     if (error) { toast({ title: "Update failed", description: error.message, variant: "destructive" }); return; }
     setBusiness(data as Business);
-    toast({ title: "Today's location set", description: loc.label });
+    toast({ title: "Saved location updated", description: loc.label });
   }
 
   async function togglePublished() {
@@ -225,7 +225,7 @@ export default function OwnerProfile() {
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               {b.is_published
-                ? "Your truck page is live and discoverable."
+                ? "Your listing is published. The public page shows the details saved here, not a live check-in."
                 : "Only you can see this page right now."}
             </p>
           </div>
@@ -645,14 +645,15 @@ function EditorSheet({
           </TabsContent>
 
           <TabsContent value="today" className="space-y-4 pt-4">
-            <Field label="Today's location"><Input value={form.today_location ?? ""} onChange={(e) => set("today_location", e.target.value)} placeholder="Titletown · Lot 7" /></Field>
+            <p className="text-sm text-muted-foreground">These fields are the location and status saved on the public listing. The public site does not describe them as a live check-in.</p>
+            <Field label="Saved location"><Input value={form.today_location ?? ""} onChange={(e) => set("today_location", e.target.value)} placeholder="Titletown · Lot 7" /></Field>
             <FieldRow>
               <Field label="Today's hours"><Input value={form.today_hours ?? ""} onChange={(e) => set("today_hours", e.target.value)} placeholder="11:00 – 8:00" /></Field>
               <Field label="Status">
                 <select value={form.status ?? "closed"} onChange={(e) => set("status", e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="open">Open now</option>
-                  <option value="soon">Opening soon</option>
-                  <option value="closed">Closed</option>
+                  <option value="open">Listed as open</option>
+                  <option value="soon">Listed as opening later</option>
+                  <option value="closed">Listed as closed</option>
                 </select>
               </Field>
             </FieldRow>
@@ -673,7 +674,7 @@ function EditorSheet({
 
           <TabsContent value="locations" className="space-y-4 pt-4">
             <p className="text-sm text-muted-foreground">
-              Save your common stops here. Use them to update today's location in one tap, or mark them recurring to show a weekly schedule on your public page.
+              Save common stops here. Applying one updates the location saved on the public listing. It does not confirm a live position. Recurring stops can show a weekly schedule.
             </p>
             <ul className="space-y-2">
               {savedLocs.map((s) => (

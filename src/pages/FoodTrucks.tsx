@@ -8,6 +8,8 @@ import { resolveImage } from "@/lib/assets";
 import { ArrowUpRight, Clock, KeyRound, MapPin, Search, ShoppingBag, Briefcase, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSEO } from "@/hooks/useSEO";
+import { InventoryKindBadge } from "@/components/site/InventoryKindBadge";
+import { LISTED_STATUS_LABEL, STATUS_NOT_LIVE_NOTE } from "@/lib/publicInventoryCopy";
 
 type Biz = {
   id: string;
@@ -28,22 +30,21 @@ type Biz = {
   order_button_label: string | null;
   owner_id: string | null;
   listing_status: string;
+  is_demo: boolean;
 };
 
 type Category = { id: string; name: string; slug: string; emoji: string | null; parent_id: string | null };
 
 const StatusDot = ({ status }: { status: Biz["status"] }) => {
   const map = {
-    open: { bg: "bg-emerald-500", label: "Serving now" },
-    soon: { bg: "bg-amber-500", label: "Opens later today" },
-    closed: { bg: "bg-muted-foreground/40", label: "Closed today" },
+    open: { bg: "bg-emerald-500", label: LISTED_STATUS_LABEL.open },
+    soon: { bg: "bg-amber-500", label: LISTED_STATUS_LABEL.soon },
+    closed: { bg: "bg-muted-foreground/40", label: LISTED_STATUS_LABEL.closed },
   } as const;
   const s = map[status];
   return (
     <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-      <span className={`relative inline-flex h-2 w-2 rounded-full ${s.bg}`}>
-        {status === "open" && <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-60" />}
-      </span>
+      <span className={`inline-flex h-2 w-2 rounded-full ${s.bg}`} />
       {s.label}
     </span>
   );
@@ -68,21 +69,21 @@ export default function FoodTrucks() {
   const activeSub = categories.find((c) => c.id === subcategoryId && c.parent_id);
 
   const seoTitle = activeSub
-    ? `${activeSub.name} Food Trucks — FoodXMobile`
+    ? `${activeSub.name} listings — FoodXMobile`
     : activeParent
-    ? `${activeParent.name} Food Trucks — FoodXMobile`
-    : "Food Trucks in Green Bay — FoodXMobile Directory";
+    ? `${activeParent.name} listings — FoodXMobile`
+    : "Published listings — FoodXMobile";
   const seoDesc = activeSub
-    ? `Find ${activeSub.name.toLowerCase()} food trucks. Locations, menus, and catering — all in one place.`
+    ? `Published ${activeSub.name.toLowerCase()} listings on FoodXMobile, including labeled demo listings. Locations are saved on each listing.`
     : activeParent
-    ? `Browse ${activeParent.name.toLowerCase()} food trucks. Today's locations, hours, and catering.`
-    : "Browse every food truck in Green Bay. See today's locations, hours, cuisines, and order or book catering — all in one place.";
+    ? `Published ${activeParent.name.toLowerCase()} listings on FoodXMobile. Demo listings are labeled. Locations are saved, not live.`
+    : "Published listings on FoodXMobile. Demo listings are labeled separately from verified listings. Locations and hours are saved on each listing.";
   useSEO({ title: seoTitle, description: seoDesc });
 
   useEffect(() => {
     supabase
       .from("businesses")
-      .select("id,slug,name,tagline,cuisine,emoji,hero_image_url,today_location,today_hours,status,is_featured,category_id,city,ordering_enabled,online_ordering_url,order_button_label,owner_id,listing_status")
+      .select("id,slug,name,tagline,cuisine,emoji,hero_image_url,today_location,today_hours,status,is_featured,category_id,city,ordering_enabled,online_ordering_url,order_button_label,owner_id,listing_status,is_demo")
       .eq("is_published", true)
       .order("is_featured", { ascending: false })
       .order("name", { ascending: true })
@@ -137,12 +138,12 @@ export default function FoodTrucks() {
 
       <section className="pt-32 pb-10">
         <div className="container-tight">
-          <span className="pill"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Live directory</span>
+          <span className="pill"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Published directory</span>
           <h1 className="mt-5 font-display text-5xl font-bold leading-tight md:text-6xl">
-            All food trucks on the <em className="text-primary not-italic">Bay</em>.
+            Published <em className="text-primary not-italic">listings</em>.
           </h1>
           <p className="mt-4 max-w-xl text-lg text-muted-foreground">
-            Every truck on FoodXMobile. Updated daily. Tap any truck for menu, location, and catering.
+            Verified listings are published businesses that are not marked demo. Demo cards are sample listings, not a claim that every card is an operating food truck. {STATUS_NOT_LIVE_NOTE}
           </p>
 
           <div data-tour="directory-filters" className="mt-8 flex max-w-md items-center gap-2 rounded-full border border-border bg-card px-4 py-2 shadow-soft">
@@ -166,7 +167,7 @@ export default function FoodTrucks() {
                     : "border-border bg-card text-foreground/70 hover:border-foreground/30"
                 }`}
               >
-                {s === "all" ? "All status" : s === "open" ? "Open now" : s === "soon" ? "Opening soon" : "Closed"}
+                {s === "all" ? "All statuses" : s === "open" ? "Listed open" : s === "soon" ? "Listed later" : "Listed closed"}
               </button>
             ))}
             <button
@@ -301,6 +302,9 @@ export default function FoodTrucks() {
                   </Link>
                   <div className="p-5">
                     <Link to={`/food-trucks/${t.slug}`} className="block">
+                      <div className="mb-2">
+                        <InventoryKindBadge isDemo={t.is_demo} />
+                      </div>
                       <div className="flex items-start justify-between gap-3">
                         <h3 className="font-display text-xl font-semibold leading-tight">
                           {t.emoji && <span className="mr-1.5">{t.emoji}</span>}

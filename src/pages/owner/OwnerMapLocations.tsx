@@ -78,12 +78,12 @@ export default function OwnerMapLocations() {
   }
 
   async function useAsToday(stop: Stop) {
-    if (stop.latitude == null || stop.longitude == null) return toast({ title: "Coordinates missing", description: "Add coordinates to this stop before using it on the live map.", variant: "destructive" });
+    if (stop.latitude == null || stop.longitude == null) return toast({ title: "Coordinates missing", description: "Add coordinates to this stop before saving it as the public map pin.", variant: "destructive" });
     const location = stop.address || stop.label;
     const { data, error } = await (supabase as any).from("businesses").update({ today_location: location, today_latitude: stop.latitude, today_longitude: stop.longitude }).eq("id", business.id).select().maybeSingle();
     if (error) return toast({ title: "Could not update today", description: error.message, variant: "destructive" });
     setBusiness(data as Business); setCurrent({ location, latitude: String(stop.latitude), longitude: String(stop.longitude) });
-    toast({ title: "Today's map pin updated", description: stop.label });
+    toast({ title: "Saved map pin updated", description: stop.label });
   }
 
   async function removeStop(id: string) {
@@ -95,12 +95,12 @@ export default function OwnerMapLocations() {
   const browserError = (message: string) => toast({ title: "Location unavailable", description: message, variant: "destructive" });
 
   return <div className="space-y-6">
-    <div><h1 className="font-display text-3xl font-bold">Map Locations</h1><p className="mt-1 text-sm text-muted-foreground">Control the pin customers see on the FoodXMobile live map. Save common stops for one-tap updates.</p></div>
+    <div><h1 className="font-display text-3xl font-bold">Map Locations</h1><p className="mt-1 text-sm text-muted-foreground">Save the coordinates customers see on the public map. Those pins are the coordinates stored here, not a live GPS check-in.</p></div>
 
     <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
       <div className="flex items-start gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><Truck className="h-5 w-5" /></span><div><h2 className="font-display text-xl font-semibold">Current public pin</h2><p className="text-sm text-muted-foreground">Use this when you park at a new location today.</p></div></div>
       <div className="mt-5 grid gap-3 md:grid-cols-3"><Field label="Location label"><Input value={current.location} onChange={(e) => setCurrent((c) => ({ ...c, location: e.target.value }))} placeholder="Titletown District · Lot 7" /></Field><Field label="Latitude"><Input inputMode="decimal" value={current.latitude} onChange={(e) => setCurrent((c) => ({ ...c, latitude: e.target.value }))} placeholder="44.503900" /></Field><Field label="Longitude"><Input inputMode="decimal" value={current.longitude} onChange={(e) => setCurrent((c) => ({ ...c, longitude: e.target.value }))} placeholder="-88.060500" /></Field></div>
-      <div className="mt-4 flex flex-wrap gap-2"><Button variant="outline" onClick={() => useBrowserLocation((latitude, longitude) => setCurrent((c) => ({ ...c, latitude: String(latitude), longitude: String(longitude) })), browserError)}><Crosshair className="mr-1.5 h-4 w-4" /> Use my current position</Button><Button onClick={saveCurrent} disabled={saving}><Save className="mr-1.5 h-4 w-4" />{saving ? "Saving…" : "Save live pin"}</Button></div>
+      <div className="mt-4 flex flex-wrap gap-2"><Button variant="outline" onClick={() => useBrowserLocation((latitude, longitude) => setCurrent((c) => ({ ...c, latitude: String(latitude), longitude: String(longitude) })), browserError)}><Crosshair className="mr-1.5 h-4 w-4" /> Use my current position</Button><Button onClick={saveCurrent} disabled={saving}><Save className="mr-1.5 h-4 w-4" />{saving ? "Saving…" : "Save map pin"}</Button></div>
     </section>
 
     <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">

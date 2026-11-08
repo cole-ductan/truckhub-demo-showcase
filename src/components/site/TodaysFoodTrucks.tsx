@@ -4,26 +4,26 @@ import { ArrowRight, ArrowUpRight, Clock, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveImage } from "@/lib/assets";
 import { Button } from "@/components/ui/button";
+import { InventoryKindBadge } from "@/components/site/InventoryKindBadge";
+import { LISTED_STATUS_LABEL, STATUS_NOT_LIVE_NOTE } from "@/lib/publicInventoryCopy";
 
 type Truck = {
   id: string; slug: string; name: string; tagline: string | null; cuisine: string | null;
   emoji: string | null; hero_image_url: string | null;
   today_location: string | null; today_hours: string | null;
-  status: "open" | "soon" | "closed"; is_featured: boolean;
+  status: "open" | "soon" | "closed"; is_featured: boolean; is_demo: boolean;
 };
 
 const StatusDot = ({ status }: { status: Truck["status"] }) => {
   const map = {
-    open: { bg: "bg-emerald-500", label: "Serving now" },
-    soon: { bg: "bg-amber-500", label: "Opens later today" },
-    closed: { bg: "bg-muted-foreground/40", label: "Closed today" },
+    open: { bg: "bg-emerald-500", label: LISTED_STATUS_LABEL.open },
+    soon: { bg: "bg-amber-500", label: LISTED_STATUS_LABEL.soon },
+    closed: { bg: "bg-muted-foreground/40", label: LISTED_STATUS_LABEL.closed },
   } as const;
   const s = map[status];
   return (
     <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-      <span className={`relative inline-flex h-2 w-2 rounded-full ${s.bg}`}>
-        {status === "open" && <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-60" />}
-      </span>
+      <span className={`inline-flex h-2 w-2 rounded-full ${s.bg}`} />
       {s.label}
     </span>
   );
@@ -36,7 +36,7 @@ export function TodaysFoodTrucks() {
   useEffect(() => {
     supabase
       .from("businesses")
-      .select("id,slug,name,tagline,cuisine,emoji,hero_image_url,today_location,today_hours,status,is_featured")
+      .select("id,slug,name,tagline,cuisine,emoji,hero_image_url,today_location,today_hours,status,is_featured,is_demo")
       .eq("is_published", true)
       .in("status", ["open", "soon"])
       .order("is_featured", { ascending: false })
@@ -50,8 +50,9 @@ export function TodaysFoodTrucks() {
       <div className="container-tight">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Today on the hub</p>
-            <h2 className="mt-3 font-display text-3xl font-bold md:text-4xl">Today's Food Trucks</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Saved status</p>
+            <h2 className="mt-3 font-display text-3xl font-bold md:text-4xl">Listings marked open</h2>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">{STATUS_NOT_LIVE_NOTE}</p>
           </div>
           <Button asChild variant="outline" className="rounded-full">
             <Link to="/food-trucks">Browse all <ArrowRight className="ml-1.5 h-4 w-4" /></Link>
@@ -60,7 +61,7 @@ export function TodaysFoodTrucks() {
 
         {!loading && trucks.length === 0 ? (
           <div className="mt-10 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
-            <p className="text-muted-foreground">No food trucks are currently scheduled for today. Browse all food trucks or check upcoming events.</p>
+            <p className="text-muted-foreground">No published listings are saved with an open or opening-later status. That is not a live check of who is operating today.</p>
             <div className="mt-5 flex flex-wrap justify-center gap-2">
               <Button asChild className="rounded-full"><Link to="/food-trucks">Browse Food Trucks</Link></Button>
               <Button asChild variant="outline" className="rounded-full"><Link to="/calendar">Upcoming Events</Link></Button>
@@ -81,6 +82,7 @@ export function TodaysFoodTrucks() {
                   )}
                 </div>
                 <div className="p-5">
+                  <div className="mb-2"><InventoryKindBadge isDemo={t.is_demo} /></div>
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="font-display text-lg font-semibold leading-tight">
                       {t.emoji && <span className="mr-1.5">{t.emoji}</span>}{t.name}
