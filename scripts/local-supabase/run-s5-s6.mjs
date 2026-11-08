@@ -211,7 +211,7 @@ async function replayMigrations(dbUrl) {
     status: reset.status,
     log: redact(`${reset.stdout}\n${reset.stderr}`).trim(),
   };
-  writeFileSync(path.join(evidenceDir, "s5-migration-replay.log"), `${report.migrationReset.log}\n`);
+  writeFileSync(path.join(evidenceDir, "s5-migration-replay.txt"), `${report.migrationReset.log}\n`);
   let versions = [];
   if (reset.status === 0) {
     versions = psqlJson(dbUrl, "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version").map(
@@ -1382,7 +1382,7 @@ Migration files changed in this worktree versus HEAD: ${migrationDiff || "none"}
 
 \`supabase db reset --local --no-seed\` exit ${report.migrationReset?.status ?? "not run"}.
 Files: ${report.migrations.length}. Applied: ${report.migrations.filter((item) => item.applied).length}.
-Log: [s5-migration-replay.log](./s5-migration-replay.log).
+Log: [s5-migration-replay.txt](./s5-migration-replay.txt).
 
 ${report.notes.map((item) => `- ${item}`).join("\n")}
 
