@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { toast } from "sonner";
 import { Archive, CheckCircle2, Edit, ExternalLink, RotateCcw, Search, Trash2 } from "lucide-react";
 import { LISTING_STATUS_LABEL, LISTING_STATUS_VARIANT, type ListingStatus } from "@/lib/listingStatus";
+import { QueryStateNotice } from "@/components/qa/QueryStateNotice";
 
 const OUTREACH_STATUSES = [
   "not_contacted","researching","ready_to_contact","contacted",
@@ -97,6 +98,7 @@ export default function AdminOutreach() {
   const [fDueOnly, setFDueOnly] = useState(false);
   const [view, setView] = useState<CrmState | "all">("active");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -107,7 +109,8 @@ export default function AdminOutreach() {
       (supabase as any).from("business_admin_metadata").select("business_id,outreach_email,internal_notes"),
       (supabase as any).from("business_outreach_activities").select("business_id"),
     ]);
-    if (oErr) { toast.error(oErr.message); setLoading(false); return; }
+    if (oErr) { toast.error(oErr.message); setLoadError(oErr.message); setRows([]); setLoading(false); return; }
+    setLoadError(null);
     const metaMap = new Map<string, { outreach_email: string | null; internal_notes: string | null }>();
     (metas ?? []).forEach((m: any) => metaMap.set(m.business_id, { outreach_email: m.outreach_email, internal_notes: m.internal_notes }));
     const countMap = new Map<string, number>();
@@ -163,6 +166,7 @@ export default function AdminOutreach() {
         <h1 className="font-display text-3xl font-bold">Outreach CRM</h1>
         <p className="mt-1 text-sm text-muted-foreground">Vendor acquisition pipeline. Live counts exclude completed, archived, and deleted records.</p>
       </div>
+      {loadError ? <QueryStateNotice kind="error" title="Outreach CRM" message={loadError} /> : <>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-7">
         <SummaryCard label="Live total" value={summary.total} /><SummaryCard label="Ready" value={summary.ready} />
         <SummaryCard label="Contacted" value={summary.contacted} /><SummaryCard label="Follow-up due" value={summary.followUp} />
@@ -189,6 +193,7 @@ export default function AdminOutreach() {
           <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => setSelectedId(r.business_id)}>Manage</Button><Button size="sm" variant="outline" asChild><Link to={`/admin/businesses/${r.business_id}/edit`}><Edit className="mr-1 h-3 w-3" />Edit</Link></Button>{r.business.is_published && <Button size="sm" variant="ghost" asChild><a href={`/food-trucks/${r.business.slug}`} target="_blank" rel="noreferrer"><ExternalLink className="mr-1 h-3 w-3" />View</a></Button>}</div>
         </CardContent></Card>)}
       </div>
+      </>}
       <OutreachDrawer row={selected} onClose={() => setSelectedId(null)} onSaved={load} />
     </div>
   );

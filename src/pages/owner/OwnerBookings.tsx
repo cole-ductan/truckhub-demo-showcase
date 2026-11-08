@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useOwnerBusiness } from "@/hooks/useOwnerBusiness";
 import { Onboarding } from "@/components/owner/Onboarding";
+import { QueryStateNotice } from "@/components/qa/QueryStateNotice";
 import { Button } from "@/components/ui/button";
 import { Calendar, CheckCircle2, Clock, Download, FileText, MapPin, Users } from "lucide-react";
 
@@ -29,6 +30,7 @@ function fmtDate(iso: string | null) {
 export default function OwnerBookings() {
   const { business, loading } = useOwnerBusiness();
   const [rows, setRows] = useState<Lead[]>([]);
+  const [leadError, setLeadError] = useState<string | null>(null);
   const [tab, setTab] = useState<"all" | "booked" | "pending" | "quote_sent" | "completed">("all");
   const [depositsByLead, setDepositsByLead] = useState<Record<string, { status: string; deposit_amount: number }>>({});
   const [depositsEnabled, setDepositsEnabled] = useState(false);
@@ -40,7 +42,15 @@ export default function OwnerBookings() {
       .eq("business_id", business.id)
       .in("stage", OPS_STAGES as unknown as ("booked" | "pending" | "quote_sent" | "completed")[])
       .order("event_date", { ascending: true, nullsFirst: false })
-      .then(({ data }) => setRows((data ?? []) as Lead[]));
+      .then(({ data, error }) => {
+        if (error) {
+          setLeadError(error.message);
+          setRows([]);
+          return;
+        }
+        setLeadError(null);
+        setRows((data ?? []) as Lead[]);
+      });
     supabase.from("owner_preferences").select("stripe_deposits_enabled").eq("business_id", business.id).maybeSingle()
       .then(({ data }) => setDepositsEnabled(!!(data as any)?.stripe_deposits_enabled));
     supabase.from("deposit_requests").select("lead_id,status,deposit_amount,created_at").eq("business_id", business.id)
@@ -112,7 +122,9 @@ export default function OwnerBookings() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {leadError ? (
+        <QueryStateNotice kind="error" title="Bookings" message={leadError} />
+      ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
           No bookings here yet. Move leads to Booked, Pending, or Quote Sent in your <Link to="/owner/leads" className="font-semibold text-primary hover:underline">pipeline</Link>.
         </div>
